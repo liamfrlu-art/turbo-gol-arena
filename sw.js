@@ -1,6 +1,6 @@
 // Turbo Gol Arena: funciona sin conexión. Abre al instante con lo guardado y se actualiza en segundo plano.
 // Al publicar cambios hay que subir V: así se instala la versión nueva y la página muestra el aviso "Hay una versión nueva".
-const V = 'tga-v82';
+const V = 'tga-v83';
 const CORE = ['./', 'index.html', 'engine.js', 'cars.js', 'game.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png',
     'fonts/bungee-400.woff2', 'fonts/chakra-petch-500.woff2', 'fonts/chakra-petch-600.woff2', 'fonts/chakra-petch-700.woff2'];
 // cache: 'reload' para que la versión nueva no copie archivos viejos de la caché del navegador

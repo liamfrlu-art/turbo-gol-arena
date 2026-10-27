@@ -1190,53 +1190,54 @@ window.CARS = (() => {
         const ready = o.state === 'count', ballD = o.ballD == null ? 999 : o.ballD;
         // sucesos: despegue, aterrizaje (más fuerte cuanto más rápido caía), turbo, golpe al balón
         if (M) {
-            if (M.air && !air) { kick('cr', 3 + (M.fall || 0) * 7); kick('an', 1.5 + (M.fall || 0) * 3); kick('hd', 4 + (M.fall || 0) * 6); M.land = t; }
-            if (!M.air && air) { kick('an', -2.5); kick('hd', -3); }
-            if (boost && !M.bst) { kick('an', 3.5); kick('hd', -4); }
-            if (hitK > .7 && !M.hit) { kick('an', -5); kick('hd', -8); kick('cr', 2); M.hit = 1; } else if (hitK < .1) M.hit = 0;
+            if (M.air && !air) { kick('cr', 1.6 + (M.fall || 0) * 3.2); kick('an', .6 + (M.fall || 0) * 1.2); kick('hd', 1.5 + (M.fall || 0) * 2.5); }
+            if (!M.air && air) { kick('an', -1); kick('hd', -1.2); }
+            if (boost && !M.bst) { kick('an', 1.4); kick('hd', -1.5); }
+            if (hitK > .7 && !M.hit) { kick('an', -2); kick('hd', -3); kick('cr', .8); M.hit = 1; } else if (hitK < .1) M.hit = 0;
             M.air = air; M.fall = air ? Math.max(0, -vu) : 0; M.bst = boost;
             M.idle = !air && spd < .06 && !ready && !win && !lose && !boost ? (M.idle || 0) + dtR : 0;
         }
-        const idleT = M ? M.idle : 0, sinceLand = M && M.land != null ? t - M.land : 9;
+        const idleT = M ? M.idle : 0;
         // en el aire el cuerpo compensa: hacia atrás al subir, hacia delante al caer
         const airK = air && !flip && jt > .18 ? K(vu, -1, 1) : 0;
         // el balón cerca y alto: se prepara para golpearlo (se agacha y adelanta el pecho)
         const strike = !air && ballD < 230 && look < -.15 ? K((230 - ballD) / 150, 0, 1) : 0;
-        // truco en saltos largos: suelta el pie de atrás y lo estira (superman) mientras sube y en lo alto
-        const trick = air && !flip && !win && jt > .55 ? K((jt - .55) * 3, 0, 1) * (vu > -.45 ? 1 : K(1 + (vu + .45) * 3, 0, 1)) : 0;
-        // celebración: puño en alto, los dos brazos arriba con saltitos y señalar; al encajar: negar y mano al casco
+        // celebración: puño en alto, los dos brazos arriba y señalar; al encajar: negar y mano al casco
         const cel = win ? Math.floor(t / 1.25) % 3 : -1, sad = lose ? (Math.floor(t / 1.4) % 2) : -1;
         // ----- objetivos de la postura -----
-        let cT = .12 + spd * .16 + boost * .38 + brake * .18 + hitK * .3 + strike * .25 + (wall ? .12 : 0);
-        if (ready) cT = .34 + Math.max(0, Math.sin(t * 7.5)) * .2;                                   // rebota sobre las puntas antes del saque
-        if (air) cT = jt < .14 ? -.42 : flip ? .98 : trick ? .2 : vu > .25 ? .3 : vu < -.25 ? .66 : .45;   // al caer se prepara para el aterrizaje
-        if (!air && win) cT = cel === 1 ? -.1 : .04;
-        if (!air && lose) cT = .42;
-        const crouch = spr('cr', cT, 240, 20) + Math.max(0, (sF + sR) / 2) * .8;
-        let aT = .28 + spd * .12 + boost * .26 + lean * .34 - brake * .34 - hitK * .3 + strike * .2 + (ready ? .16 : 0) - airK * .18 + (flip ? .3 : 0) + trick * .25;
-        if (win) aT = cel === 1 ? .02 : .14; if (lose) aT = .5;
-        const ang = spr('an', aT, 170, 14) + crouch * .18;
-        const bob = air ? 0 : Math.sin(t * 2.4) * .3 * (1 - spd) + (idleT > 0 ? Math.sin(t * 1.3) * .35 : 0);          // respiración al estar parado
-        const hop = !air && win && cel === 1 ? Math.abs(Math.sin(t * 8)) * 4.2 : !air && win ? Math.abs(Math.sin(t * 9)) * 1.6 : 0;
-        const hx = spr('hx', -6.2 + lean * 3.2 + boost * 2 - brake * 3 + strike * 1.5 - (lose ? 1.4 : 0) + (ready ? Math.sin(t * 3.7) * .7 : 0) + (idleT > 0 ? Math.sin(t * .9) * .9 : 0), 150, 15);
-        const hy = -12.4 + crouch * 6.8 + bob - hop + (lose ? 1.8 : 0);
-        const curl = .8 + crouch * 2.2 + (lose ? 1.4 : 0) - (win ? .6 : 0);                         // espalda más curvada cuanto más agachado
-        const sh = [hx + Math.sin(ang) * 17, hy - Math.cos(ang) * 17 + (lose ? 2.2 : 0)];
-        // cabeza: va con retraso respecto al cuerpo (muelle propio), mira al balón y, parado, mira a su alrededor
-        const lookIdle = idleT > 1.5 ? Math.sin(idleT * 1.1) * .45 : 0;
-        const hdT = (lose ? .55 : boost * .3 - .05 - brake * .12 + strike * .15) - hitK * .4 + (flip ? .4 : 0);
-        const hTilt = spr('hd', hdT, 210, 13);
-        const head = [sh[0] + Math.sin(ang + hTilt) * 8.4 + hitK * 1.2, sh[1] - Math.cos(ang + hTilt) * 8.4 + (lose ? 1.6 : 0) + hitK * 1.6];
-        const headRot = boost * .22 + (lose ? .45 + (sad === 0 ? Math.sin(t * 7) * .28 : .15) : 0) - brake * .12 - hitK * .3 + look * .55 + lookIdle
-            + (cel === 2 ? Math.sin(t * 10) * .14 : 0) + (cel === 1 ? -.25 : 0) + (flip ? .35 : 0) + (ready ? -.1 + Math.sin(t * 2.2) * .08 : 0) + (hTilt - hdT) * .6;
+        // Proporciones de persona de pie sobre el patín: piernas casi rectas (cadera a ~20 del suelo), tronco de 18
+        // y hombros a la altura del manillar. «crouch» 0 = de pie relajado, 1 = muy agachado.
+        let cT = .14 + spd * .12 + boost * .34 + brake * .16 + hitK * .2 + strike * .22 + (wall ? .1 : 0);
+        if (ready) cT = .3 + Math.max(0, Math.sin(t * 6)) * .08;                                       // flexiona un poco las rodillas antes del saque
+        if (air) cT = jt < .14 ? .05 : flip ? .85 : vu > .25 ? .28 : vu < -.25 ? .5 : .38;            // al caer se prepara para el aterrizaje
+        if (!air && win) cT = .06;
+        if (!air && lose) cT = .34;
+        // muelles casi críticamente amortiguados: llegan rápido y apenas rebotan
+        const crouch = K(spr('cr', cT, 220, 27) + Math.max(0, (sF + sR) / 2) * .5, -.05, 1);
+        let aT = .22 + spd * .1 + boost * .22 + lean * .26 - brake * .26 - hitK * .18 + strike * .16 + (ready ? .1 : 0) - airK * .12 + (flip ? .26 : 0);
+        if (win) aT = cel === 1 ? .04 : .12; if (lose) aT = .42;
+        const ang = spr('an', aT, 160, 23) + crouch * .3;
+        const bob = air ? 0 : Math.sin(t * 2.4) * .25 * (1 - spd) + (idleT > 0 ? Math.sin(t * 1.3) * .25 : 0);         // respiración al estar parado
+        const hop = !air && win && cel === 1 ? Math.abs(Math.sin(t * 7)) * 1.8 : 0;
+        // la cadera se echa atrás al agacharse (como al sentarse) para no pasar de las puntas de los pies
+        const hx = spr('hx', -5.6 - crouch * 2.6 + lean * 2.4 + boost * 1.2 - brake * 2.2 + strike * 1 - (lose ? 1 : 0) + (idleT > 0 ? Math.sin(t * .9) * .6 : 0), 150, 22);
+        const hy = -16.6 + crouch * 7.6 + bob - hop + (lose ? 1.2 : 0);
+        const curl = .6 + crouch * 1.8 + (lose ? 1.2 : 0) - (win ? .4 : 0);                         // espalda algo más curvada cuanto más agachado
+        const TL = 18, sh = [hx + Math.sin(ang) * TL, hy - Math.cos(ang) * TL + (lose ? 1.6 : 0)];
+        // cabeza: va con un poco de retraso respecto al cuerpo, mira al balón y, parado, mira a su alrededor
+        const lookIdle = idleT > 1.5 ? Math.sin(idleT * 1.1) * .3 : 0;
+        const hdT = (lose ? .45 : boost * .22 - .08 - brake * .1 + strike * .1) - hitK * .25 + (flip ? .3 : 0);
+        const hTilt = spr('hd', hdT, 200, 25);
+        const head = [sh[0] + Math.sin(ang * .6 + hTilt) * 8 + hitK * .8, sh[1] - Math.cos(ang * .6 + hTilt) * 8 + (lose ? 1.2 : 0) + hitK * 1];
+        const headRot = boost * .16 + (lose ? .35 + (sad === 0 ? Math.sin(t * 6) * .2 : .1) : 0) - brake * .1 - hitK * .2 + look * .45 + lookIdle
+            + (cel === 2 ? Math.sin(t * 8) * .08 : 0) + (cel === 1 ? -.2 : 0) + (flip ? .25 : 0) + (hTilt - hdT) * .4;
         const tmD = 'rgba(0,0,0,.34)', PANT = '#161b32', PANTD = '#0b0d1a';
-        // piernas: el pie de atrás se pone de puntillas con velocidad y turbo; en los saltos largos se suelta y se estira
-        const heel = K(spd * .3 + boost * .3 + (ready ? .25 + Math.max(0, Math.sin(t * 7.5)) * .2 : 0) + strike * .2, 0, .55);
-        const fbx = spr('fbx', -12.4 - lean * 1.5 - brake * 1.2 - trick * 10, 120, 14), fby = spr('fby', 3.4 - hop - trick * 9.5 - heel * 2.4, 120, 14);
-        // ángulo de la bota (positivo: talón arriba); en el truco la puntera apunta hacia atrás
-        const footB = [fbx, fby], footF = [3.4 + lean + brake * 1.6, 3.4 - hop], footBa = heel + trick * 1.7, footFa = brake ? -.14 : 0;
+        // piernas: los dos pies siempre sobre la plataforma; el de atrás sube un poco el talón con velocidad y turbo
+        const heel = K(spd * .14 + boost * .14 + strike * .08, 0, .25);
+        const footB = [-12.6 - lean * .8 - brake * .8, 3.4 - hop - heel * 1.2], footF = [4 + lean * .6 + brake * 1.2, 3.4 - hop], footBa = heel, footFa = brake ? -.1 : 0;
         const leg = (foot, dark, fa) => {
-            const ax = foot[0] - Math.sin(fa || 0) * 1.6, ay = foot[1] - Math.cos(fa || 0) * 1.6, j = ik2(hx, hy, ax, ay, 11, 11.2, 1), col = dark ? PANTD : PANT;
+            // rodilla siempre hacia delante (dir -1), como una pierna de verdad
+            const ax = foot[0] - Math.sin(fa || 0) * 1.6, ay = foot[1] - Math.cos(fa || 0) * 1.6, j = ik2(hx, hy, ax, ay, 11.4, 11.4, -1), col = dark ? PANTD : PANT;
             g.strokeStyle = col; g.lineWidth = 5.9; g.beginPath(); g.moveTo(hx, hy); g.lineTo(j[0], j[1]); g.stroke();
             g.lineWidth = 4.7; g.beginPath(); g.moveTo(j[0], j[1]); g.lineTo(ax, ay); g.stroke();
             // borde de luz del color del equipo para que las piernas se lean sobre fondos oscuros
@@ -1303,7 +1304,8 @@ window.CARS = (() => {
         const grp = [20.2 - boost * .4, -35.6 + Math.max(0, sF) * .6 + hitK * .8];
         const arm = (hand, dark, up) => {
             const s0 = [sh[0] + (dark ? -.8 : .4), sh[1] + (dark ? -.2 : 0)], ph = dark ? 1.4 : 0;
-            const j = up ? [s0[0] + 8 - (dark ? 3 : 0), s0[1] - 1 - (dark ? 3 : 0)] : ik2(s0[0], s0[1], hand[0], hand[1], 12.2, 12.6, -1), hnd = up ? [s0[0] + 15 - (dark ? 6 : 0) + Math.sin(t * 9 + ph) * 3.2, s0[1] - 11 - (dark ? 4 : 0) - Math.abs(Math.cos(t * 9 + ph)) * 1.4] : [j[2], j[3]];
+            // codo hacia abajo (dir 1): el brazo cuelga del hombro y sube hacia el manillar
+            const j = up ? [s0[0] + 8 - (dark ? 3 : 0), s0[1] - 1 - (dark ? 3 : 0)] : ik2(s0[0], s0[1], hand[0], hand[1], 10.6, 11, 1), hnd = up ? [s0[0] + 14 - (dark ? 6 : 0) + Math.sin(t * 6 + ph) * 1.6, s0[1] - 12 - (dark ? 4 : 0) - Math.abs(Math.cos(t * 6 + ph)) * 1.2] : [j[2], j[3]];
             g.strokeStyle = dark ? '#0b0d1a' : tm; g.lineWidth = 3.9; g.beginPath(); g.moveTo(s0[0], s0[1]); g.lineTo(j[0], j[1]); g.lineTo(hnd[0], hnd[1]); g.stroke();
             if (!dark) {
                 g.strokeStyle = tmD; g.lineWidth = 1.2; g.beginPath(); g.moveTo(s0[0] - .6, s0[1] + 1.4); g.lineTo(j[0] - .6, j[1] + 1.2); g.stroke();
@@ -1316,17 +1318,15 @@ window.CARS = (() => {
                 g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = .4; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(hnd[0] + .2 + i * .6, hnd[1] - 1.8); g.lineTo(hnd[0] + .2 + i * .6, hnd[1] + .2); g.stroke(); }
             }
         };
-        // brazo de atrás: en el aire hace equilibrio (en el truco se estira hacia atrás), al aterrizar se abre un momento,
-        // al encajar cuelga o se lleva la mano al casco, y parado de vez en cuando se ajusta el visor
+        // brazo de atrás: agarrado al manillar (también en el aire); al encajar cuelga o se lleva la mano al casco,
+        // y parado de vez en cuando se ajusta el visor
         const visor = idleT > 3 && (idleT % 6) < 1.3;
         let bT = [grp[0] - .6, grp[1] + .6];
-        if (air && !flip && jt > .2 && !win) bT = trick ? [sh[0] - 13, sh[1] + 1 + Math.sin(t * 5) * 1.2] : [sh[0] - 9 + Math.sin(t * 6.5) * 2.4, sh[1] + 4 - airK * 4 + Math.cos(t * 5) * 1.8];
-        else if (!air && sinceLand < .32 && !win && !lose) bT = [sh[0] - 7, sh[1] + 7];
-        else if (lose) bT = sad === 1 ? [head[0] + 3.5, head[1] + 1.5] : [sh[0] + 2, sh[1] + 14];
-        else if (visor) bT = [head[0] + 6.5, head[1] - .8 + Math.sin(idleT * 9) * .5];
-        const back = [spr('bhx', bT[0], 200, 18), spr('bhy', bT[1], 200, 18)];
-        const fT = cel === 2 ? [sh[0] + 22, sh[1] - 5 + Math.sin(t * 14) * .8] : grp;       // señalar: brazo estirado hacia delante
-        const front = [spr('fhx', fT[0], 260, 20), spr('fhy', fT[1], 260, 20)];
+        if (lose) bT = sad === 1 ? [head[0] + 3.5, head[1] + 1.5] : [sh[0] + 1.5, sh[1] + 16];
+        else if (visor) bT = [head[0] + 6.5, head[1] - .8 + Math.sin(idleT * 7) * .3];
+        const back = [spr('bhx', bT[0], 180, 25), spr('bhy', bT[1], 180, 25)];
+        const fT = cel === 2 ? [sh[0] + 20, sh[1] - 3] : grp;       // señalar: brazo estirado hacia delante
+        const front = [spr('fhx', fT[0], 220, 28), spr('fhy', fT[1], 220, 28)];
         arm(back, true, cel === 1); arm(front, false, cel === 0 || cel === 1);
         // casco integral cromático: ventilaciones, oreja, barbilla y visor que reacciona a todo
         const R6 = 6.5;
@@ -1343,7 +1343,7 @@ window.CARS = (() => {
         const hg = g.createLinearGradient(head[0] - R6, head[1] - R6, head[0] + R6, head[1] + R6);
         hg.addColorStop(0, C(0, 68)); hg.addColorStop(.5, C(110, 58)); hg.addColorStop(1, C(220, 50));
         // la cabeza sigue al balón; al encajar niega con la cabeza; al señalar asiente; con los brazos arriba mira al cielo
-        g.save(); g.translate(head[0], head[1]); g.rotate(spr('hr', headRot, 230, 18));
+        g.save(); g.translate(head[0], head[1]); g.rotate(spr('hr', headRot, 220, 28));
         // carcasa con forma de casco integral de verdad: cúpula, nuca y mentonera adelantada
         const shellP = () => { g.beginPath(); g.moveTo(-5.6, 4.4); g.quadraticCurveTo(-7.6, -.6, -4.8, -5.4); g.quadraticCurveTo(-.4, -8.6, 4.6, -5.8); g.quadraticCurveTo(7.8, -3.2, 7.9, 1.4); g.lineTo(7.6, 4.6); g.quadraticCurveTo(4.4, 7, .4, 5.8); g.quadraticCurveTo(-2.6, 5.6, -5.6, 4.4); g.closePath(); };
         { const hg2 = g.createLinearGradient(-R6, -R6, R6, R6); hg2.addColorStop(0, C(0, 72)); hg2.addColorStop(.5, C(110, 58)); hg2.addColorStop(1, C(220, 46));
