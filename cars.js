@@ -1178,26 +1178,69 @@ window.CARS = (() => {
         // ---------- piloto reactivo ----------
         g.save(); g.transform(1, kS, 0, 1, 0, d0);
         const hitA = o.hitT == null ? 9 : o.hitT, hitK = hitA < .3 ? Math.pow(1 - hitA / .3, 2) : 0, flip = !!o.flip, lose = mood === 'lose', win = mood === 'win';
-        const bob = Math.sin(t * 2.4) * .3 * (1 - spd) * (air ? 0 : 1);
-        // al aterrizar las rodillas absorben el golpe (la suspensión comprimida lo marca)
-        let crouch = .1 + boost * .32 + brake * .12 + Math.max(0, (sF + sR) / 2) * 1.05 + hitK * .25;
-        if (air) crouch = jt < .18 ? -.35 : (flip ? .85 : (win ? .15 : .5));
+        // ----- memoria del piloto: cada parte del cuerpo es un muelle amortiguado, así los cambios tienen inercia y rebote -----
+        // (sin memoria, como en el garaje, se usan las posturas objetivo directamente)
+        const M = o.rid || null, dtR = M ? K(t - (M.t == null ? t : M.t), 0, .05) : 0; if (M) M.t = t;
+        const spr = (k, target, stiff, damp) => {
+            if (!M || !dtR) return M && M[k] != null ? M[k] : target;
+            let x = M[k] == null ? target : M[k], v = M[k + 'v'] || 0;
+            v += ((target - x) * stiff - v * damp) * dtR; x += v * dtR; M[k] = x; M[k + 'v'] = v; return x;
+        };
+        const kick = (k, imp) => { if (M) M[k + 'v'] = (M[k + 'v'] || 0) + imp; };
+        const ready = o.state === 'count', ballD = o.ballD == null ? 999 : o.ballD;
+        // sucesos: despegue, aterrizaje (más fuerte cuanto más rápido caía), turbo, golpe al balón
+        if (M) {
+            if (M.air && !air) { kick('cr', 3 + (M.fall || 0) * 7); kick('an', 1.5 + (M.fall || 0) * 3); kick('hd', 4 + (M.fall || 0) * 6); M.land = t; }
+            if (!M.air && air) { kick('an', -2.5); kick('hd', -3); }
+            if (boost && !M.bst) { kick('an', 3.5); kick('hd', -4); }
+            if (hitK > .7 && !M.hit) { kick('an', -5); kick('hd', -8); kick('cr', 2); M.hit = 1; } else if (hitK < .1) M.hit = 0;
+            M.air = air; M.fall = air ? Math.max(0, -vu) : 0; M.bst = boost;
+            M.idle = !air && spd < .06 && !ready && !win && !lose && !boost ? (M.idle || 0) + dtR : 0;
+        }
+        const idleT = M ? M.idle : 0, sinceLand = M && M.land != null ? t - M.land : 9;
         // en el aire el cuerpo compensa: hacia atrás al subir, hacia delante al caer
-        const airK = air && !flip && jt > .18 ? Math.max(-1, Math.min(1, vu)) : 0;      // vu ya viene normalizada
-        const ang = .33 + lean * .3 + boost * .16 + crouch * .2 + (lose ? .16 : 0) - brake * .22 - hitK * .22 - airK * .14;
-        // celebración: alterna puño en alto, los dos brazos arriba y señalar hacia delante
-        const cel = win ? Math.floor(t / 1.25) % 3 : -1;
-        const hx = -6.2 + lean * 3 + boost * 1.6 - brake * 2.2 - (lose ? 1 : 0), hy = -12.4 + crouch * 6.8 + bob + (lose ? 1.8 : 0) + (win ? -Math.abs(Math.sin(t * 9)) * 2.4 : 0);
+        const airK = air && !flip && jt > .18 ? K(vu, -1, 1) : 0;
+        // el balón cerca y alto: se prepara para golpearlo (se agacha y adelanta el pecho)
+        const strike = !air && ballD < 230 && look < -.15 ? K((230 - ballD) / 150, 0, 1) : 0;
+        // truco en saltos largos: suelta el pie de atrás y lo estira (superman) mientras sube y en lo alto
+        const trick = air && !flip && !win && jt > .55 ? K((jt - .55) * 3, 0, 1) * (vu > -.45 ? 1 : K(1 + (vu + .45) * 3, 0, 1)) : 0;
+        // celebración: puño en alto, los dos brazos arriba con saltitos y señalar; al encajar: negar y mano al casco
+        const cel = win ? Math.floor(t / 1.25) % 3 : -1, sad = lose ? (Math.floor(t / 1.4) % 2) : -1;
+        // ----- objetivos de la postura -----
+        let cT = .12 + spd * .16 + boost * .38 + brake * .18 + hitK * .3 + strike * .25 + (wall ? .12 : 0);
+        if (ready) cT = .34 + Math.max(0, Math.sin(t * 7.5)) * .2;                                   // rebota sobre las puntas antes del saque
+        if (air) cT = jt < .14 ? -.42 : flip ? .98 : trick ? .2 : vu > .25 ? .3 : vu < -.25 ? .66 : .45;   // al caer se prepara para el aterrizaje
+        if (!air && win) cT = cel === 1 ? -.1 : .04;
+        if (!air && lose) cT = .42;
+        const crouch = spr('cr', cT, 240, 20) + Math.max(0, (sF + sR) / 2) * .8;
+        let aT = .28 + spd * .12 + boost * .26 + lean * .34 - brake * .34 - hitK * .3 + strike * .2 + (ready ? .16 : 0) - airK * .18 + (flip ? .3 : 0) + trick * .25;
+        if (win) aT = cel === 1 ? .02 : .14; if (lose) aT = .5;
+        const ang = spr('an', aT, 170, 14) + crouch * .18;
+        const bob = air ? 0 : Math.sin(t * 2.4) * .3 * (1 - spd) + (idleT > 0 ? Math.sin(t * 1.3) * .35 : 0);          // respiración al estar parado
+        const hop = !air && win && cel === 1 ? Math.abs(Math.sin(t * 8)) * 4.2 : !air && win ? Math.abs(Math.sin(t * 9)) * 1.6 : 0;
+        const hx = spr('hx', -6.2 + lean * 3.2 + boost * 2 - brake * 3 + strike * 1.5 - (lose ? 1.4 : 0) + (ready ? Math.sin(t * 3.7) * .7 : 0) + (idleT > 0 ? Math.sin(t * .9) * .9 : 0), 150, 15);
+        const hy = -12.4 + crouch * 6.8 + bob - hop + (lose ? 1.8 : 0);
+        const curl = .8 + crouch * 2.2 + (lose ? 1.4 : 0) - (win ? .6 : 0);                         // espalda más curvada cuanto más agachado
         const sh = [hx + Math.sin(ang) * 17, hy - Math.cos(ang) * 17 + (lose ? 2.2 : 0)];
-        const hTilt = lose ? .55 : boost * .28 - .05 - hitK * .35 - brake * .1;
+        // cabeza: va con retraso respecto al cuerpo (muelle propio), mira al balón y, parado, mira a su alrededor
+        const lookIdle = idleT > 1.5 ? Math.sin(idleT * 1.1) * .45 : 0;
+        const hdT = (lose ? .55 : boost * .3 - .05 - brake * .12 + strike * .15) - hitK * .4 + (flip ? .4 : 0);
+        const hTilt = spr('hd', hdT, 210, 13);
         const head = [sh[0] + Math.sin(ang + hTilt) * 8.4 + hitK * 1.2, sh[1] - Math.cos(ang + hTilt) * 8.4 + (lose ? 1.6 : 0) + hitK * 1.6];
+        const headRot = boost * .22 + (lose ? .45 + (sad === 0 ? Math.sin(t * 7) * .28 : .15) : 0) - brake * .12 - hitK * .3 + look * .55 + lookIdle
+            + (cel === 2 ? Math.sin(t * 10) * .14 : 0) + (cel === 1 ? -.25 : 0) + (flip ? .35 : 0) + (ready ? -.1 + Math.sin(t * 2.2) * .08 : 0) + (hTilt - hdT) * .6;
         const tmD = 'rgba(0,0,0,.34)', PANT = '#161b32', PANTD = '#0b0d1a';
-        // piernas: muslo grueso y espinilla más fina, rodillera, espinillera, bota con puntera, suela y cordones
-        const footB = [-12.4 - lean * 1.5, 3.4], footF = [3.4 + lean, 3.4];
-        const leg = (foot, dark) => {
-            const j = ik2(hx, hy, foot[0], foot[1], 11, 11.2, 1), col = dark ? PANTD : PANT, ax = foot[0], ay = foot[1] - 1.6;
+        // piernas: el pie de atrás se pone de puntillas con velocidad y turbo; en los saltos largos se suelta y se estira
+        const heel = K(spd * .3 + boost * .3 + (ready ? .25 + Math.max(0, Math.sin(t * 7.5)) * .2 : 0) + strike * .2, 0, .55);
+        const fbx = spr('fbx', -12.4 - lean * 1.5 - brake * 1.2 - trick * 10, 120, 14), fby = spr('fby', 3.4 - hop - trick * 9.5 - heel * 2.4, 120, 14);
+        // ángulo de la bota (positivo: talón arriba); en el truco la puntera apunta hacia atrás
+        const footB = [fbx, fby], footF = [3.4 + lean + brake * 1.6, 3.4 - hop], footBa = heel + trick * 1.7, footFa = brake ? -.14 : 0;
+        const leg = (foot, dark, fa) => {
+            const ax = foot[0] - Math.sin(fa || 0) * 1.6, ay = foot[1] - Math.cos(fa || 0) * 1.6, j = ik2(hx, hy, ax, ay, 11, 11.2, 1), col = dark ? PANTD : PANT;
             g.strokeStyle = col; g.lineWidth = 5.9; g.beginPath(); g.moveTo(hx, hy); g.lineTo(j[0], j[1]); g.stroke();
             g.lineWidth = 4.7; g.beginPath(); g.moveTo(j[0], j[1]); g.lineTo(ax, ay); g.stroke();
+            // borde de luz del color del equipo para que las piernas se lean sobre fondos oscuros
+            g.strokeStyle = 'rgba(' + s.glow + ',' + (dark ? .22 : .35) + ')'; g.lineWidth = .7; g.beginPath(); g.moveTo(hx + 2.4, hy + .4); g.lineTo(j[0] + 2.2, j[1]); g.lineTo(ax + 2, ay); g.stroke();
             if (!dark) {
                 g.strokeStyle = 'rgba(255,255,255,.14)'; g.lineWidth = 1; g.beginPath(); g.moveTo(hx + .6, hy - 1.7); g.lineTo(j[0] + .5, j[1] - 1.7); g.lineTo(ax + .4, ay - 1.4); g.stroke();
                 g.strokeStyle = ORA('.75'); g.lineWidth = .5; g.beginPath(); g.moveTo(hx - .8, hy + 1.4); g.lineTo(j[0] - .8, j[1] + 1.2); g.stroke();       // costura naranja
@@ -1207,6 +1250,7 @@ window.CARS = (() => {
                 const sa = Math.atan2(ay - j[1], ax - j[0]);
                 g.save(); g.translate(j[0] + (ax - j[0]) * .55, j[1] + (ay - j[1]) * .55); g.rotate(sa); g.fillStyle = ORA('.9'); g.fillRect(-2.6, -1.9, 5.2, .8); g.restore();   // espinillera
             }
+            g.save(); g.translate(ax, ay); g.rotate(fa || 0); g.translate(-foot[0], -foot[1] + 1.6);      // la bota gira sobre el tobillo (puntillas)
             g.fillStyle = dark ? '#05060d' : '#0a0c18'; rrect(g, foot[0] - 5.2, foot[1] - 2.5, 10.4, 4.3, 1.7); g.fill();
             g.fillStyle = dark ? '#1a1d2c' : '#1d2238'; rrect(g, foot[0] + 1.6, foot[1] - 2.3, 3.8, 3.7, 1.5); g.fill();                              // puntera
             g.fillStyle = dark ? '#8a90aa' : '#dfe4fb'; g.fillRect(foot[0] - 5.2, foot[1] + 1.2, 10.4, .9);                                              // suela
@@ -1214,18 +1258,19 @@ window.CARS = (() => {
             g.fillStyle = dark ? '#1a1d2c' : '#2b3150'; g.fillRect(foot[0] - 1.4, foot[1] - 2.5, 1.3, 3.4); g.fillRect(foot[0] + .2, foot[1] - 2.5, 1.1, 3.4); g.fillStyle = dark ? '#6a708c' : '#cfd5ee'; g.fillRect(foot[0] - 1.2, foot[1] - 1.3, .9, .7);      // correas y hebilla
             g.strokeStyle = dark ? 'rgba(255,255,255,.15)' : 'rgba(255,255,255,.4)'; g.lineWidth = .4;
             for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(foot[0] - 2 + i * 1.3, foot[1] - 2.2); g.lineTo(foot[0] - 1.2 + i * 1.3, foot[1] - .8); g.stroke(); }
+            g.restore();
         };
-        leg(footB, true); leg(footF, false);
+        leg(footB, true, footBa); leg(footF, false, footFa);
         // mochila con correa reflectante
         g.save(); g.translate(hx - 1.2, hy - 1.4); g.rotate(ang);
         g.fillStyle = '#05060d'; rrect(g, -6.4, -14.6, 5.4, 12.2, 2.2); g.fill(); g.fillStyle = '#12162a'; rrect(g, -6, -14.2, 4.6, 11.4, 1.8); g.fill();
         g.fillStyle = OR; g.fillRect(-5.6, -9.4, 3.8, 1); g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(-5.8, -13.6, 4, .5); g.fillStyle = '#05060d'; g.fillRect(-5.2, -12, 3, 1.2);
         g.restore();
         // torso: chaqueta con volumen, hombrera, capucha, cremallera, bolsillo y banda reflectante
-        g.strokeStyle = '#0d1226'; g.lineWidth = 8; g.beginPath(); g.moveTo(hx, hy); g.lineTo(sh[0], sh[1]); g.stroke();
-        g.strokeStyle = tm; g.lineWidth = 7.4; g.beginPath(); g.moveTo(hx + .2, hy - .6); g.lineTo(sh[0], sh[1]); g.stroke();
-        g.strokeStyle = tmD; g.lineWidth = 2.2; g.beginPath(); g.moveTo(hx - 2.2, hy - .6); g.lineTo(sh[0] - 2.2, sh[1]); g.stroke();
-        g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 1.1; g.beginPath(); g.moveTo(hx + 1.8, hy - 1.6); g.lineTo(sh[0] + 1.4, sh[1] + 1.2); g.stroke();
+        // espalda curva: se encorva al agacharse y se endereza al celebrar
+        const sdx = sh[0] - hx, sdy = sh[1] - hy, sL = Math.hypot(sdx, sdy) || 1, nbx = sdy / sL, nby = -sdx / sL;
+        const spine = (ox, oy, ox2, oy2, w, col) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(hx + ox, hy + oy); g.quadraticCurveTo((hx + sh[0]) / 2 + nbx * curl + (ox + ox2) / 2, (hy + sh[1]) / 2 + nby * curl + (oy + oy2) / 2, sh[0] + ox2, sh[1] + oy2); g.stroke(); };
+        spine(0, 0, 0, 0, 8, '#0d1226'); spine(.2, -.6, 0, 0, 7.4, tm); spine(-2.2, -.6, -2.2, 0, 2.2, tmD); spine(1.8, -1.6, 1.4, 1.2, 1.1, 'rgba(255,255,255,.5)');
         const ta = Math.atan2(sh[1] - hy, sh[0] - hx);
         g.save(); g.translate(hx, hy); g.rotate(ta);
         g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = .8; g.beginPath(); g.moveTo(5.4, -3.4); g.lineTo(5.4, 3.4); g.stroke();                        // banda reflectante
@@ -1255,7 +1300,7 @@ window.CARS = (() => {
             g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(sh[0] - .6, sh[1] - 2.6, 4, .8);
         }
         // brazos con guantes; con gol, un puño en alto bien separado de la cabeza
-        const grp = [20.2 - boost * .4, -35.6 + (lose ? 1.6 : 0) + Math.max(0, sF) * .6 + hitK * .8];
+        const grp = [20.2 - boost * .4, -35.6 + Math.max(0, sF) * .6 + hitK * .8];
         const arm = (hand, dark, up) => {
             const s0 = [sh[0] + (dark ? -.8 : .4), sh[1] + (dark ? -.2 : 0)], ph = dark ? 1.4 : 0;
             const j = up ? [s0[0] + 8 - (dark ? 3 : 0), s0[1] - 1 - (dark ? 3 : 0)] : ik2(s0[0], s0[1], hand[0], hand[1], 12.2, 12.6, -1), hnd = up ? [s0[0] + 15 - (dark ? 6 : 0) + Math.sin(t * 9 + ph) * 3.2, s0[1] - 11 - (dark ? 4 : 0) - Math.abs(Math.cos(t * 9 + ph)) * 1.4] : [j[2], j[3]];
@@ -1271,10 +1316,17 @@ window.CARS = (() => {
                 g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = .4; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(hnd[0] + .2 + i * .6, hnd[1] - 1.8); g.lineTo(hnd[0] + .2 + i * .6, hnd[1] + .2); g.stroke(); }
             }
         };
-        // brazo de atrás: en el aire se suelta para hacer equilibrio; al encajar cuelga sin fuerza
-        const back = air && !flip && jt > .2 && !win ? [sh[0] - 9 + Math.sin(t * 6.5) * 2.4, sh[1] + 4 - airK * 4 + Math.cos(t * 5) * 1.8]
-            : lose ? [sh[0] + 2, sh[1] + 14] : [grp[0] - .6, grp[1] + .6];
-        const front = cel === 2 ? [sh[0] + 22, sh[1] - 5 + Math.sin(t * 14) * .8] : grp;      // señalar: brazo estirado hacia delante
+        // brazo de atrás: en el aire hace equilibrio (en el truco se estira hacia atrás), al aterrizar se abre un momento,
+        // al encajar cuelga o se lleva la mano al casco, y parado de vez en cuando se ajusta el visor
+        const visor = idleT > 3 && (idleT % 6) < 1.3;
+        let bT = [grp[0] - .6, grp[1] + .6];
+        if (air && !flip && jt > .2 && !win) bT = trick ? [sh[0] - 13, sh[1] + 1 + Math.sin(t * 5) * 1.2] : [sh[0] - 9 + Math.sin(t * 6.5) * 2.4, sh[1] + 4 - airK * 4 + Math.cos(t * 5) * 1.8];
+        else if (!air && sinceLand < .32 && !win && !lose) bT = [sh[0] - 7, sh[1] + 7];
+        else if (lose) bT = sad === 1 ? [head[0] + 3.5, head[1] + 1.5] : [sh[0] + 2, sh[1] + 14];
+        else if (visor) bT = [head[0] + 6.5, head[1] - .8 + Math.sin(idleT * 9) * .5];
+        const back = [spr('bhx', bT[0], 200, 18), spr('bhy', bT[1], 200, 18)];
+        const fT = cel === 2 ? [sh[0] + 22, sh[1] - 5 + Math.sin(t * 14) * .8] : grp;       // señalar: brazo estirado hacia delante
+        const front = [spr('fhx', fT[0], 260, 20), spr('fhy', fT[1], 260, 20)];
         arm(back, true, cel === 1); arm(front, false, cel === 0 || cel === 1);
         // casco integral cromático: ventilaciones, oreja, barbilla y visor que reacciona a todo
         const R6 = 6.5;
@@ -1290,8 +1342,8 @@ window.CARS = (() => {
         }
         const hg = g.createLinearGradient(head[0] - R6, head[1] - R6, head[0] + R6, head[1] + R6);
         hg.addColorStop(0, C(0, 68)); hg.addColorStop(.5, C(110, 58)); hg.addColorStop(1, C(220, 50));
-        // la cabeza sigue al balón; al encajar niega con la cabeza; al señalar asiente
-        g.save(); g.translate(head[0], head[1]); g.rotate(boost * .22 + (lose ? .5 + Math.sin(t * 5.5) * .2 : 0) - brake * .1 - hitK * .3 + look * .5 + (cel === 2 ? Math.sin(t * 10) * .12 : 0) + (flip ? .35 : 0));
+        // la cabeza sigue al balón; al encajar niega con la cabeza; al señalar asiente; con los brazos arriba mira al cielo
+        g.save(); g.translate(head[0], head[1]); g.rotate(spr('hr', headRot, 230, 18));
         // carcasa con forma de casco integral de verdad: cúpula, nuca y mentonera adelantada
         const shellP = () => { g.beginPath(); g.moveTo(-5.6, 4.4); g.quadraticCurveTo(-7.6, -.6, -4.8, -5.4); g.quadraticCurveTo(-.4, -8.6, 4.6, -5.8); g.quadraticCurveTo(7.8, -3.2, 7.9, 1.4); g.lineTo(7.6, 4.6); g.quadraticCurveTo(4.4, 7, .4, 5.8); g.quadraticCurveTo(-2.6, 5.6, -5.6, 4.4); g.closePath(); };
         { const hg2 = g.createLinearGradient(-R6, -R6, R6, R6); hg2.addColorStop(0, C(0, 72)); hg2.addColorStop(.5, C(110, 58)); hg2.addColorStop(1, C(220, 46));
