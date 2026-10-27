@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070a1a">
+<meta name="description" content="Fútbol con coches en vista lateral: turbo, saltos, aéreos y goles.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Turbo Gol">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>html, body { margin: 0; padding: 0; background: #070a1a; }</style>
+</head>
+<body>
+<title>Turbo Gol Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Concepto: estadio nocturno en vista lateral, a pantalla completa y en horizontal.
+   Azul a la izquierda (tú), naranja a la derecha (IA). El dorado se reserva para el balón y las acciones principales. */
+:root {
+    color-scheme: dark;
+    --bg: #070a1a;
+    --panel: #0e1430;
+    --panel-2: #172048;
+    --line: #2b3777;
+    --text: #eaf0ff;
+    --mute: #93a0d6;
+    --blue: #3db8ff;
+    --orange: #ff8a2b;
+    --gold: #ffd23f;
+    --display: 'Bungee', Impact, 'Arial Black', sans-serif;
+    --body: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+    --inset-l: max(14px, env(safe-area-inset-left, 0px));
+    --inset-r: max(14px, env(safe-area-inset-right, 0px));
+}
+html, body {
+    height: 100%; margin: 0; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+body { font-family: var(--body); font-size: 14px; }
+.seg button[hidden] { display: none; }
+#app { position: relative; width: 100%; height: 100%; overflow: hidden; --k: 1; --btn: calc(clamp(84px, 24vh, 132px) * var(--k)); }
+#app[data-size="s"] { --k: .82; }
+#app[data-size="l"] { --k: 1.22; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* ---------- Marcador ---------- */
+#hud {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: stretch; gap: 6px; pointer-events: none;
+    font-family: var(--display); transition: opacity .2s;
+}
+#hud .score { min-width: 3ch; text-align: center; padding: 2px 14px; font-size: clamp(22px, 6.5vh, 40px); line-height: 1.15; color: #04101c; }
+#hud .blue { background: var(--blue); border-radius: 10px 0 0 10px; }
+#hud .orange { background: var(--orange); border-radius: 0 10px 10px 0; }
+#hud .clock {
+    min-width: 5ch; text-align: center; padding: 2px 12px; background: rgba(7, 10, 26, .82);
+    font-size: clamp(18px, 5vh, 30px); line-height: 1.3; font-variant-numeric: tabular-nums; letter-spacing: 1px;
+}
+#hud .clock.ot { color: var(--gold); }
+#hud .clock.low { color: #ff6b6b; }
+#names {
+    position: absolute; top: calc(8px + clamp(30px, 8.5vh, 52px)); left: 50%; transform: translateX(-50%);
+    display: flex; gap: 14px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--mute);
+    pointer-events: none; font-weight: 700;
+}
+#names b:first-child { color: var(--blue); } #names b:last-child { color: var(--orange); }
+
+/* ---------- Controles táctiles ---------- */
+.ctl { position: absolute; bottom: 14px; touch-action: none; transition: opacity .2s; }
+/* Joystick flotante: la zona táctil ocupa la mitad del lado elegido y la base aparece donde pones el dedo. */
+#app { --stk: calc(var(--btn) * 1.38 * var(--stkk, 1)); }
+#stickZone { position: absolute; left: 0; bottom: 0; width: 50%; height: 72%; z-index: 2; touch-action: none; }
+#app[data-hand="r"] #stickZone { left: auto; right: 0; }
+#stickBase, #stickKnob { position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none; z-index: 3; transition: opacity .18s; opacity: var(--ia, .6); will-change: transform; }
+#stickBase {
+    width: var(--stk); height: var(--stk); margin: calc(var(--stk) / -2) 0 0 calc(var(--stk) / -2);
+    border: 2px solid rgba(170, 200, 255, .6);
+    background: radial-gradient(circle, rgba(61, 184, 255, .08) 0 38%, rgba(14, 20, 48, .5) 72%);
+    box-shadow: 0 0 26px rgba(61, 184, 255, .25), inset 0 0 22px rgba(61, 184, 255, .2);
+}
+#stickBase::before, #stickBase::after { position: absolute; top: 50%; transform: translateY(-54%); font-weight: 700; font-size: calc(var(--stk) * .26); line-height: 1; color: rgba(220, 235, 255, .6); }
+#stickBase::before { content: '\2039'; left: 9%; }
+#stickBase::after { content: '\203A'; right: 9%; }
+#stickBase i { position: absolute; left: 50%; width: calc(var(--stk) * .1); height: calc(var(--stk) * .1); border: solid rgba(220, 235, 255, .6); border-width: 3px 3px 0 0; }
+#stickBase i.up { top: 11%; transform: translateX(-50%) rotate(-45deg); }
+#stickBase i.dn { bottom: 11%; transform: translateX(-50%) rotate(135deg); }
+#stickKnob {
+    width: calc(var(--stk) * .5); height: calc(var(--stk) * .5); margin: calc(var(--stk) / -4) 0 0 calc(var(--stk) / -4);
+    background: radial-gradient(circle at 35% 30%, #f2fbff 0, #6fd0ff 38%, #1c78b0 100%);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, .5), 0 0 22px rgba(61, 184, 255, .65), inset 0 -4px 8px rgba(0, 20, 60, .45);
+}
+#stickBase.on, #stickKnob.on { opacity: 1; }
+#stickBase.roll { border-color: var(--gold); box-shadow: 0 0 30px rgba(255, 210, 63, .6), inset 0 0 24px rgba(255, 210, 63, .35); }
+#comboBtn { display: none; width: calc(var(--btn) * .7); height: calc(var(--btn) * .7); bottom: calc(14px + var(--btn) + 12px); right: calc(var(--inset-r) + var(--btn) * .5 + 7px - var(--btn) * .35); }
+#comboBtn svg { fill: #fff; width: 38%; }
+#comboBtn small { font-size: 9px; }
+#comboBtn.on .in { background: rgba(255, 210, 63, .4); }
+#app[data-combo="1"] #comboBtn { display: block; }
+#app[data-hand="r"] #comboBtn { right: auto; left: calc(var(--inset-l) + var(--btn) * .5 + 7px - var(--btn) * .35); }
+#app[data-alpha="n"] { --ia: .85; }
+#app[data-alpha="soft"] { --ia: .5; }
+#app:not([data-state="play"]):not([data-ctrl]) #stickBase, #app:not([data-state="play"]):not([data-ctrl]) #stickKnob { opacity: 0; }
+#app:not([data-state="play"]) #stickZone { pointer-events: none; }
+#app[data-hand="r"] #jumpBtn { right: auto; left: calc(var(--inset-l) + var(--btn) + 14px); }
+#app[data-hand="r"] #boostBtn { right: auto; left: var(--inset-l); }
+#app[data-state="play"][data-alpha="soft"] .ctl:not(#pauseBtn) { opacity: .6; }
+.round {
+    width: var(--btn); height: var(--btn); border-radius: 50%; padding: 6px; box-sizing: border-box;
+    border: 0; color: var(--text); font-family: var(--display); cursor: pointer;
+}
+.round .in {
+    width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center; align-content: center;
+    background: rgba(10, 15, 38, .8); border: 2px solid var(--line); box-sizing: border-box; transition: background .08s, transform .08s;
+}
+.round svg { width: 34%; height: auto; }
+.round small { font-size: 10px; letter-spacing: 1.5px; margin-top: 2px; opacity: .85; }
+.round.on .in { transform: scale(.94); }
+#jumpBtn { right: calc(var(--inset-r) + var(--btn) + 14px); }
+#jumpBtn svg { fill: var(--blue); }
+#jumpBtn.on .in { background: rgba(61, 184, 255, .4); }
+#boostBtn {
+    right: var(--inset-r);
+    background: conic-gradient(var(--orange) calc(var(--p, 50) * 1%), rgba(255, 255, 255, .14) 0);
+}
+#boostBtn svg { fill: var(--orange); }
+#boostBtn.on .in { background: rgba(255, 138, 43, .38); }
+#pauseBtn {
+    top: 8px; bottom: auto; left: var(--inset-l); width: 44px; height: 44px; border-radius: 12px;
+    background: rgba(14, 20, 48, .6); border: 2px solid var(--line); color: var(--text); display: grid; place-items: center; cursor: pointer; padding: 0;
+}
+#pauseBtn svg { width: 18px; fill: var(--text); }
+#app:not([data-state="play"]) .ctl:not(#pauseBtn) { opacity: .0; pointer-events: none; }
+#app[data-state="menu"] #hud, #app[data-state="menu"] #names, #app[data-state="menu"] #pauseBtn { opacity: 0; }
+/* Con la pantalla de controles abierta se ven los botones para comprobar tamaño y posición */
+#app[data-ctrl] .ctl:not(#pauseBtn) { opacity: 1; pointer-events: none; }
+
+/* ---------- Pantallas ---------- */
+.screen {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(5, 8, 22, .78); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    padding: 12px var(--inset-r) 12px var(--inset-l); box-sizing: border-box; overflow: auto;
+}
+.screen.show { display: flex; }
+.card {
+    width: min(860px, 100%); max-height: 100%; box-sizing: border-box; background: var(--panel);
+    border: 2px solid var(--line); border-radius: 18px; padding: clamp(14px, 3.5vh, 26px) clamp(16px, 3vw, 30px);
+    display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(14px, 3vw, 30px); align-items: center; overflow: auto;
+}
+.card.single { grid-template-columns: 1fr; text-align: center; width: min(460px, 100%); justify-items: center; }
+h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(32px, 11vh, 62px); line-height: .95; text-wrap: balance; }
+h1 .b { color: var(--blue); } h1 .o { color: var(--orange); }
+h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(24px, 8vh, 40px); }
+.lead { color: var(--mute); margin: 10px 0 0; line-height: 1.45; max-width: 36ch; }
+.how { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 5px; font-size: 12.5px; color: var(--mute); line-height: 1.35; }
+.how b { color: var(--text); }
+.opts { display: grid; gap: 12px; }
+.opts label.t { display: block; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--mute); margin-bottom: 6px; font-weight: 700; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.seg.wrap { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); }
+.seg.wrap button { padding-left: 4px; padding-right: 4px; font-size: .86em; }
+.seg button {
+    font: 700 13px var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line);
+    border-radius: 10px; padding: 9px 6px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #04101c; }
+.btn {
+    font: 400 clamp(16px, 4.6vh, 22px) var(--display); color: #1a1300; background: var(--gold); border: 0; border-radius: 12px;
+    padding: 12px 18px; cursor: pointer; letter-spacing: .5px; box-shadow: 0 4px 0 #b88f10;
+}
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b88f10; }
+.btn.ghost { background: var(--panel-2); color: var(--text); box-shadow: 0 4px 0 #0a0f2a; border: 2px solid var(--line); }
+.btn.ghost:active { box-shadow: 0 1px 0 #0a0f2a; }
+.row { display: grid; gap: 8px; width: 100%; }
+.row.two { grid-template-columns: 1fr 1fr; }
+.row.three { grid-template-columns: repeat(3, 1fr); }
+.row.three .btn { padding: 12px 6px; font-size: clamp(14px, 4vh, 19px); }
+.stat { color: var(--mute); font-size: 12px; min-height: 1.3em; }
+.final { font-family: var(--display); font-size: clamp(34px, 11vh, 64px); display: flex; gap: 14px; align-items: center; justify-content: center; }
+.final .sb { color: var(--blue); } .final .so { color: var(--orange); } .final .dash { color: var(--mute); }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.screen, .card { touch-action: pan-y; }
+
+/* ---------- Garaje ---------- */
+.card.garage { grid-template-columns: 1fr; gap: clamp(8px, 2vh, 14px); width: min(940px, 100%); align-items: stretch; }
+.ghead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ghead .btn { padding: 8px 18px; font-size: clamp(14px, 4vh, 18px); }
+.gnote { color: var(--mute); font-size: 12px; margin: 2px 0 0; }
+.cars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.car-card {
+    font-family: var(--body); color: var(--text); text-align: left; cursor: pointer; padding: 8px 8px 10px; min-width: 0;
+    background: var(--panel-2); border: 2px solid var(--line); border-radius: 14px; display: grid; gap: 4px;
+}
+.car-card canvas { width: 100%; height: clamp(54px, 17vh, 86px); display: block; border-radius: 9px; background: radial-gradient(ellipse at 50% 85%, #1d2a78 0, #0b1240 55%, #060a24 100%); }
+.car-card b { font-size: 13.5px; line-height: 1.1; }
+.car-card .tag { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--mute); font-weight: 700; }
+.car-card[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; }
+.car-card { border-color: var(--rc, var(--line)); }
+.car-card .tag { color: var(--rc, var(--mute)); }
+.car-card[aria-pressed="true"] { border-color: var(--rc, var(--gold)); box-shadow: 0 0 0 2px var(--rc, var(--gold)) inset, 0 0 18px -4px var(--rc, var(--gold)); background: #1d2a62; }
+.car-card .rar { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700; color: var(--rc, var(--mute)); }
+.car-card .tag { font-size: 10px; }
+.car-card.chroma canvas { background: radial-gradient(circle at 50% 80%, #3a1250, #0a0a22 70%); }
+.car-card.locked b, .car-card.locked .tag { opacity: .8; }
+.toast { position: fixed; left: 50%; top: 16%; transform: translate(-50%, -8px); z-index: 99; padding: 10px 18px; border-radius: 12px; background: rgba(8,10,30,.94); border: 2px solid var(--rc, #ff4fd8); color: #fff; font: 700 15px 'Chakra Petch', sans-serif; letter-spacing: .5px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; text-align: center; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.car-card.legend canvas, .car-card.rare canvas, .car-card.epic canvas { background: radial-gradient(circle at 50% 80%, #4a2a0a, #120a06 70%); }
+.cinfo { display: grid; grid-template-columns: 1fr 1.8fr; gap: 6px 18px; align-items: center; background: rgba(8, 12, 40, .55); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+.ci-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ci-top b { font-family: var(--display); font-weight: 400; font-size: clamp(16px, 4.6vh, 22px); }
+.chip { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700; padding: 2px 8px; border-radius: 99px; color: #05081c; background: var(--rc, var(--mute)); }
+.ci-main p { margin: 3px 0 0; font-size: 11.5px; line-height: 1.35; color: var(--mute); }
+.ci-hit { margin-top: 3px; font-size: 10.5px; color: #6dffb7; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+.ci-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; }
+.srow { display: grid; grid-template-columns: 78px 1fr 24px; gap: 6px; align-items: center; font-size: 11px; color: var(--mute); }
+.srow em { font-style: normal; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.bar { height: 6px; border-radius: 3px; background: #0a0f2a; overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 3px; background: var(--rc, var(--blue)); }
+@media (max-width: 700px) { .cinfo { grid-template-columns: 1fr; } .ci-stats { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .cars { grid-template-columns: repeat(3, 1fr); } .car-card canvas { height: clamp(60px, 18vh, 100px); } }
+
+
+/* ---------- Menú rediseñado ---------- */
+.card.mcard { grid-template-columns: 1fr 1.05fr; width: min(900px, 100%); align-items: stretch; background: linear-gradient(160deg, rgba(20, 30, 80, .96), rgba(10, 14, 40, .96)); box-shadow: 0 20px 60px -20px rgba(0, 0, 0, .8), 0 0 0 1px rgba(80, 130, 255, .12) inset; }
+.mleft { display: flex; flex-direction: column; gap: clamp(6px, 1.8vh, 12px); justify-content: center; min-width: 0; }
+.mleft h1 { text-shadow: 0 0 28px rgba(61, 184, 255, .35); }
+.mleft .lead { margin: 0; font-size: clamp(12px, 3.2vh, 14.5px); max-width: 34ch; }
+.prof { display: grid; gap: 4px; padding: 9px 12px; border-radius: 12px; background: rgba(8, 12, 40, .6); border: 1px solid var(--line); }
+.pl { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pl b { font: 400 clamp(16px, 4.4vh, 21px) var(--display); color: var(--gold); }
+.pl span { font: 700 13px var(--body); color: var(--text); }
+.pbar { height: 8px; border-radius: 99px; background: #0a0f2a; border: 1px solid var(--line); overflow: hidden; }
+.pbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--blue), var(--gold)); transition: width .8s cubic-bezier(.2, .8, .2, 1); }
+.prof small { font: 600 11px var(--body); color: var(--mute); }
+.sum { display: flex; flex-wrap: wrap; gap: 5px; }
+.evc { --ec: #ff8a2b; --ec2: #a45cff; margin: 6px 0; padding: 8px 10px; border-radius: 12px; background: linear-gradient(120deg, color-mix(in srgb, var(--ec) 26%, transparent), color-mix(in srgb, var(--ec2) 22%, transparent)); border: 1.5px solid color-mix(in srgb, var(--ec) 70%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--ec) 30%, transparent); }
+.evc[hidden] { display: none; }
+.evh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.evh b { font-family: var(--display); font-size: 15px; letter-spacing: .5px; color: #fff; text-shadow: 0 0 10px var(--ec); }
+.evh span { font-size: 11px; font-weight: 700; color: var(--ec); white-space: nowrap; }
+.evbar { height: 6px; margin: 5px 0 4px; border-radius: 4px; background: rgba(0,0,0,.35); overflow: hidden; }
+.evbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--ec), var(--ec2)); border-radius: 4px; transition: width .4s; }
+.evc small { display: block; font-size: 10.5px; line-height: 1.3; opacity: .92; }
+.evc small.evg { opacity: .7; margin-top: 2px; }
+.sum span { font: 700 11px var(--body); letter-spacing: .3px; padding: 3px 9px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); }
+.sum span.mu { border-color: var(--gold); color: var(--gold); }
+.mright { display: flex; flex-direction: column; gap: clamp(7px, 1.8vh, 11px); justify-content: center; min-width: 0; }
+.modes { display: grid; grid-template-columns: repeat(6, 1fr); gap: clamp(7px, 1.8vh, 11px); }
+.modes .mode { grid-column: span 3; order: 2; }
+.modes .mode.main { grid-column: span 4; order: 0; }
+.modes #v2Btn { order: 1; }
+.modes #v2Btn { grid-column: span 2; flex-direction: column; justify-content: center; gap: 2px; text-align: center; padding-left: 6px; padding-right: 6px; border-color: rgba(61,184,255,.55); }
+.modes #v2Btn .mi { display: none; }
+.modes #v2Btn .mt b { font-size: clamp(14px, 4.2vh, 19px); white-space: nowrap; }
+.modes #v2Btn .mt { max-width: 100%; }
+.modes #v2Btn .mt small { white-space: nowrap; font-size: 10px; overflow: hidden; text-overflow: ellipsis; display: block; }
+.mode { display: flex; align-items: center; gap: 10px; text-align: left; font-family: var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 14px; padding: clamp(8px, 2.2vh, 13px) 12px; cursor: pointer; box-shadow: 0 4px 0 #0a0f2a; min-width: 0; transition: transform .1s, border-color .15s; }
+.mode:hover { border-color: var(--blue); }
+.mode:active { transform: translateY(3px); box-shadow: 0 1px 0 #0a0f2a; }
+.mode.main { grid-column: 1 / -1; color: #1a1300; background: linear-gradient(180deg, #ffe066, var(--gold)); border-color: #ffe98a; box-shadow: 0 4px 0 #b88f10, 0 0 24px -6px rgba(255, 210, 63, .6); padding: clamp(10px, 3vh, 17px) 14px; }
+.mode.main:active { box-shadow: 0 1px 0 #b88f10; }
+.mi { flex: 0 0 auto; width: clamp(28px, 8vh, 38px); height: clamp(28px, 8vh, 38px); border-radius: 10px; display: grid; place-items: center; background: rgba(61, 184, 255, .16); color: var(--blue); }
+.mode.main .mi { background: rgba(26, 19, 0, .14); color: #1a1300; }
+.mi .ic { width: 62%; height: 62%; fill: currentColor; }
+.mt { display: grid; gap: 1px; min-width: 0; }
+.mt b { font: 400 clamp(15px, 4.4vh, 21px) var(--display); letter-spacing: .3px; line-height: 1.05; }
+.mode.main .mt b { font-size: clamp(18px, 5.4vh, 26px); }
+.mode:not(.main) .mt b { font-size: clamp(14px, 4vh, 18px); white-space: nowrap; }
+.sum span.mu { text-transform: capitalize; }
+body[data-st="end"] .toast, body[data-st="menu"] .toast { top: auto; bottom: 12px; }
+.mt small { font: 600 11px var(--body); color: var(--mute); line-height: 1.2; }
+.mode.main .mt small { color: rgba(26, 19, 0, .7); }
+.btn.wide { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: clamp(8px, 2vh, 11px) 14px; font-size: clamp(14px, 3.8vh, 18px); }
+.btn .ic, .tile .ic { width: 1.1em; height: 1.1em; fill: currentColor; flex: 0 0 auto; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(6px, 1.6vh, 10px); }
+.tile { display: grid; justify-items: center; gap: 3px; padding: clamp(6px, 1.6vh, 10px) 4px; font: 700 12px var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 12px; cursor: pointer; box-shadow: 0 3px 0 #0a0f2a; transition: border-color .15s; }
+.tile .ic { width: clamp(18px, 5vh, 26px); height: clamp(18px, 5vh, 26px); color: var(--blue); }
+.tile:hover { border-color: var(--blue); }
+.tile:active { transform: translateY(2px); box-shadow: 0 1px 0 #0a0f2a; }
+.setupcard .opts { gap: 16px; }
+.hint { font: 500 10.5px var(--body); letter-spacing: 0; text-transform: none; color: var(--mute); margin-left: 6px; }
+.seg.wrap5 { grid-auto-flow: row; grid-template-columns: repeat(5, 1fr); }
+.seg.wrap5 button { padding: 10px 4px; font-size: 12px; }
+@media (max-width: 760px) { .seg.wrap5 { grid-template-columns: repeat(3, 1fr); } }
+details.howto { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: rgba(8, 12, 40, .5); }
+details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(--gold); }
+@media (max-width: 640px) { .card.mcard { grid-template-columns: 1fr; } }
+@media (max-height: 460px) { .mleft .lead { display: none; } .mleft h1 { font-size: clamp(28px, 9vh, 44px); } }
+.trgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.trc { display: grid; gap: 3px; align-content: start; text-align: left; padding: 10px 12px; font-family: var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 14px; cursor: pointer; box-shadow: 0 3px 0 #0a0f2a; min-height: 70px; }
+.trc:hover { border-color: var(--blue); }
+.trc[data-d="free"] { border-color: var(--blue); }
+.trc b { font: 400 clamp(14px, 4vh, 18px) var(--display); }
+.trc small { font: 500 11px/1.3 var(--body); color: var(--mute); }
+.trc .stars { font-style: normal; font: 700 15px var(--body); color: var(--gold); letter-spacing: 2px; margin-top: auto; }
+@media (max-width: 640px) { .trgrid { grid-template-columns: 1fr 1fr; } }
+#drillBar { display: none; position: absolute; left: 50%; top: 64px; transform: translateX(-50%); z-index: 4; padding: 5px 14px; border-radius: 99px; background: rgba(8, 10, 30, .78); border: 1px solid var(--line); font: 700 12px var(--body); color: var(--text); white-space: nowrap; pointer-events: none; }
+/* ---------- Pausa y fin ---------- */
+#pause .card.single { background: linear-gradient(170deg, rgba(20, 30, 80, .97), rgba(10, 14, 40, .97)); width: min(380px, 100%); gap: clamp(8px, 2vh, 14px); }
+#pause h2 { font-size: clamp(26px, 8vh, 40px); }
+#pause .row .btn { width: 100%; }
+/* ---------- Fin de partido ---------- */
+#end .card.single { gap: clamp(6px, 1.6vh, 12px); background: linear-gradient(170deg, rgba(20, 30, 80, .97), rgba(10, 14, 40, .97)); width: min(520px, 100%); }
+#end h2 { font-size: clamp(28px, 9vh, 46px); text-shadow: 0 0 24px rgba(255, 210, 63, .3); }
+#endCoins { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 0; }
+#endCoins span { font: 700 12px var(--body); padding: 4px 10px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--gold); color: var(--gold); animation: chipin .45s both; }
+#endCoins span:nth-child(2) { animation-delay: .12s; } #endCoins span:nth-child(3) { animation-delay: .24s; } #endCoins span:nth-child(n+4) { animation-delay: .36s; }
+@keyframes chipin { from { opacity: 0; transform: translateY(8px) scale(.9); } }
+#endLvl { width: min(360px, 100%); display: grid; gap: 3px; }
+#endLvl div { display: flex; justify-content: space-between; font: 700 12px var(--body); color: var(--text); }
+#endLvl .pbar { height: 9px; }
+
+
+/* ---------- Garaje rediseñado ---------- */
+.card.gx { gap: clamp(6px, 1.6vh, 10px); width: min(980px, 100%); background: linear-gradient(165deg, rgba(20, 30, 80, .97), rgba(8, 12, 36, .97)); }
+.gmain { display: grid; grid-template-columns: 1.35fr 1fr; gap: 12px; min-height: 0; }
+.gstage { position: relative; border-radius: 16px; overflow: hidden; border: 2px solid var(--rc, var(--line)); min-height: clamp(110px, 40vh, 280px);
+    background: radial-gradient(ellipse at 50% 92%, rgba(80, 120, 255, .45) 0, rgba(20, 30, 100, .55) 38%, rgba(5, 8, 28, .95) 80%); box-shadow: 0 0 30px -10px var(--rc, #3db8ff) inset; }
+.gstage::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(100deg, transparent 0 46px, rgba(120, 160, 255, .05) 46px 48px); pointer-events: none; }
+.gstage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.gnav { position: absolute; top: 50%; transform: translateY(-60%); width: 40px; height: 52px; border-radius: 12px; border: 2px solid var(--line); background: rgba(8, 12, 40, .7); color: var(--text); font: 700 28px/1 var(--body); cursor: pointer; z-index: 2; }
+.gnav.l { left: 8px; } .gnav.r { right: 8px; }
+.gnav:hover { border-color: var(--gold); }
+.ghint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); width: min(88%, 420px); box-sizing: border-box; z-index: 3; padding: 8px 12px; border-radius: 12px; text-align: center;
+    background: rgba(10, 8, 30, .84); border: 2px solid #ff4fd8; box-shadow: 0 0 16px rgba(255, 79, 216, .35); font: 600 12.5px/1.35 var(--body); color: #f3e9ff; pointer-events: none; }
+.ghint b { display: flex; align-items: center; justify-content: center; gap: 5px; font: 800 11px var(--body); letter-spacing: 1.5px; text-transform: uppercase; color: #ff9be8; margin-bottom: 3px; }
+.ghint svg { width: 13px; height: 13px; fill: currentColor; }
+.ghint span { font-style: italic; }
+.gtaps { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 8px; z-index: 3; padding: 7px 12px; border-radius: 999px; background: rgba(10, 8, 30, .75); pointer-events: none; }
+.ghint[hidden], .gtaps[hidden] { display: none; }
+.gtaps i { width: 11px; height: 11px; border-radius: 50%; background: rgba(255, 255, 255, .18); border: 1.5px solid rgba(255, 255, 255, .35); }
+.gtaps i.on { background: #ff4fd8; border-color: #ffd0f4; box-shadow: 0 0 10px #ff4fd8; }
+@media (max-height: 460px) { .ghint { bottom: 5px; width: calc(100% - 112px); padding: 4px 8px; font-size: 10.5px; line-height: 1.25; } .ghint b { font-size: 9.5px; margin-bottom: 1px; } .ghint svg { width: 10px; height: 10px; } }
+.gname { position: absolute; left: 12px; right: 12px; top: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; pointer-events: none; z-index: 2; }
+.gname b { font: 400 clamp(18px, 5.2vh, 26px) var(--display); text-shadow: 0 2px 0 rgba(0, 0, 0, .5); }
+.gname small { font: 700 11px var(--body); letter-spacing: 1.5px; text-transform: uppercase; color: var(--mute); }
+.gside { display: flex; flex-direction: column; gap: 7px; min-width: 0; --rc: var(--blue); }
+.gdesc { margin: 0; font-size: 12px; line-height: 1.35; color: var(--mute); }
+.gside .ci-stats { grid-template-columns: 1fr; gap: 3px; }
+.srow { grid-template-columns: 74px 1fr 40px; }
+.srow .bar { position: relative; overflow: visible; }
+.srow .bar u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; opacity: .85; border-radius: 1px; }
+.srow em.up { color: #6dffb7; } .srow em.dn { color: #ff7a7a; }
+.dors { display: grid; grid-template-columns: auto 86px 1fr; align-items: center; gap: 8px; font: 700 12px var(--body); color: var(--mute); }
+.dors input { width: 100%; box-sizing: border-box; padding: 6px 8px; font: 800 17px var(--body); letter-spacing: 3px; text-align: center; text-transform: uppercase; color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 10px; }
+.dors input:focus { outline: none; border-color: var(--gold); }
+.dors small { font-weight: 500; font-size: 10.5px; }
+.gside .grow { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.gside .grow .btn { padding: 8px 6px; font-size: clamp(13px, 3.6vh, 17px); }
+.btn[aria-pressed="true"] { border-color: var(--green, #6dffb7); color: #6dffb7; }
+.btn.eqd { background: #1a3a2a; color: #6dffb7; box-shadow: 0 4px 0 #0c2016; pointer-events: none; }
+.card.gx .cars { grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.card.gx .car-card { padding: 4px 5px 5px; gap: 1px; position: relative; }
+.card.gx .car-card canvas { height: clamp(34px, 11vh, 58px); }
+.card.gx .car-card b { font-size: 11.5px; }
+.card.gx .car-card .tag { display: none; }
+.card.gx .car-card .rar { font-size: 9px; }
+.car-card.eq::after { content: "✓"; position: absolute; right: 6px; top: 4px; width: 16px; height: 16px; border-radius: 50%; background: #6dffb7; color: #06210f; font: 800 11px/16px var(--body); text-align: center; }
+@media (max-height: 460px) { .gdesc, .ci-hit, .dors small { display: none; } .gside { gap: 5px; } .gside .ci-stats { gap: 1px; } .srow { font-size: 10.5px; } .card.gx .car-card canvas { height: 30px; } .card.gx .car-card .rar { display: none; } .card.gx { padding-top: 8px; padding-bottom: 8px; } .card.gx h2 { font-size: 22px; } .gstage { min-height: 0; } }
+@media (max-width: 700px) { .gmain { grid-template-columns: 1fr; } .card.gx .cars { grid-template-columns: repeat(3, 1fr); } }
+
+/* ---------- Dispositivo ---------- */
+#device { z-index: 30; background: rgba(5, 8, 22, .93); }
+.card.devcard { width: min(720px, 100%); gap: 10px; }
+.devgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; width: 100%; }
+.devopt { font-family: var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 14px 10px; cursor: pointer; display: grid; justify-items: center; gap: 4px; }
+.devopt svg { width: clamp(56px, 16vh, 96px); color: var(--blue); }
+#devPc svg { color: var(--orange); }
+.devopt b { font: 400 clamp(18px, 5vh, 26px) var(--display); }
+.devopt span { color: var(--mute); font-size: 12px; }
+.devopt em { display: none; font-style: normal; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; color: #1a1300; background: var(--gold); padding: 2px 8px; border-radius: 99px; }
+.devopt.reco em { display: inline-block; }
+.devopt:hover, .devopt:focus-visible { border-color: var(--gold); }
+#app[data-dev="pc"] .ctl:not(#pauseBtn), #app[data-dev="pc"] #stickBase, #app[data-dev="pc"] #stickKnob { opacity: 0 !important; pointer-events: none !important; }
+#app[data-dev="pc"] #stickZone { pointer-events: none; }
+#app[data-dev="pc"] #rotate { display: none !important; }
+
+/* ---------- Mando ---------- */
+.padf { outline: 3px solid #fff !important; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(255, 210, 63, .85), 0 0 18px 4px rgba(255, 210, 63, .5) !important; position: relative; z-index: 2; }
+.gnav.padf, .ctl.padf, #rpSkip.padf, #muteBtn.padf, #fsBtn.padf { position: absolute; }   /* al seleccionarlos con teclado o mando no pierden su sitio */
+#padHint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 6; display: none; padding: 5px 14px; border-radius: 99px; background: rgba(8, 10, 30, .85); border: 1px solid var(--line); color: var(--mute); font: 700 12px var(--body); letter-spacing: .5px; pointer-events: none; white-space: nowrap; }
+#app[data-pad="1"]:not([data-state="play"]) #padHint { display: block; }
+#app[data-pad="1"][data-padhide="1"] .ctl:not(#pauseBtn) { opacity: 0 !important; pointer-events: none; }
+#app[data-pad="1"][data-padhide="1"] #stickBase, #app[data-pad="1"][data-padhide="1"] #stickKnob { opacity: 0 !important; }
+
+/* ---------- Taller ---------- */
+#shop { align-items: flex-start; background: rgba(5, 8, 22, .12); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.card.shopcard { grid-template-columns: 1fr; gap: 8px; width: min(820px, 100%); padding: 10px 14px 10px; align-items: stretch; background: rgba(14, 20, 48, .94); }
+.shopcard .ghead .btn { padding: 6px 16px; font-size: clamp(14px, 4vh, 18px); }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tabs button { font: 700 13px var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 10px; padding: 7px 12px; cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #04101c; }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; touch-action: pan-x; scrollbar-width: thin; }
+.chip-o { flex: 0 0 auto; width: 74px; display: grid; justify-items: center; gap: 4px; padding: 6px 4px 5px; font: 700 11px var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 12px; cursor: pointer; }
+.coins { font: 700 14px var(--body); color: var(--gold); margin-left: auto; margin-right: 10px; white-space: nowrap; }
+.chip-o small { font-size: 10px; color: var(--gold); line-height: 1; min-height: 10px; }
+.chip-o.lock i { filter: grayscale(.55) brightness(.65); }
+.chip-o.lock { border-style: dashed; }
+.achbody { display: grid; grid-template-columns: 1fr 1.3fr; gap: 12px; min-height: 0; }
+.achbody > div { min-height: 0; }
+#lvlBox { display: grid; gap: 4px; margin-bottom: 8px; }
+#lvlBox b { font: 400 22px var(--display); color: var(--gold); }
+#lvlBox span { font: 700 13px var(--body); color: var(--text); }
+#lvlBox small { font: 600 11px var(--body); color: var(--mute); }
+#lvlBox .bar { height: 10px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
+#lvlBox .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--gold)); }
+#statGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font: 600 12px var(--body); color: var(--mute); max-height: 44vh; overflow: auto; }
+#statGrid div { display: flex; justify-content: space-between; gap: 6px; border-bottom: 1px solid var(--line); padding: 3px 0; }
+#statGrid b { color: var(--text); }
+#achList { max-height: 56vh; overflow: auto; display: grid; gap: 5px; align-content: start; padding-right: 4px; }
+#achList h4 { margin: 0 0 2px; font: 700 13px var(--body); color: var(--gold); }
+.ach { padding: 6px 9px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); opacity: .55; display: grid; gap: 1px; }
+.ach b { font: 700 13px var(--body); color: var(--text); }
+.ach span { font: 500 11px var(--body); color: var(--mute); }
+.ach.got { opacity: 1; border-color: var(--gold); }
+.ach.got b::before { content: "★ "; color: var(--gold); }
+.stat.gold { color: var(--gold); font-weight: 700; }
+.chip-o i { width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); box-sizing: border-box; background-size: cover; }
+.chip-o span { line-height: 1.1; text-align: center; }
+.chip-o[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset, 0 0 14px -4px var(--gold); background: #1d2a62; }
+.shopnote { font-size: 11px; color: var(--mute); min-height: 1.2em; }
+
+/* ---------- Controles ---------- */
+#ctrls { align-items: flex-start; background: rgba(5, 8, 22, .35); }
+.card.ctrlcard { grid-template-columns: 1fr; gap: 8px; width: min(660px, 100%); padding: 10px 16px 12px; align-items: stretch; }
+.ctrlcard .opts { grid-template-columns: 1fr 1fr 1fr; gap: 8px 12px; }
+.ctrlcard .ghead { margin-bottom: 0; }
+.ctrlcard .ghead h2 { font-size: clamp(20px, 6vh, 28px); }
+.ctrlcard .ghead .btn { padding: 6px 16px; }
+.ctrlcard .opts label.t { margin-bottom: 3px; }
+.ctrlcard .seg button { padding: 6px 4px; font-size: 12px; border-radius: 8px; }
+
+/* ---------- Avisos centrales ---------- */
+#rpTag, #rpSkip { display: none; position: absolute; z-index: 8; font-family: var(--display); }
+#rpTag { left: 18px; top: 66px; transform: none; font-size: clamp(13px, 3.4vh, 20px); letter-spacing: 3px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.5); animation: rpb 1s steps(2, jump-none) infinite; pointer-events: none; }
+@keyframes rpb { 50% { opacity: .45; } }
+#rpSkip { right: 18px; bottom: 16px; padding: 12px 20px; font-size: 16px; letter-spacing: 1px; color: #0b0d22; background: #ffd23f; border: 0; border-radius: 14px; box-shadow: 0 4px 0 #b98f10; cursor: pointer; }
+#app[data-state="replay"] #rpTag, #app[data-state="replay"] #rpSkip { display: block; }
+#app[data-state="replay"]::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 7; box-shadow: inset 0 0 140px rgba(0,0,0,.6); }
+#banner, #count {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); pointer-events: none;
+    font-family: var(--display); text-align: center; white-space: nowrap; opacity: 0; transition: opacity .15s;
+    text-shadow: 0 4px 0 rgba(0, 0, 0, .45);
+}
+#banner { font-size: clamp(40px, 16vh, 96px); }
+#banner.gol { font-size: clamp(60px, 26vh, 150px); letter-spacing: 3px; -webkit-text-stroke: 3px rgba(5,8,28,.85); paint-order: stroke fill; text-shadow: 0 6px 0 rgba(0,0,0,.5), 0 0 26px currentColor, 0 0 60px currentColor; }
+#banner.gol.big { font-size: clamp(70px, 31vh, 180px); }
+#banner.gol.show { animation: golIn .75s cubic-bezier(.2,1.4,.4,1) both, golGlow 1.1s .75s ease-in-out infinite alternate; }
+#banner.gol::before { content: ""; position: absolute; left: 50%; top: 50%; width: 170%; height: 3px; transform: translate(-50%, -50%); background: linear-gradient(90deg, transparent, currentColor, transparent); box-shadow: 0 0 22px currentColor; opacity: 0; }
+#banner.gol.show::before { animation: golLine .8s ease-out both; }
+@keyframes golIn { 0% { transform: translate(-50%, -50%) scale(3) rotate(-6deg); opacity: 0; filter: blur(8px); } 55% { transform: translate(-50%, -50%) scale(.88) rotate(1.5deg); opacity: 1; filter: blur(0); } 80% { transform: translate(-50%, -50%) scale(1.08) rotate(-.5deg); } 100% { transform: translate(-50%, -50%) scale(1) rotate(0); opacity: 1; } }
+@keyframes golGlow { from { filter: brightness(1); } to { filter: brightness(1.28); } }
+@keyframes golLine { 0% { opacity: 1; width: 20%; } 100% { opacity: 0; width: 190%; } }
+#count { -webkit-text-stroke: 3px rgba(5,8,28,.85); paint-order: stroke fill; text-shadow: 0 5px 0 rgba(0,0,0,.5), 0 0 24px currentColor, 0 0 54px currentColor; }
+#count.pulse { animation: cdIn .5s cubic-bezier(.2,1.5,.4,1) both; }
+#count.ya { font-size: clamp(80px, 34vh, 200px); letter-spacing: 4px; animation: yaIn .6s cubic-bezier(.2,1.5,.4,1) both; }
+#count::after { content: ""; position: absolute; left: 50%; top: 50%; width: 1.3em; height: 1.3em; border: 5px solid currentColor; border-radius: 50%; transform: translate(-50%, -50%) scale(.5); opacity: 0; box-shadow: 0 0 24px currentColor; }
+#count.pulse::after { animation: cdRing .6s ease-out both; }
+@keyframes cdIn { 0% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } 60% { transform: translate(-50%, -50%) scale(.9); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+@keyframes yaIn { 0% { transform: translate(-50%, -50%) scale(.4) rotate(-5deg); opacity: 0; } 55% { transform: translate(-50%, -50%) scale(1.25) rotate(2deg); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1) rotate(0); opacity: 1; } }
+@keyframes cdRing { 0% { transform: translate(-50%, -50%) scale(.5); opacity: .9; } 100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } }
+#banner small { display: block; font-size: .32em; letter-spacing: 3px; margin-top: 4px; }
+#count { font-size: clamp(60px, 26vh, 150px); color: var(--gold); }
+#banner.show, #count.show { opacity: 1; }
+#banner.show:not(.gol) { animation: pop .35s ease-out; }
+@keyframes pop { from { transform: translate(-50%, -50%) scale(.6); } to { transform: translate(-50%, -50%) scale(1); } }
+
+#combo { position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%); pointer-events: none; font-family: var(--display); font-size: clamp(22px, 8vh, 46px); white-space: nowrap; opacity: 0; text-shadow: 0 3px 0 rgba(0, 0, 0, .5), 0 0 18px currentColor; }
+#combo.show { animation: comboPop 1.5s ease-out forwards; }
+@keyframes comboPop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); } 22% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -62%) scale(1); } }
+/* ---------- Aviso de giro ---------- */
+#rotate {
+    position: absolute; inset: 0; z-index: 10; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; background: var(--bg); text-align: center; padding: 24px;
+}
+#rotate svg { width: 84px; fill: none; stroke: var(--gold); stroke-width: 2.4; animation: spin 2.4s ease-in-out infinite; }
+@keyframes spin { 0%, 20% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+#rotate p { margin: 0; font-family: var(--display); font-size: 22px; line-height: 1.2; }
+#rotate span { color: var(--mute); font-size: 13px; }
+@media (orientation: portrait) { #rotate { display: flex; } }
+@media (prefers-reduced-motion: reduce) { #rotate svg, #banner.show, #count.pulse, #count.ya { animation: none; } }
+#muteBtn, #fsBtn {
+    position: absolute; top: 8px; width: 44px; height: 44px; border-radius: 12px; background: rgba(14, 20, 48, .6);
+    border: 2px solid var(--line); color: var(--text); display: grid; place-items: center; cursor: pointer; padding: 0; font: 700 12px var(--body);
+}
+#fsBtn { right: var(--inset-r); } #muteBtn { right: calc(var(--inset-r) + 52px); }
+#app[data-state="menu"] #muteBtn, #app[data-state="menu"] #fsBtn { display: none; }
+#muteBtn svg, #fsBtn svg { width: 20px; fill: var(--text); }
+
+/* Torneo */
+.card.cupcard { grid-template-columns: 1fr; align-items: stretch; gap: 10px; }
+.cuptitle { display: grid; margin-right: auto; }
+.cuptitle b { font-family: var(--display); font-weight: 400; font-size: clamp(20px, 5.5vh, 28px); line-height: 1; }
+.cuptitle small { color: var(--mute); font-size: 12px; }
+.cupsize { display: flex; align-items: center; gap: 10px; }
+.cupsize .t { margin: 0; }
+.cupsize .seg { width: min(300px, 100%); }
+#bracket.big16 .ct { padding: 2px 7px; font-size: 11px; }
+#bracket.big16 .cm { border-width: 1px; border-radius: 7px; }
+#bracket.big16 { gap: 6px; }
+#bracket { display: flex; gap: clamp(8px, 2vw, 22px); justify-content: space-between; align-items: stretch; }
+.bcol { flex: 1 1 0; display: flex; flex-direction: column; justify-content: space-around; gap: 6px; min-width: 0; }
+.bcol > h4 { margin: 0 0 2px; font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); text-align: center; }
+.cm { background: var(--panel-2); border: 2px solid var(--line); border-radius: 10px; overflow: hidden; }
+.cm.next { border-color: var(--gold, #ffd23f); box-shadow: 0 0 0 2px rgba(255, 210, 63, .25); }
+.ct { display: flex; justify-content: space-between; gap: 8px; padding: 4px 9px; font: 700 12px var(--body); white-space: nowrap; }
+.ct + .ct { border-top: 1px solid var(--line); }
+.ct span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.ct.me { color: var(--blue); }
+.ct.lose { opacity: .4; }
+.ct.win { background: rgba(255, 255, 255, .07); }
+.ct.tbd { color: var(--mute); font-weight: 600; }
+.ct.champ { color: var(--gold, #ffd23f); }
+
+/* edición de botones táctiles */
+#editBar b { white-space: nowrap; }
+#editBar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 70; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 14px; background: rgba(8, 12, 36, .92); border: 1px solid var(--line); color: var(--text); font-size: 13px; max-width: 96%; }
+#editBar[hidden] { display: none; }
+#editBar label { display: flex; align-items: center; gap: 6px; }
+#editBar input[type=range] { width: 120px; }
+#editBar .btn { padding: 8px 12px; min-height: 0; }
+#app[data-edit] .ctl:not(#pauseBtn) { opacity: 1 !important; pointer-events: auto !important; outline: 2px dashed rgba(255, 255, 255, .55); outline-offset: 3px; cursor: grab; }
+#app[data-edit] #stickBase { opacity: 1 !important; pointer-events: auto !important; outline: 2px dashed rgba(255, 255, 255, .55); outline-offset: 3px; z-index: 5; }
+#app[data-edit] #stickKnob { opacity: 1 !important; }
+#app[data-edit] .ctl.sel, #app[data-edit] #stickBase.sel { outline-color: var(--gold); }
+#app[data-edit] #ctrls { display: none !important; }
+
+/* taller: vista previa grande + rejilla */
+.shopbody { display: grid; grid-template-columns: minmax(150px, 34%) 1fr; gap: 12px; min-height: 0; }
+.shopleft { display: grid; gap: 4px; align-content: start; justify-items: stretch; text-align: center; }
+.shopstage { position: relative; height: clamp(90px, 34vh, 190px); border-radius: 14px; border: 1px solid var(--line); background: radial-gradient(circle at 50% 70%, rgba(80, 110, 220, .35), rgba(8, 12, 36, .9)); overflow: hidden; }
+.shopstage canvas { width: 100%; height: 100%; display: block; }
+#shopSw { position: absolute; left: 50%; top: 50%; height: 72%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; border: 3px solid rgba(255, 255, 255, .55); box-shadow: 0 0 24px -4px rgba(120, 170, 255, .6); display: none; }
+#shopName { font: 400 clamp(15px, 4.4vh, 20px) var(--display); color: var(--text); }
+#shopPrice { font: 700 12px var(--body); color: var(--gold); }
+#shopAct { justify-self: stretch; padding: 8px 10px; }
+#shopAct:disabled { opacity: .55; }
+#shopAct.short { background: var(--panel-2); color: var(--mute); border: 2px solid var(--line); }
+#shopProg { font: 600 11px var(--body); color: var(--mute); }
+.shopright { display: grid; gap: 6px; grid-template-rows: auto 1fr auto; min-height: 0; }
+.shopfilt { display: flex; gap: 6px; flex-wrap: wrap; }
+.shopfilt button { font: 700 11px var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 9px; padding: 5px 9px; cursor: pointer; }
+.shopfilt button[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #04101c; }
+.shopcard .chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; align-content: start; overflow-x: hidden; overflow-y: auto; max-height: clamp(110px, 52vh, 330px); touch-action: pan-y; padding: 2px 4px 6px 2px; }
+.shopcard .chip-o { width: auto; }
+.chip-o.can small { color: #3dffb0; }
+.chip-o.eq small { color: var(--blue); }
+.shopempty { grid-column: 1 / -1; color: var(--mute); font: 600 12px var(--body); margin: 8px 0; }
+@media (max-height: 460px) { .shopcard .tabs button { padding: 5px 9px; font-size: 12px; } .shopcard .chip-o i { width: 30px; height: 30px; } }
+
+/* controles por pestañas */
+.card.ctrlcard { width: min(780px, 100%); }
+.ctabs { margin: 2px 0 0; }
+.cbody { max-height: calc(100vh - 118px); max-height: calc(100dvh - 118px); overflow-y: auto; overflow-x: hidden; padding: 4px 4px 2px 0; display: grid; gap: 8px; align-content: start; }
+.cwrap { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start; }
+.ctrlcard[data-tab="tactil"] .cwrap { grid-template-columns: 1fr 200px; }
+.ctrlcard .opts { grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.ctrlcard .opts > div, .ctrlcard .cpane { display: none; }
+.ctrlcard[data-tab="tactil"] [data-tab~="tactil"], .ctrlcard[data-tab="mando"] [data-tab~="mando"], .ctrlcard[data-tab="vibra"] [data-tab~="vibra"], .ctrlcard[data-tab="pantalla"] [data-tab~="pantalla"], .ctrlcard[data-tab="copia"] [data-tab~="copia"], .ctrlcard[data-tab="ayuda"] [data-tab~="ayuda"] { display: block; }
+.bk .bkp { margin: 0 0 8px; color: var(--text); line-height: 1.4; }
+.bkrow { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.bkrow .btn { padding: 9px 14px; font-size: 14px; }
+.bkrow .btn:disabled { opacity: .45; }
+.bk textarea { width: 100%; box-sizing: border-box; height: 72px; resize: vertical; border-radius: 10px; border: 2px solid var(--line); background: #070b22; color: #cfe3ff; font: 500 11px/1.35 ui-monospace, Menlo, Consolas, monospace; padding: 8px; word-break: break-all; }
+.bk textarea:focus { outline: none; border-color: var(--blue); }
+.bkconf { border: 2px solid #ffd23f; border-radius: 12px; padding: 10px; margin-top: 6px; color: var(--text); line-height: 1.45; background: rgba(255, 210, 63, .07); }
+.bkconf small { color: var(--mute); }
+.bkmsg { min-height: 16px; margin-top: 6px; }
+.bkmsg.ok { color: #3dffb0; } .bkmsg.bad { color: #ff7a7a; }
+.ctrlcard .opts > div[data-tab~="vibra"] { grid-column: 1 / -1; }
+.ctrlcard[data-tab="pantalla"] .opts > div:nth-child(n) { }
+.cpane { font: 600 12px var(--body); color: var(--mute); }
+.cpane small { display: block; margin-top: 6px; line-height: 1.35; }
+.pv { position: relative; width: 100%; aspect-ratio: 2 / 1; border-radius: 14px; border: 2px solid var(--line); background: linear-gradient(180deg, #0f1b46, #070b22 70%, #123a66 70%, #0b2a4c); overflow: hidden; }
+.pv i { position: absolute; display: grid; place-items: center; font: 700 7px var(--body); font-style: normal; letter-spacing: .5px; color: #fff; border-radius: 50%; background: rgba(10, 15, 38, .85); border: 1.5px solid var(--line); box-sizing: border-box; }
+.pv i[data-k="stick"] { border-color: rgba(120, 190, 255, .8); background: rgba(40, 80, 160, .35); }
+.pv i[data-k="jump"] { border-color: var(--blue); }
+.pv i[data-k="boost"] { border-color: var(--orange); }
+.pv i[data-k="combo"] { border-color: var(--gold); }
+.ktab { width: 100%; border-collapse: collapse; font: 600 12px var(--body); color: var(--text); }
+.ktab th { text-align: left; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--mute); padding: 4px 8px; }
+.ktab td { padding: 6px 8px; border-top: 1px solid var(--line); }
+.ktab td:first-child { color: var(--gold); white-space: nowrap; }
+.hgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hc { display: grid; grid-template-columns: 34px 1fr; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(8, 12, 40, .5); }
+.hc i { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--panel-2); color: var(--blue); }
+.hc svg { width: 20px; height: 20px; fill: currentColor; }
+.hc b { font: 700 13px var(--body); color: var(--gold); }
+.hc p { margin: 2px 0 0; font: 500 11.5px/1.35 var(--body); color: var(--mute); }
+.hc p b { font: 700 11.5px var(--body); color: var(--text); }
+.creset { display: flex; align-items: center; gap: 10px; padding-top: 2px; }
+.creset .btn { padding: 6px 12px; font-size: 12px; }
+.creset small { font: 600 11px var(--body); color: var(--mute); }
+@media (max-width: 700px) { .ctrlcard[data-tab="tactil"] .cwrap { grid-template-columns: 1fr; } .hgrid { grid-template-columns: 1fr; } }
+
+#app[data-ctrl]:not([data-edit]) #stickBase, #app[data-ctrl]:not([data-edit]) #stickKnob, #app[data-ctrl]:not([data-edit]) .ctl:not(#pauseBtn) { opacity: 0 !important; }
+.ctrlcard .cbody { scrollbar-width: thin; }
+
+.shopcard .chips { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 9px; }
+.chip-o canvas.thumb { width: 100%; max-width: 84px; aspect-ratio: 76 / 50; border-radius: 9px; border: 1.5px solid rgba(150,175,255,.35); box-sizing: border-box; background: #0c1334; box-shadow: 0 2px 8px -3px rgba(0,0,0,.6); }
+.chip-o i.big { width: 100%; max-width: 84px; height: auto; aspect-ratio: 76 / 50; border-radius: 9px; border: 1.5px solid rgba(150,175,255,.35); position: relative; box-shadow: 0 2px 8px -3px rgba(0,0,0,.6), inset 0 0 18px rgba(0,0,0,.35); }
+.chip-o.lock i.big { filter: saturate(.75) brightness(.8); }
+.chip-o.lock i.big::after { content: ''; position: absolute; right: 5px; bottom: 5px; width: 13px; height: 10px; border-radius: 2px; background: #ffd23f; box-shadow: 0 -5px 0 -3px #ffd23f; }
+.chip-o.lock { border-style: solid; opacity: .93; }
+.chip-o.lock canvas.thumb { filter: saturate(.8); }
+.chip-o.eq { border-color: rgba(255, 210, 63, .7); }
+.chip-o.can { box-shadow: 0 0 12px -5px #3dffb0; }
+.chip-o:hover canvas.thumb { border-color: rgba(255,255,255,.7); }
+.chip-o[aria-pressed="true"] canvas.thumb { border-color: var(--gold); }
+@media (max-height: 460px) { .shopcard .chips { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 7px; } .chip-o canvas.thumb { max-width: 76px; } .chip-o i.big { max-width: 76px; } }
+#shop .shopcard { transition: opacity .25s; }
+#shop.peek .shopcard { opacity: .08; }
+</style>
+
+<div id="app" data-state="menu">
+    <canvas id="view"></canvas>
+
+    <div id="hud">
+        <div class="score blue" id="sb">0</div>
+        <div class="clock" id="clock">2:00</div>
+        <div class="score orange" id="so">0</div>
+    </div>
+    <div id="names"><b>Tú</b><b>IA</b></div>
+    <div id="banner"></div>
+    <div id="drillBar"></div>
+    <div id="rpTag">● REPETICIÓN</div><button id="rpSkip" type="button">Saltar »</button>
+    <div id="count"></div>
+    <div id="combo"></div>
+    <div id="fpsBox" style="display:none;position:fixed;left:8px;bottom:6px;z-index:60;font:700 12px/1 ui-monospace,Menlo,monospace;color:#9dffb0;background:rgba(0,0,0,.45);padding:4px 7px;border-radius:6px;pointer-events:none">-- FPS</div>
+
+    <button class="ctl" id="pauseBtn" aria-label="Pausa">
+        <svg viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/></svg>
+    </button>
+    <button id="muteBtn" aria-label="Sonido" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+    </button>
+    <button id="fsBtn" aria-label="Pantalla completa">
+        <svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM4 14h2v4h4v2H4v-6zm14 0h2v6h-6v-2h4v-4z"/></svg>
+    </button>
+
+    <div id="stickZone" aria-label="Joystick"></div>
+    <div id="stickBase"><i class="up"></i><i class="dn"></i></div>
+    <div id="stickKnob"></div>
+    <button class="ctl round" id="boostBtn" aria-label="Turbo">
+        <div class="in"><svg viewBox="0 0 24 24"><path d="M13 2s1 4-2 7c-2 2-1 4 1 4-3 0-5-2-5-5 0 0-4 3-4 8a9 9 0 0 0 18 0c0-6-5-8-8-14z"/></svg><small>TURBO</small></div>
+    </button>
+    <button class="ctl round" id="comboBtn" aria-label="Salto y turbo">
+        <div class="in"><svg viewBox="0 0 24 24"><path d="M12 2 5 12h5v4h4v-4h5L12 2zM9 18h6v2c0 1.5-1.4 3-3 3s-3-1.5-3-3v-2z"/></svg><small>S+T</small></div>
+    </button>
+    <button class="ctl round" id="jumpBtn" aria-label="Salto">
+        <div class="in"><svg viewBox="0 0 24 24"><path d="M12 3 3 14h6v7h6v-7h6L12 3z"/></svg><small>SALTO</small></div>
+    </button>
+
+    <div id="editBar" hidden>
+        <b id="edTxt">Arrastra un botón</b>
+        <label>Tamaño <input type="range" id="edSize" min="60" max="170" value="100"></label>
+        <button class="btn" id="edReset">Restablecer</button>
+        <button class="btn pri" id="edDone">Listo</button>
+    </div>
+
+    <!-- Menú -->
+    <div class="screen show" id="menu">
+        <div class="card mcard">
+            <div class="mleft">
+                <h1><span class="b">Turbo</span> <span class="o">Gol</span> Arena</h1>
+                <p class="lead">Fútbol con coches en 2D. Marca más goles que el rival antes de que acabe el reloj.</p>
+                <div class="prof" id="prof">
+                    <div class="pl"><b id="pLvl">Nivel 1</b><span id="pCoins">0 monedas</span></div>
+                    <div class="pbar"><i id="pBar"></i></div>
+                    <small id="pXp"></small>
+                </div>
+                <div class="evc" id="evCard" hidden><div class="evh"><b id="evName"></b><span id="evDays"></span></div><div class="evbar"><i id="evBar"></i></div><small id="evTask"></small><small class="evg" id="evGift"></small></div>
+                <div class="sum" id="cfgSum"></div>
+                <div class="stat" id="stats"></div>
+            </div>
+            <div class="mright">
+                <div class="modes">
+                    <button class="mode main" id="playBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span><span class="mt"><b>Jugar partido</b><small>Contra la IA · usa tu configuración</small></span></button>
+                    <button class="mode" id="cupBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.2A5 5 0 0 1 13 15.9V18h3v3H8v-3h3v-2.1A5 5 0 0 1 8.2 12H8a4 4 0 0 1-4-4V5h3V3zm-1 4v1a2 2 0 0 0 2 2V7H6zm12 0h-2v3a2 2 0 0 0 2-2V7z"/></svg></span><span class="mt"><b>Copa Turbo</b><small>8 o 16 equipos</small></span></button>
+                    <button class="mode" id="freeBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></span><span class="mt"><b>Entrenamiento</b><small>Sin reloj</small></span></button>
+                    <button class="mode" id="v2Btn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm8 0a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM2 19c0-3.300 2.700-6 6-6s6 2.700 6 6H2zm11.500 0a7.500 7.500 0 0 0-2-5.100A6 6 0 0 1 22 19h-8.500z"/></svg></span><span class="mt"><b>2 contra 2</b><small>Con compañero IA</small></span></button>
+                </div>
+                <button class="btn ghost wide" id="cfgBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 3h-4l-.4 2.6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.500 7.500 0 0 0 0 2l-2 1.6 2 3.400 2.4-1a7 7 0 0 0 1.700 1L11 21h4l.4-2.600a7 7 0 0 0 1.700-1l2.400 1 2-3.400-2-1.600zM13 15.500a3.500 3.500 0 1 1 0-7 3.500 3.500 0 0 1 0 7z"/></svg> Configurar partido</button>
+                <div class="tiles">
+                    <button class="tile" id="garageBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11l1.6-4.500A2 2 0 0 1 8.500 5h7a2 2 0 0 1 1.900 1.500L19 11a2 2 0 0 1 2 2v4h-2a2 2 0 0 1-4 0H9a2 2 0 0 1-4 0H3v-4a2 2 0 0 1 2-2zm3-4l-1 3h10l-1-3H8z"/></svg><span>Garaje</span></button>
+                    <button class="tile" id="shopBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16l1 5a3 3 0 0 1-2 2.800V20H5v-8.200A3 3 0 0 1 3 9l1-5zm3 9v5h4v-5H7zm6 0v5h4v-5h-4z"/></svg><span>Taller</span></button>
+                    <button class="tile" id="achBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.900 6.100 6.600.9-4.800 4.600 1.200 6.600L12 17l-5.900 3.200 1.200-6.600L2.500 9l6.600-.9L12 2z"/></svg><span>Logros</span></button>
+                    <button class="tile" id="ctrlBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12a4 4 0 0 1 3.900 4.800l-.9 4.500A2.500 2.500 0 0 1 16 17.500L15 16H9l-1 1.500a2.500 2.500 0 0 1-5-.2l-.9-4.500A4 4 0 0 1 6 8zm1 2v1.200H5.800v1.600H7V14h1.600v-1.200h1.200v-1.600H8.600V10H7zm9 .500a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg><span>Controles</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entrenamiento -->
+    <div class="screen" id="train">
+        <div class="card shopcard">
+            <div class="ghead">
+                <h2>Entrenamiento</h2>
+                <button class="btn" id="trOk">← Atrás</button>
+            </div>
+            <div class="trgrid">
+                <button class="trc" data-d="free"><b>Entrenamiento libre</b><small>Sin reloj ni rival. Practica lo que quieras.</small></button>
+                <button class="trc" data-d="shoot"><b>Tiros a portería</b><small>Seis tiros con el balón rodando.</small><i class="stars" data-s="shoot"></i></button>
+                <button class="trc" data-d="air"><b>Aéreos</b><small>El balón sube por los aires: salta y remata.</small><i class="stars" data-s="air"></i></button>
+                <button class="trc" data-d="save"><b>Paradas</b><small>Defiende tu portería de ocho disparos.</small><i class="stars" data-s="save"></i></button>
+                <button class="trc" data-d="prec"><b>Precisión</b><small>Marca dentro del círculo dorado.</small><i class="stars" data-s="prec"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configurar partido -->
+    <div class="screen" id="setup">
+        <div class="card shopcard setupcard">
+            <div class="ghead">
+                <h2>Configurar partido</h2>
+                <button class="btn" id="setupOk">← Atrás</button>
+            </div>
+            <div class="opts">
+                <div><label class="t">Dificultad</label>
+                    <div class="seg" id="segDiff">
+                        <button data-v="0" aria-pressed="false">Fácil</button>
+                        <button data-v="1" aria-pressed="true">Normal</button>
+                        <button data-v="2" aria-pressed="false">Difícil</button>
+                        <button data-v="3" aria-pressed="false">Leyenda</button>
+                    </div>
+                </div>
+                <div><label class="t">Duración</label>
+                    <div class="seg" id="segTime">
+                        <button data-v="60" aria-pressed="false">1 min</button>
+                        <button data-v="120" aria-pressed="true">2 min</button>
+                        <button data-v="180" aria-pressed="false">3 min</button>
+                    </div>
+                </div>
+                <div><label class="t">Mutadores <small class="hint">cambian las reglas del partido (no se aplican en la Copa)</small></label>
+                    <div class="seg wrap5" id="segMut">
+                        <button data-m="giant" aria-pressed="false">Balón gigante</button>
+                        <button data-m="lowG" aria-pressed="false">Gravedad baja</button>
+                        <button data-m="inf" aria-pressed="false">Turbo infinito</button>
+                        <button data-m="fast" aria-pressed="false">Balón rápido</button>
+                        <button data-m="two" aria-pressed="false">Dos balones</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Garaje -->
+    <div class="screen" id="garage">
+        <div class="card garage gx">
+            <div class="ghead">
+                <h2>Garaje</h2>
+                <button class="btn" id="garageOk">← Atrás</button>
+            </div>
+            <div class="gmain">
+                <div class="gstage" id="gStage">
+                    <canvas id="gBig"></canvas>
+                    <button class="gnav l" id="gPrev" aria-label="Coche anterior">‹</button>
+                    <button class="gnav r" id="gNext" aria-label="Coche siguiente">›</button>
+                    <div class="ghint" id="gHint" hidden><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z"/></svg>Secreto</b><span></span></div>
+                    <div class="gtaps" id="gTaps" hidden></div>
+                    <div class="gname"><b id="ciName"></b><span class="chip" id="ciRar"></span><small id="ciTag"></small></div>
+                </div>
+                <div class="gside" id="carInfo">
+                    <p id="ciDesc" class="gdesc"></p>
+                    <div class="ci-stats" id="ciStats"></div>
+                    <div class="ci-hit" id="ciHit"></div>
+                    <label class="dors"><span>Dorsal</span><input id="dorInp" type="text" inputmode="text" maxlength="3" autocomplete="off" spellcheck="false" placeholder="07"><small>hasta 3 letras o números</small></label>
+                    <div class="grow">
+                        <button class="btn" id="gEquip">Equipar</button>
+                        <button class="btn ghost" id="gTest">Probar</button>
+                    </div>
+                    <div class="grow">
+                        <button class="btn ghost" id="gShop">Taller</button>
+                        <button class="btn ghost" id="gHit" aria-pressed="false">Hitbox</button>
+                    </div>
+                </div>
+            </div>
+            <div class="cars" id="carGrid"></div>
+        </div>
+    </div>
+
+    <!-- Taller: personalización con vista previa en el campo -->
+    <div class="screen" id="shop">
+        <div class="card shopcard">
+            <div class="ghead">
+                <div class="tabs" id="shopTabs" role="tablist">
+                    <button data-t="paint" aria-pressed="true">Pintura</button>
+                    <button data-t="wheel" aria-pressed="false">Ruedas</button>
+                    <button data-t="decal" aria-pressed="false">Pegatina</button>
+                    <button data-t="trail" aria-pressed="false">Estela</button>
+                    <button data-t="boom" aria-pressed="false">Gol</button>
+                    <button data-t="ball" aria-pressed="false">Balón</button>
+                </div>
+                <span class="coins" id="shopCoins"></span>
+                <button class="btn" id="shopOk">← Atrás</button>
+            </div>
+            <div class="shopbody">
+                <div class="shopleft">
+                    <div class="shopstage"><canvas id="shopBig"></canvas><div id="shopSw"></div></div>
+                    <b id="shopName"></b>
+                    <span id="shopPrice"></span>
+                    <button class="btn pri" id="shopAct">Equipar</button>
+                    <small id="shopProg"></small>
+                </div>
+                <div class="shopright">
+                    <div class="shopfilt" id="shopFilt">
+                        <button data-f="all" aria-pressed="true">Todo</button>
+                        <button data-f="own" aria-pressed="false">Tengo</button>
+                        <button data-f="can" aria-pressed="false">Puedo comprar</button>
+                        <button data-f="lock" aria-pressed="false">Bloqueado</button>
+                        <button data-s="1" aria-pressed="false">Orden: normal</button>
+                    </div>
+                    <div class="chips" id="shopChips"></div>
+                    <div class="shopnote" id="shopNote"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logros y estadísticas -->
+    <div class="screen" id="ach">
+        <div class="card shopcard">
+            <div class="ghead">
+                <h2>Logros y estadísticas</h2>
+                <button class="btn" id="achOk">← Atrás</button>
+            </div>
+            <div class="achbody">
+                <div>
+                    <div id="lvlBox"></div>
+                    <div id="statGrid"></div>
+                </div>
+                <div id="achList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controles -->
+    <div class="screen" id="ctrls">
+        <div class="card ctrlcard" data-tab="tactil">
+            <div class="ghead">
+                <h2>Controles</h2>
+                <button class="btn" id="ctrlOk">← Atrás</button>
+            </div>
+            <div class="tabs ctabs" id="ctabs" role="tablist">
+                <button data-t="tactil" aria-pressed="true">Táctil</button>
+                <button data-t="mando" aria-pressed="false">Mando y teclado</button>
+                <button data-t="vibra" aria-pressed="false">Vibración</button>
+                <button data-t="pantalla" aria-pressed="false">Pantalla y sonido</button>
+                <button data-t="copia" aria-pressed="false">Copia</button>
+                <button data-t="ayuda" aria-pressed="false">Ayuda</button>
+            </div>
+            <div class="cbody">
+                <div class="cwrap">
+                    <div class="opts">
+                <div data-tab="tactil"><label class="t">Tamaño de botones</label>
+                    <div class="seg" id="segSize">
+                        <button data-v="s" aria-pressed="false">Pequeño</button>
+                        <button data-v="m" aria-pressed="true">Medio</button>
+                        <button data-v="l" aria-pressed="false">Grande</button>
+                    </div>
+                </div>
+                <div data-tab="tactil"><label class="t">Joystick en</label>
+                    <div class="seg" id="segHand">
+                        <button data-v="l" aria-pressed="true">Izquierda</button>
+                        <button data-v="r" aria-pressed="false">Derecha</button>
+                    </div>
+                </div>
+                <div data-tab="tactil"><label class="t">Modo del joystick</label>
+                    <div class="seg" id="segStick">
+                        <button data-v="float" aria-pressed="true">Flotante</button>
+                        <button data-v="fixed" aria-pressed="false">Fijo</button>
+                    </div>
+                </div>
+                <div data-tab="tactil"><label class="t">Transparencia</label>
+                    <div class="seg" id="segAlpha">
+                        <button data-v="n" aria-pressed="false">Opaco</button>
+                        <button data-v="soft" aria-pressed="true">Suave</button>
+                    </div>
+                </div>
+                <div data-tab="tactil"><label class="t">Arriba salta (suelo)</label>
+                    <div class="seg" id="segFlick">
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                        <button data-v="0" aria-pressed="false">No</button>
+                    </div>
+                </div>
+                <div data-tab="tactil"><label class="t">Giro aéreo: doble toque</label>
+                    <div class="seg" id="segRoll">
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                        <button data-v="0" aria-pressed="false">No</button>
+                    </div>
+                </div>
+                <div data-tab="tactil"><label class="t">Botón Salto+Turbo</label>
+                    <div class="seg" id="segCombo">
+                        <button data-v="1" aria-pressed="false">Sí</button>
+                        <button data-v="0" aria-pressed="true">No</button>
+                    </div>
+                </div>
+                <div data-tab="tactil"><label class="t">Botones táctiles</label>
+                    <div class="seg" id="segLay">
+                        <button id="edBtn" aria-pressed="false">Mover y cambiar tamaño</button>
+                        <button id="edReset0" aria-pressed="false">Restablecer</button>
+                    </div>
+                </div>
+                <div data-tab="mando"><label class="t">Dispositivo</label>
+                    <div class="seg" id="segDev">
+                        <button data-v="touch" aria-pressed="true">Móvil / mando</button>
+                        <button data-v="pc" aria-pressed="false">PC</button>
+                    </div>
+                </div>
+                <div data-tab="mando"><label class="t">Ocultar táctil con mando</label>
+                    <div class="seg" id="segPadHide">
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                        <button data-v="0" aria-pressed="false">No</button>
+                    </div>
+                </div>
+                <div data-tab="vibra"><label class="t">Vibración</label>
+                    <div class="seg" id="segHaptic">
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                        <button data-v="0" aria-pressed="false">No</button>
+                    </div>
+                </div>
+                <div data-tab="vibra"><label class="t">Vibración en…</label>
+                    <div class="seg" id="segHap">
+                        <button data-m="goal" aria-pressed="true">Goles</button>
+                        <button data-m="hit" aria-pressed="true">Golpes</button>
+                        <button data-m="boost" aria-pressed="true">Turbo y discos</button>
+                        <button data-m="jump" aria-pressed="true">Saltos y piruetas</button>
+                        <button data-m="btn" aria-pressed="true">Botones y joystick</button>
+                        <button data-m="ui" aria-pressed="true">Menús</button>
+                    </div>
+                </div>
+                <div data-tab="vibra"><label class="t">Intensidad de vibración</label>
+                    <div class="seg" id="segHapI">
+                        <button data-v="low" aria-pressed="false">Suave</button>
+                        <button data-v="mid" aria-pressed="true">Normal</button>
+                        <button data-v="high" aria-pressed="false">Fuerte</button>
+                    </div>
+                </div>
+                                <div data-tab="pantalla"><label class="t">Gráficos</label>
+                    <div class="seg" id="segGfx">
+                        <button data-v="ultra" aria-pressed="false" id="gfxUltra" hidden>Ultra (PC)</button>
+                        <button data-v="high" aria-pressed="true">Alto</button>
+                        <button data-v="mid" aria-pressed="false">Medio</button>
+                        <button data-v="low" aria-pressed="false">Bajo</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Estadio</label>
+                    <div class="seg" id="segStad">
+                        <button data-v="snow" aria-pressed="true">Nevado</button>
+                        <button data-v="neon" aria-pressed="false">Neón</button>
+                        <button data-v="desierto" aria-pressed="false">Desierto</button>
+                        <button data-v="ciudad" aria-pressed="false">Ciudad</button>
+                        <button data-v="volcan" aria-pressed="false">Volcán</button>
+                        <button data-v="retro" aria-pressed="false">Retro</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Efecto de televisor antiguo (estadio Retro)</label>
+                    <div class="seg" id="segCrt">
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                        <button data-v="0" aria-pressed="false">No</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Cámara dinámica (zoom en disparos, aéreos y goles)</label>
+                    <div class="seg" id="segCam">
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                        <button data-v="0" aria-pressed="false">No</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Evento de temporada (decoración)</label>
+                    <div class="seg" id="segEvt">
+                        <button data-v="auto" aria-pressed="true">Según la fecha</button>
+                        <button data-v="off" aria-pressed="false">Ninguno</button>
+                        <button data-v="halloween" aria-pressed="false">🎃 Halloween</button>
+                        <button data-v="navidad" aria-pressed="false">🎄 Navidad</button>
+                        <button data-v="sanvalentin" aria-pressed="false">💘 San Valentín</button>
+                        <button data-v="primavera" aria-pressed="false">🌸 Primavera</button>
+                        <button data-v="verano" aria-pressed="false">☀️ Verano</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Clima y hora del día (solo visual)</label>
+                    <div class="seg" id="segSky">
+                        <button data-v="0" aria-pressed="false">No</button>
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Música</label>
+                    <div class="seg" id="segMusic">
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                        <button data-v="0" aria-pressed="false">No</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Comentarista</label>
+                    <div class="seg" id="segComm">
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                        <button data-v="0" aria-pressed="false">No</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Repetición de goles</label>
+                    <div class="seg" id="segReplay">
+                        <button data-v="0" aria-pressed="false">No</button>
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Contador de FPS</label>
+                    <div class="seg" id="segFps">
+                        <button data-v="0" aria-pressed="true">No</button>
+                        <button data-v="1" aria-pressed="false">Sí</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Mostrar hitbox</label>
+                    <div class="seg" id="segHit">
+                        <button data-v="1" aria-pressed="false">Sí</button>
+                        <button data-v="0" aria-pressed="true">No</button>
+                    </div>
+                </div>
+                    </div>
+                    <div class="cpane" data-tab="tactil">
+                        <div class="pv" id="pv"><i data-k="stick">JOYSTICK</i><i data-k="jump">SALTO</i><i data-k="boost">TURBO</i><i data-k="combo">S+T</i></div>
+                        <small>Así quedan tus botones. Usa «Mover y cambiar tamaño» para ajustarlos con el dedo.</small>
+                    </div>
+                    <div class="cpane" data-tab="mando">
+                        <table class="ktab">
+                            <tr><th>Acción</th><th>Mando Xbox</th><th>Teclado</th></tr>
+                            <tr><td>Conducir</td><td>Stick izquierdo</td><td>A / D o ← →</td></tr>
+                            <tr><td>Apuntar en el aire</td><td>Stick izquierdo</td><td>W / S o ↑ ↓</td></tr>
+                            <tr><td>Saltar</td><td>A</td><td>Espacio</td></tr>
+                            <tr><td>Turbo</td><td>B o RT</td><td>Mayús o K</td></tr>
+                            <tr><td>Giro aéreo</td><td>LB</td><td>Q o Ctrl</td></tr>
+                            <tr><td>Pausa</td><td>☰</td><td>P</td></tr>
+                            <tr><td>Pantalla completa</td><td>—</td><td>F</td></tr>
+                            <tr><td>Menús</td><td>Cruceta · A aceptar · B atrás · LB/RB pestañas</td><td>Flechas · Intro · Retroceso</td></tr>
+                        </table>
+                    </div>
+                    <div class="cpane" data-tab="vibra">
+                        <button class="btn ghost" id="hapTest">Probar vibración</button>
+                        <small>La vibración del móvil solo funciona en algunos navegadores; el mando vibra si es compatible.</small>
+                    </div>
+                    <div class="cpane bk" data-tab="copia">
+                        <p class="bkp">Guarda todo tu progreso (monedas, objetos, logros, Copa, lo que la IA ha aprendido de ti y tus ajustes) en un código para pasarlo a otro móvil o navegador, o por si se borran los datos.</p>
+                        <div class="bkrow"><button class="btn" id="bkExp">Crear código</button><button class="btn ghost" id="bkCopy" disabled>Copiar</button><button class="btn ghost" id="bkSave" disabled>Descargar .txt</button></div>
+                        <textarea id="bkTxt" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Aquí aparece tu código. Para recuperar una copia, pega aquí el código y pulsa «Importar código»."></textarea>
+                        <div class="bkrow"><button class="btn" id="bkImp">Importar código</button><button class="btn ghost" id="bkFileBtn">Abrir archivo .txt</button><button class="btn ghost" id="bkUndo" hidden>Deshacer importación</button><input type="file" id="bkFile" accept=".txt,text/plain" hidden></div>
+                        <div id="bkConf" class="bkconf" hidden><div id="bkSum"></div><div class="bkrow"><button class="btn" id="bkYes">Sí, cargar esta copia</button><button class="btn ghost" id="bkNo">Cancelar</button></div></div>
+                        <div id="bkMsg" class="bkmsg" role="status"></div>
+                    </div>
+                    <div class="cpane" data-tab="ayuda">
+                        <div class="hgrid">
+                        <div class="hc"><i><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5"/><path d="M12 3l-2.5 3h5zM12 21l-2.5-3h5zM3 12l3-2.5v5zM21 12l-3-2.5v5z"/></svg></i><div><b>Joystick</b><p>En todas las direcciones: izquierda y derecha conducen; en el suelo, arriba salta y abajo frena; en el aire, el morro apunta hacia donde empujes y se estabiliza al soltar. <b>Doble toque</b> (el segundo sin soltar) y el coche gira en el aire mientras empujes izquierda o derecha.</p></div></div>
+                        <div class="hc"><i><svg viewBox="0 0 24 24"><path d="M12 3 4 13h5v8h6v-8h5z"/></svg></i><div><b>Salto y voltereta</b><p><b>Salto</b> y un segundo salto con dirección hacen una voltereta con golpe fuerte.</p></div></div>
+                        <div class="hc"><i><svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 8 8h-2.5a5.5 5.5 0 1 1-5.5-5.5V10l5-4.5L12 1z"/></svg></i><div><b>Media vuelta y aéreo rápido</b><p><b>Media vuelta:</b> salta y, en el aire, vuelve a saltar empujando hacia atrás (contra tu sentido de marcha) y saldrás disparado girado. <b>Aéreo rápido:</b> segundo salto sin dirección justo tras despegar = impulso extra.</p></div></div>
+                        <div class="hc"><i><svg viewBox="0 0 24 24"><path d="M13 2s1 4-2 7c-2 2-1 4 1 4-3 0-5-2-5-5 0 0-4 3-4 8a9 9 0 0 0 18 0c0-6-5-8-8-14z"/></svg></i><div><b>Turbo</b><p>Acelera y te impulsa en el aire. Recoge los discos del suelo para recargarlo.</p></div></div>
+                        <div class="hc"><i><svg viewBox="0 0 24 24"><path d="M3 4h18v12H3zM9 19h6v2H9z"/></svg></i><div><b>PC y teclado</b><p>A/D o flechas conducen, W/S apuntan el morro en el aire, Espacio salta, Mayús turbo, Q giro aéreo, P pausa, F pantalla completa. Menús: flechas, Intro, Retroceso.</p></div></div>
+                        <div class="hc"><i><svg viewBox="0 0 24 24"><path d="M7 8h10a5 5 0 0 1 5 5l-1 4a2 2 0 0 1-3.5.7L16 16H8l-1.5 1.7A2 2 0 0 1 3 17l-1-4a5 5 0 0 1 5-5z"/></svg></i><div><b>Mando Xbox</b><p>Stick izquierdo conduce y apunta, A salta, B turbo, LB giro aéreo, ☰ pausa. En los menús: cruceta, A aceptar, B atrás.</p></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="creset"><button class="btn ghost" id="cReset">Restablecer esta pestaña</button><small id="cResetMsg"></small></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pausa -->
+    <div class="screen" id="pause">
+        <div class="card single">
+            <h2>Pausa</h2>
+            <div class="row">
+                <button class="btn" id="resumeBtn">Continuar</button>
+                <button class="btn ghost" id="ctrlBtn2">Controles</button>
+                <button class="btn ghost" id="restartBtn">Reiniciar partido</button>
+                <button class="btn ghost" id="quitBtn">Salir al menú</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Torneo -->
+    <div class="screen" id="cup">
+        <div class="card cupcard">
+            <div class="ghead">
+                <div class="cuptitle"><b>Copa Turbo</b><small id="cupSub"></small></div>
+                <button class="btn" id="cupGo">Jugar</button>
+                <button class="btn ghost" id="cupNew">Nuevo torneo</button>
+                <button class="btn ghost" id="cupOk">← Atrás</button>
+            </div>
+            <div id="segCupBox" class="cupsize"><label class="t">Formato</label>
+                <div class="seg" id="segCup"><button data-v="8" aria-pressed="true">8 equipos</button><button data-v="16" aria-pressed="false">16 equipos</button></div>
+            </div>
+            <div id="bracket"></div>
+            <div class="shopnote" id="cupNote"></div>
+        </div>
+    </div>
+
+    <!-- Fin de partido -->
+    <div class="screen" id="end">
+        <div class="card single">
+            <h2 id="endTitle">Victoria</h2>
+            <div class="final"><span class="sb" id="endB">0</span><span class="dash">-</span><span class="so" id="endO">0</span></div>
+            <div class="stat" id="endStat"></div>
+            <div class="stat" id="endCoins"></div>
+            <div id="endLvl"></div>
+            <div class="row two">
+                <button class="btn" id="againBtn">Revancha</button>
+                <button class="btn" id="cupNext" style="display:none">Ver cuadro</button>
+                <button class="btn ghost" id="menuBtn">Menú</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Elección de dispositivo al iniciar -->
+    <div class="screen" id="device">
+        <div class="card single devcard">
+            <h2>¿Cómo vas a jugar?</h2>
+            <p class="lead" style="max-width:none">Elige tu dispositivo. Podrás cambiarlo luego en Controles.</p>
+            <div class="devgrid">
+                <button class="devopt" id="devTouch">
+                    <svg viewBox="0 0 64 48"><rect x="4" y="8" width="56" height="32" rx="6" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="16" cy="24" r="6" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="46" cy="20" r="3" fill="currentColor"/><circle cx="52" cy="27" r="3" fill="currentColor"/></svg>
+                    <b>Móvil o mando</b><span>Pantalla táctil o mando de Xbox</span><em>Recomendado</em>
+                </button>
+                <button class="devopt" id="devPc">
+                    <svg viewBox="0 0 64 48"><rect x="6" y="4" width="52" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><path d="M22 44h20M32 34v10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                    <b>PC</b><span>Teclado y ratón, en pantalla grande</span><em>Recomendado</em>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="padHint">A aceptar &nbsp;·&nbsp; B atrás &nbsp;·&nbsp; Cruceta mover &nbsp;·&nbsp; ☰ pausa</div>
+    <div id="rotate">
+        <svg viewBox="0 0 48 48"><rect x="14" y="4" width="20" height="40" rx="4"/><circle cx="24" cy="38" r="1.5"/></svg>
+        <p>Gira el teléfono</p>
+        <span>Turbo Gol Arena se juega en horizontal.</span>
+    </div>
+</div>
+
+<script src="engine.js" charset="utf-8"></script>
+<script src="cars.js" charset="utf-8"></script>
+<script src="game.js" charset="utf-8"></script>
+
+<script>
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { /* sin modo sin conexión */ }); });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+{
+ "name": "Turbo Gol Arena",
+ "short_name": "Turbo Gol",
+ "description": "Fútbol con coches en vista lateral: turbo, saltos, aéreos y goles.",
+ "id": "./",
+ "start_url": "./",
+ "scope": "./",
+ "display": "fullscreen",
+ "display_override": [
+  "fullscreen",
+  "standalone"
+ ],
+ "orientation": "landscape",
+ "background_color": "#070a1a",
+ "theme_color": "#070a1a",
+ "lang": "es",
+ "categories": [
+  "games",
+  "sports"
+ ],
+ "icons": [
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/maskable-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "maskable"
+  },
+  {
+   "src": "icons/maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "screenshots": [
+  {
+   "src": "icons/captura.jpg",
+   "sizes": "1280x720",
+   "type": "image/jpeg",
+   "form_factor": "wide",
+   "label": "Turbo Gol Arena"
+  }
+ ]
+}
