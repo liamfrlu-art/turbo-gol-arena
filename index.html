@@ -172,6 +172,8 @@ h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
 .seg.wrap { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); }
 .seg.wrap button { padding-left: 4px; padding-right: 4px; font-size: .86em; }
+#segStad { grid-auto-flow: row; grid-template-columns: repeat(4, 1fr); }      /* 7 estadios: dos filas */
+#segStad button { padding-left: 4px; padding-right: 4px; }
 .seg button {
     font: 700 13px var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line);
     border-radius: 10px; padding: 9px 6px; cursor: pointer;
@@ -1027,7 +1029,8 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
                 </div>
                 <div data-tab="pantalla"><label class="t">Estadio</label>
                     <div class="seg" id="segStad">
-                        <button data-v="snow" aria-pressed="true">Nevado</button>
+                        <button data-v="random" aria-pressed="true">Aleatorio</button>
+                        <button data-v="snow" aria-pressed="false">Nevado</button>
                         <button data-v="neon" aria-pressed="false">Neón</button>
                         <button data-v="desierto" aria-pressed="false">Desierto</button>
                         <button data-v="ciudad" aria-pressed="false">Ciudad</button>

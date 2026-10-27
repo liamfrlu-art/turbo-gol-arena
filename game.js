@@ -27,6 +27,13 @@
         flick: store.get('flick', true), hit: store.get('hit', false), music: store.get('music', true), roll: store.get('roll', true), padHide: store.get('padHide', true), dev: store.get('dev', null), combo: store.get('combo', false), comm: store.get('comm', true),
         fps: store.get('fps', false), paint: store.get('paint', 'team'), wheel: store.get('wheel', 'auto'), trail: store.get('trail', 'auto'), boom: store.get('boom', 'classic'), ball: store.get('ball', 'classic'), stad: store.get('stad', 'snow'), evt: store.get('evt', 'auto'), crt: store.get('crt', true), cam: store.get('cam', !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches))
     };
+    // estadio: stadSel es lo elegido en Controles ('random' o uno fijo) y cfg.stad el que se está viendo.
+    // Quien ya había elegido uno a mano lo conserva; si no, cada partida se juega en un estadio al azar.
+    const STADS = ['snow', 'neon', 'desierto', 'ciudad', 'volcan', 'retro'];
+    cfg.stadSel = store.get('stadSel', store.get('stad', 'random'));
+    if (cfg.stadSel !== 'random' && STADS.indexOf(cfg.stadSel) < 0) cfg.stadSel = 'random';
+    const pickStad = () => { const o = STADS.filter(s => s !== cfg.stad); return o[Math.floor(Math.random() * o.length)]; };
+    cfg.stad = cfg.stadSel === 'random' ? STADS[Math.floor(Math.random() * STADS.length)] : cfg.stadSel;
     let hapMark = null;
     // ---------- eventos de temporada según la fecha del dispositivo ----------
     const EVENTS = {
@@ -396,6 +403,7 @@
     function setWorld(n) { if (S.world.cars.length !== n) { S.world = T.makeWorld(n); RC.n = 0; } }
     function startMatch(mode, cup, v2) {
         audio();
+        if (cfg.stadSel === 'random') { cfg.stad = pickStad(); resize(); }      // estadio nuevo en cada partida
         S.v2 = !!v2 && !cup && mode === 'match'; setWorld(S.v2 ? 4 : 2);
         S.mode = mode; S.cup = cup || null; S.world.cars[1].ghost = false;
         S.score = [0, 0]; S.time = cfg.time; S.ot = false; S.endAfterGoal = false; S.slow = 1; S.acc = 0;
@@ -3272,13 +3280,14 @@
         tactil: { size: 'm', hand: 'l', stick: 'float', alpha: 'soft', flick: true, roll: true, combo: false, lay: {} },
         mando: { padHide: true },
         vibra: { haptic: true, hap: {}, hapI: 'mid' },
-        pantalla: { gfx: 'high', fps: false, stad: 'snow', sky: true, music: true, comm: true, replay: true, hit: false }
+        pantalla: { gfx: 'high', fps: false, stadSel: 'random', sky: true, music: true, comm: true, replay: true, hit: false }
     };
     $('cReset').addEventListener('click', () => {
         const tab = document.querySelector('.ctrlcard').dataset.tab, def = CDEF[tab]; if (!def) return;
         if (!ctrlResetArm) { ctrlResetArm = true; $('cReset').textContent = '¿Seguro? Pulsa otra vez'; clearTimeout(ctrlResetT); ctrlResetT = setTimeout(() => { ctrlResetArm = false; $('cReset').textContent = 'Restablecer esta pestaña'; }, 3000); sfx('click'); return; }
         ctrlResetArm = false; clearTimeout(ctrlResetT); $('cReset').textContent = 'Restablecer esta pestaña';
         for (const k in def) { cfg[k] = typeof def[k] === 'object' ? JSON.parse(JSON.stringify(def[k])) : def[k]; store.set(k, cfg[k]); if (segs[k]) segs[k](); }
+        if ('stadSel' in def) applyStad();
         if (hapMark) hapMark();
         applyPrefs(); applyGfx(); applyLay(); if (fpsBox) fpsBox.style.display = cfg.fps ? 'block' : 'none'; app.dataset.padhide = cfg.padHide ? '1' : '0';
         requestAnimationFrame(updatePv); sfx('unlock'); $('cResetMsg').textContent = 'Restablecido';
@@ -3369,13 +3378,14 @@
         requestAnimationFrame(() => { if (typeof updatePv === 'function') updatePv(); });
     }
     function applyGfx() { Q = GFX[cfg.gfx] || GFX.high; resize(); }
+    function applyStad() { cfg.stad = cfg.stadSel === 'random' ? pickStad() : cfg.stadSel; resize(); }
     { const root = $('segMut'), mark = () => root.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(!!cfg.mut[b.dataset.m])));
       root.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; cfg.mut[b.dataset.m] = !cfg.mut[b.dataset.m]; store.set('mut', cfg.mut); mark(); });
       mark(); segs.mut = mark; }
     segment('segDiff', 'diff', Number); segment('segTime', 'time', Number);
     segment('segSize', 'size', String, applyPrefs); segment('segHand', 'hand', String, applyPrefs);
     segment('segAlpha', 'alpha', String, applyPrefs); segment('segStick', 'stick', String);
-    segment('segGfx', 'gfx', String, applyGfx); segment('segCup', 'cupSize', Number, () => renderCup()); segment('segReplay', 'replay', v => v === '1', null); segment('segSky', 'sky', v => v === '1', null); segment('segHapI', 'hapI', String, () => buzz(40, 'test')); $('rpSkip').addEventListener('click', skipReplay); segment('segFps', 'fps', v => v === '1', () => { if (fpsBox) fpsBox.style.display = cfg.fps ? 'block' : 'none'; }); segment('segStad', 'stad', String, resize); segment('segEvt', 'evt', String, () => { evRefresh(); resize(); evUI(); }); segment('segCam', 'cam', v => v === '1', null); segment('segCrt', 'crt', v => v === '1', null);
+    segment('segGfx', 'gfx', String, applyGfx); segment('segCup', 'cupSize', Number, () => renderCup()); segment('segReplay', 'replay', v => v === '1', null); segment('segSky', 'sky', v => v === '1', null); segment('segHapI', 'hapI', String, () => buzz(40, 'test')); $('rpSkip').addEventListener('click', skipReplay); segment('segFps', 'fps', v => v === '1', () => { if (fpsBox) fpsBox.style.display = cfg.fps ? 'block' : 'none'; }); segment('segStad', 'stadSel', String, applyStad); segment('segEvt', 'evt', String, () => { evRefresh(); resize(); evUI(); }); segment('segCam', 'cam', v => v === '1', null); segment('segCrt', 'crt', v => v === '1', null);
     segment('segHaptic', 'haptic', v => v === '1', () => buzz(25, 'test'));
     segment('segFlick', 'flick', v => v === '1'); segment('segDev', 'dev', String, () => applyDev(true)); segment('segPadHide', 'padHide', v => v === '1', () => { app.dataset.padhide = cfg.padHide ? '1' : '0'; }); segment('segRoll', 'roll', v => v === '1'); segment('segCombo', 'combo', v => v === '1', applyPrefs); segment('segComm', 'comm', v => v === '1', () => { if (!cfg.comm) stopSpeech(); else say('Comentarista activado.', 2); }); segment('segMusic', 'music', v => v === '1'); segment('segHit', 'hit', v => v === '1');
     { const ub = $('gfxUltra'); if (ub && PC) ub.hidden = false; const fb = $('fpsBox'); if (fb) fb.style.display = cfg.fps ? 'block' : 'none'; }
