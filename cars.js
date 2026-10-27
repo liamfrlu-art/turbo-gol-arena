@@ -496,7 +496,27 @@ window.CARS = (() => {
         g.fillStyle = 'rgba(255,190,70,.95)'; g.beginPath(); g.arc(37.6, 7, .9, 0, TAU); g.fill();
         fuelCap(g, -35, -3.2); marker(g, 30, 3.2); marker(g, -42, 3.4);
         g.fillStyle = '#c9d2f2'; rrect(g, 5, -3.4, 4.6, 1, .5); g.fill();
-        g.strokeStyle = '#0d1126'; g.lineWidth = .7; g.beginPath(); g.moveTo(-15, -18.5); g.lineTo(-17.5, -22.6); g.stroke(); glowDot(g, -17.5, -22.6, 2.2, '255,255,255', .5);
+        // antena flexible: se dobla hacia atrás con la velocidad y vibra
+        { const sp = Math.min(1, (o.spin || 0) / 700), bx = -15, by = -18.5, tx = bx - 2.5 - sp * 5.5 + Math.sin(t * 13) * (.35 + sp * .9), ty = by - 5.4 + sp * 1.6;
+          g.strokeStyle = '#0d1126'; g.lineWidth = .7; g.beginPath(); g.moveTo(bx, by); g.quadraticCurveTo(bx - .4, by - 3, tx, ty); g.stroke(); glowDot(g, tx, ty, 2.2, '255,255,255', .5); }
+        // alerón de techo sobre el portón
+        poly(g, [[-30.6, -18.6], [-38.8, -19.8], [-39.6, -17.6], [-32, -16.2]], s.dark);
+        g.fillStyle = 'rgba(255,255,255,.45)'; g.fillRect(-38.4, -19.6, 7.6, .5);
+        g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.fillRect(-39.4, -17.9, 1.2, .8);
+        // faros de rally en la baca: se encienden a tope con el turbo
+        for (const lx of [-19.5, -9.5]) {
+            g.fillStyle = '#0d1126'; g.fillRect(lx - .5, -23, 1, 1.6); g.beginPath(); g.arc(lx, -24.6, 2.7, 0, TAU); g.fill();
+            g.fillStyle = o.boosting ? '#fffbe0' : '#e6dca8'; g.beginPath(); g.arc(lx + .5, -24.6, 1.9, 0, TAU); g.fill();
+            g.strokeStyle = 'rgba(13,17,38,.7)'; g.lineWidth = .35; g.beginPath(); g.moveTo(lx - 1.2, -24.6); g.lineTo(lx + 2.2, -24.6); g.moveTo(lx + .5, -26.3); g.lineTo(lx + .5, -22.9); g.stroke();
+            glowDot(g, lx + 1, -24.6, o.boosting ? 6 : 3.5, '255,240,180', o.boosting ? .55 : .25);
+        }
+        // cuadros de rally en la aleta trasera
+        g.save(); poly(g, [[-41, -4.4], [-33.5, -5.6], [-33.5, -1.2], [-41, -.2]]); g.clip();
+        for (let i = 0; i < 5; i++) for (let j = 0; j < 3; j++) { g.fillStyle = (i + j) % 2 ? 'rgba(255,255,255,.9)' : 'rgba(10,14,34,.9)'; g.fillRect(-41 + i * 1.6, -5.8 + j * 1.8, 1.6, 1.8); }
+        g.restore();
+        // faldilla detrás de la rueda trasera: se balancea con la suspensión
+        { const sw = (o.susR || 0) * .5 + (o.air ? .25 : 0);
+          g.save(); g.translate(-37.6, 7.4); g.rotate(sw); g.fillStyle = '#0d1126'; rrect(g, -1.2, 0, 2.4, 6.4, .8); g.fill(); g.fillStyle = 'rgba(' + s.glow + ',.85)'; g.fillRect(-1.2, 4.8, 2.4, .7); g.restore(); }
         g.strokeStyle = 'rgba(5,8,25,.55)'; g.lineWidth = .5; g.beginPath(); g.moveTo(22, -5.4); g.lineTo(36, -3.6); g.stroke();
         g.strokeStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.moveTo(22, -6.2); g.lineTo(37, -4.5); g.stroke();
         g.strokeStyle = 'rgba(225,232,255,.9)'; g.lineWidth = .8; g.beginPath(); g.arc(40.4, -.6, 3.5, 0, TAU); g.stroke();
@@ -558,6 +578,24 @@ window.CARS = (() => {
         marker(g, 43, 4.2); marker(g, -46, 5);
         g.fillStyle = 'rgba(235,240,255,.9)'; for (const p of [[-37, 4.4], [-37, 6.4], [-15, 4.4], [-15, 6.4], [15.6, 4.4], [15.6, 6.4], [39.4, 4.4], [39.4, 6.4]]) { g.beginPath(); g.arc(p[0], p[1], .5, 0, TAU); g.fill(); }
         g.strokeStyle = '#ff3b30'; g.lineWidth = 1.1; g.beginPath(); g.arc(47.2, 7.6, 1.5, -Math.PI * .5, Math.PI * .5); g.stroke();
+        // compresor sobre el capó: vibra con el motor (mucho más con el turbo) y la correa gira
+        { const vib = Math.sin(t * 47) * (o.boosting ? .55 : .2) + Math.sin(t * 31) * (o.boosting ? .3 : .08);
+          g.save(); g.translate(0, vib);
+          const cb = g.createLinearGradient(0, -15, 0, -9.6); cb.addColorStop(0, '#ffffff'); cb.addColorStop(.45, '#a9b1d6'); cb.addColorStop(1, '#4a5278');
+          g.fillStyle = cb; rrect(g, 24.6, -14.8, 10.8, 5.4, 1.4); g.fill();
+          g.strokeStyle = 'rgba(30,36,70,.6)'; g.lineWidth = .4; for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(26 + i * 2.6, -14.4); g.lineTo(26 + i * 2.6, -9.8); g.stroke(); }
+          g.fillStyle = '#0d1126'; rrect(g, 25.6, -18.2, 8.8, 3.6, 1.2); g.fill();                                         // toma
+          g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.fillRect(25.6, -18.2, 8.8, .6);
+          g.strokeStyle = 'rgba(150,165,220,.55)'; g.lineWidth = .35; for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(26.8 + i * 2, -17.4); g.lineTo(26.8 + i * 2, -15); g.stroke(); }
+          g.save(); g.translate(36.2, -12); g.rotate(t * (o.boosting ? 30 : 12)); g.fillStyle = '#1a1f38'; g.beginPath(); g.arc(0, 0, 1.6, 0, TAU); g.fill();       // polea
+          g.strokeStyle = '#c9d0ee'; g.lineWidth = .4; g.beginPath(); g.moveTo(-1.4, 0); g.lineTo(1.4, 0); g.stroke(); g.restore();
+          g.restore(); }
+        // llamas por los escapes laterales con el turbo
+        if (o.boosting) for (let i = 0; i < 2; i++) {
+            const fl = 5 + Math.sin(t * 38 + i * 2) * 1.6 + i * 2, yy = 8.7;
+            g.fillStyle = i ? 'rgba(255,230,140,.95)' : 'rgba(255,120,40,.85)'; g.beginPath(); g.moveTo(-30, yy - 1.1 + i * .4); g.lineTo(-30 - fl, yy); g.lineTo(-30, yy + 1.1 - i * .4); g.closePath(); g.fill();
+            glowDot(g, -31, yy, 6, '255,150,60', .6);
+        }
         skirt(g, -14, 14, 7.4); flare(g, -27, 6, 10); flare(g, 28, 6, 10);
         headlight(g, 47.5, 0);
         wheel(g, -27, 6, 10, o); wheel(g, 28, 6, 10, o);
@@ -569,11 +607,16 @@ window.CARS = (() => {
         underglow(g, s, .45 + .1 * Math.sin(t * 5), 58);
         flame(g, -47, 0, 30, 5, o.boosting, t, false);
         g.fillStyle = '#0d1126'; g.fillRect(-41, -13.5, 2.4, 12.5); g.fillRect(-33, -13.5, 2.4, 10.5);
+        // alerón activo: se levanta como freno de aire al frenar y se aplana con el turbo
+        g.save(); g.translate(-37, -13.5); g.rotate(o.brake && !o.air ? -.42 : o.boosting ? .07 : 0); g.translate(37, 13.5);
         const wg = g.createLinearGradient(0, -18, 0, -12); wg.addColorStop(0, s.lite); wg.addColorStop(1, s.main);
         g.fillStyle = wg; rrect(g, -51, -18, 25, 4.2, 1.6); g.fill();
         carbon(g, [[-50, -14.2], [-26.4, -14.2], [-26.4, -12.6], [-50, -12.6]]);
         g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(-49, -17.6, 22, .7);
         g.fillStyle = s.dark; g.fillRect(-51, -19, 2.2, 8); g.fillRect(-28.2, -19, 2.2, 8);
+        g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = .5; g.beginPath(); g.moveTo(-26, -13.6); g.lineTo(-50, -13.6); g.stroke();
+        glowDot(g, -50.4, -17, 4, s.glow, .5); glowDot(g, -26.8, -17, 4, s.glow, .5);
+        g.restore();
         const build = () => {
             g.beginPath(); g.moveTo(-46, 9); g.lineTo(-46, -1); g.lineTo(-31, -3); g.lineTo(-14, -11.5); g.lineTo(6, -12.5);
             g.lineTo(28, -3.5); g.lineTo(47, 1); g.lineTo(47, 9); g.closePath();
@@ -605,8 +648,12 @@ window.CARS = (() => {
         poly(g, [[41, 3.4], [47, 3.4], [47.6, 6.4], [43, 7]], '#0d1126');
         g.strokeStyle = 'rgba(' + s.glow + ',.85)'; g.lineWidth = .5; g.beginPath(); g.moveTo(41.6, 4.6); g.lineTo(47, 4.6); g.moveTo(42, 5.8); g.lineTo(47, 5.8); g.stroke();
         g.fillStyle = s.main; poly(g, [[-47.8, -.6], [-44.4, -.6], [-44.4, 2], [-47.8, 2]]); g.fill();
-        g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = .5; g.beginPath(); g.moveTo(-26, -13.6); g.lineTo(-50, -13.6); g.stroke();
-        glowDot(g, -50.4, -17, 4, s.glow, .5); glowDot(g, -26.8, -17, 4, s.glow, .5);
+        // toma de aire lateral detrás de la puerta, con filo del color del equipo
+        poly(g, [[-25, 4.6], [-14.6, 4.6], [-17.6, -1.8], [-22.6, -1.4]], '#05070f');
+        g.strokeStyle = 'rgba(' + s.glow + ',.95)'; g.lineWidth = .7; g.beginPath(); g.moveTo(-22.6, -1.4); g.lineTo(-17.6, -1.8); g.lineTo(-14.6, 4.6); g.stroke();
+        g.strokeStyle = 'rgba(120,130,175,.5)'; g.lineWidth = .35; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-23.4 + i * 2.4, 4.2); g.lineTo(-21.4 + i * 2.2, -.8); g.stroke(); }
+        // filo de color que recorre el costado de morro a cola
+        g.strokeStyle = 'rgba(' + s.glow + ',.9)'; g.lineWidth = .6; g.beginPath(); g.moveTo(45, 1.8); g.lineTo(28, -1.8); g.lineTo(-12, -2.6); g.lineTo(-30, -1.6); g.lineTo(-45, 1); g.stroke();
         skirt(g, -12, 12, 7.5); flare(g, -27, 6, 10); flare(g, 28, 6, 10);
         headlight(g, 46, 1.6);
         wheel(g, -27, 6, 10, o); wheel(g, 28, 6, 10, o);
@@ -1132,9 +1179,14 @@ window.CARS = (() => {
         g.save(); g.transform(1, kS, 0, 1, 0, d0);
         const hitA = o.hitT == null ? 9 : o.hitT, hitK = hitA < .3 ? Math.pow(1 - hitA / .3, 2) : 0, flip = !!o.flip, lose = mood === 'lose', win = mood === 'win';
         const bob = Math.sin(t * 2.4) * .3 * (1 - spd) * (air ? 0 : 1);
-        let crouch = .1 + boost * .32 + brake * .12 + Math.max(0, (sF + sR) / 2) * .7 + hitK * .25;
+        // al aterrizar las rodillas absorben el golpe (la suspensión comprimida lo marca)
+        let crouch = .1 + boost * .32 + brake * .12 + Math.max(0, (sF + sR) / 2) * 1.05 + hitK * .25;
         if (air) crouch = jt < .18 ? -.35 : (flip ? .85 : (win ? .15 : .5));
-        const ang = .33 + lean * .3 + boost * .16 + crouch * .2 + (lose ? .16 : 0) - brake * .22 - hitK * .22;
+        // en el aire el cuerpo compensa: hacia atrás al subir, hacia delante al caer
+        const airK = air && !flip && jt > .18 ? Math.max(-1, Math.min(1, vu)) : 0;      // vu ya viene normalizada
+        const ang = .33 + lean * .3 + boost * .16 + crouch * .2 + (lose ? .16 : 0) - brake * .22 - hitK * .22 - airK * .14;
+        // celebración: alterna puño en alto, los dos brazos arriba y señalar hacia delante
+        const cel = win ? Math.floor(t / 1.25) % 3 : -1;
         const hx = -6.2 + lean * 3 + boost * 1.6 - brake * 2.2 - (lose ? 1 : 0), hy = -12.4 + crouch * 6.8 + bob + (lose ? 1.8 : 0) + (win ? -Math.abs(Math.sin(t * 9)) * 2.4 : 0);
         const sh = [hx + Math.sin(ang) * 17, hy - Math.cos(ang) * 17 + (lose ? 2.2 : 0)];
         const hTilt = lose ? .55 : boost * .28 - .05 - hitK * .35 - brake * .1;
@@ -1205,8 +1257,8 @@ window.CARS = (() => {
         // brazos con guantes; con gol, un puño en alto bien separado de la cabeza
         const grp = [20.2 - boost * .4, -35.6 + (lose ? 1.6 : 0) + Math.max(0, sF) * .6 + hitK * .8];
         const arm = (hand, dark, up) => {
-            const s0 = [sh[0] + (dark ? -.8 : .4), sh[1] + (dark ? -.2 : 0)];
-            const j = up ? [s0[0] + 8, s0[1] - 1] : ik2(s0[0], s0[1], hand[0], hand[1], 12.2, 12.6, -1), hnd = up ? [s0[0] + 15 + Math.sin(t * 9) * 3.2, s0[1] - 11 - Math.abs(Math.cos(t * 9)) * 1.4] : [j[2], j[3]];
+            const s0 = [sh[0] + (dark ? -.8 : .4), sh[1] + (dark ? -.2 : 0)], ph = dark ? 1.4 : 0;
+            const j = up ? [s0[0] + 8 - (dark ? 3 : 0), s0[1] - 1 - (dark ? 3 : 0)] : ik2(s0[0], s0[1], hand[0], hand[1], 12.2, 12.6, -1), hnd = up ? [s0[0] + 15 - (dark ? 6 : 0) + Math.sin(t * 9 + ph) * 3.2, s0[1] - 11 - (dark ? 4 : 0) - Math.abs(Math.cos(t * 9 + ph)) * 1.4] : [j[2], j[3]];
             g.strokeStyle = dark ? '#0b0d1a' : tm; g.lineWidth = 3.9; g.beginPath(); g.moveTo(s0[0], s0[1]); g.lineTo(j[0], j[1]); g.lineTo(hnd[0], hnd[1]); g.stroke();
             if (!dark) {
                 g.strokeStyle = tmD; g.lineWidth = 1.2; g.beginPath(); g.moveTo(s0[0] - .6, s0[1] + 1.4); g.lineTo(j[0] - .6, j[1] + 1.2); g.stroke();
@@ -1219,7 +1271,11 @@ window.CARS = (() => {
                 g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = .4; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(hnd[0] + .2 + i * .6, hnd[1] - 1.8); g.lineTo(hnd[0] + .2 + i * .6, hnd[1] + .2); g.stroke(); }
             }
         };
-        arm([grp[0] - .6, grp[1] + .6], true, false); arm(grp, false, win);
+        // brazo de atrás: en el aire se suelta para hacer equilibrio; al encajar cuelga sin fuerza
+        const back = air && !flip && jt > .2 && !win ? [sh[0] - 9 + Math.sin(t * 6.5) * 2.4, sh[1] + 4 - airK * 4 + Math.cos(t * 5) * 1.8]
+            : lose ? [sh[0] + 2, sh[1] + 14] : [grp[0] - .6, grp[1] + .6];
+        const front = cel === 2 ? [sh[0] + 22, sh[1] - 5 + Math.sin(t * 14) * .8] : grp;      // señalar: brazo estirado hacia delante
+        arm(back, true, cel === 1); arm(front, false, cel === 0 || cel === 1);
         // casco integral cromático: ventilaciones, oreja, barbilla y visor que reacciona a todo
         const R6 = 6.5;
         g.strokeStyle = '#0d1226'; g.lineWidth = 4; g.beginPath(); g.moveTo(sh[0], sh[1]); g.lineTo(head[0], head[1] + 2); g.stroke();                       // cuello
@@ -1234,7 +1290,8 @@ window.CARS = (() => {
         }
         const hg = g.createLinearGradient(head[0] - R6, head[1] - R6, head[0] + R6, head[1] + R6);
         hg.addColorStop(0, C(0, 68)); hg.addColorStop(.5, C(110, 58)); hg.addColorStop(1, C(220, 50));
-        g.save(); g.translate(head[0], head[1]); g.rotate(boost * .22 + (lose ? .5 : 0) - brake * .1 - hitK * .3 + look * .32);
+        // la cabeza sigue al balón; al encajar niega con la cabeza; al señalar asiente
+        g.save(); g.translate(head[0], head[1]); g.rotate(boost * .22 + (lose ? .5 + Math.sin(t * 5.5) * .2 : 0) - brake * .1 - hitK * .3 + look * .5 + (cel === 2 ? Math.sin(t * 10) * .12 : 0) + (flip ? .35 : 0));
         // carcasa con forma de casco integral de verdad: cúpula, nuca y mentonera adelantada
         const shellP = () => { g.beginPath(); g.moveTo(-5.6, 4.4); g.quadraticCurveTo(-7.6, -.6, -4.8, -5.4); g.quadraticCurveTo(-.4, -8.6, 4.6, -5.8); g.quadraticCurveTo(7.8, -3.2, 7.9, 1.4); g.lineTo(7.6, 4.6); g.quadraticCurveTo(4.4, 7, .4, 5.8); g.quadraticCurveTo(-2.6, 5.6, -5.6, 4.4); g.closePath(); };
         { const hg2 = g.createLinearGradient(-R6, -R6, R6, R6); hg2.addColorStop(0, C(0, 72)); hg2.addColorStop(.5, C(110, 58)); hg2.addColorStop(1, C(220, 46));
@@ -1321,6 +1378,19 @@ window.CARS = (() => {
         plate(g, -52.2, -2.2);
         fuelCap(g, -40, -4);
         g.fillStyle = 'rgba(0,0,0,.3)'; rrect(g, -42, 3.4, 25, 4.4, 2.2); g.fill(); rrect(g, 20, 3.4, 25, 4.4, 2.2); g.fill();
+        // franjas de reparto que cruzan la caja en diagonal
+        g.save(); build(); g.clip();
+        for (let i = 0; i < 3; i++) { const x0 = -51 + i * 4.6, w = 3.4 - i * .7; poly(g, [[x0, 3], [x0 + w, 3], [x0 + w + 8, -31], [x0 + 8, -31]], i === 1 ? 'rgba(255,255,255,.92)' : 'rgb(' + s.glow + ')'); }
+        g.restore();
+        // deflector de aire sobre la cabina
+        poly(g, [[13.6, -31], [24.4, -31], [21, -35.4], [15, -35.8]], s.dark);
+        g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(15, -35.6, 6, .5);
+        // faldillas tras las ruedas: se balancean con la suspensión
+        for (const [fx, sv] of [[-41.6, o.susR], [20.4, o.susF]]) {
+            const sw = (sv || 0) * .5 + (o.air ? .3 : 0) + Math.sin(o.t * 9 + fx) * .04;
+            g.save(); g.translate(fx, 7.2); g.rotate(sw); g.fillStyle = '#0d1126'; rrect(g, -1.4, 0, 2.8, 6.8, .8); g.fill();
+            g.fillStyle = 'rgba(255,255,255,.75)'; g.fillRect(-1, 2.4, 2, .5); g.restore();
+        }
         skirt(g, -18, 20, 7.4);
         flare(g, -30, 6, 10); flare(g, 32, 6, 10);
         headlight(g, 51, -7.8, 76);

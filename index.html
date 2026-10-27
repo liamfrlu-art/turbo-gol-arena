@@ -258,23 +258,16 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .sum span { font: 700 11px var(--body); letter-spacing: .3px; padding: 3px 9px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); }
 .sum span.mu { border-color: var(--gold); color: var(--gold); }
 .mright { display: flex; flex-direction: column; gap: clamp(7px, 1.8vh, 11px); justify-content: center; min-width: 0; }
-.modes { display: grid; grid-template-columns: repeat(6, 1fr); gap: clamp(7px, 1.8vh, 11px); }
-.modes .mode { grid-column: span 3; order: 2; }
-.modes .mode.main { grid-column: span 4; order: 0; }
-.modes #v2Btn { order: 1; }
-.modes #v2Btn { grid-column: span 2; flex-direction: column; justify-content: center; gap: 2px; text-align: center; padding-left: 6px; padding-right: 6px; border-color: rgba(61,184,255,.55); }
-.modes #v2Btn .mi { display: none; }
-.modes #v2Btn .mt b { font-size: clamp(14px, 4.2vh, 19px); white-space: nowrap; }
-.modes #v2Btn .mt { max-width: 100%; }
-.modes #v2Btn .mt small { white-space: nowrap; font-size: 10px; overflow: hidden; text-overflow: ellipsis; display: block; }
-/* Online va debajo de 2 contra 2, a la derecha de Jugar partido (que ocupa las dos filas) */
-.modes .mode.main { grid-row: span 2; }
-.modes #onlineBtn { order: 1; grid-column: span 2; flex-direction: column; justify-content: center; gap: 2px; text-align: center; padding: 4px 6px; border-color: rgba(255,210,63,.55); }
-.modes #v2Btn { padding-top: 4px; padding-bottom: 4px; }
-.modes #onlineBtn .mi { display: none; }
-.modes #onlineBtn .mt { max-width: 100%; }
-.modes #onlineBtn .mt b { font-size: clamp(14px, 4.2vh, 19px); white-space: nowrap; }
-.modes #onlineBtn .mt small { white-space: nowrap; font-size: 10px; overflow: hidden; text-overflow: ellipsis; display: block; }
+/* Jugar partido a lo ancho y debajo los cuatro modos iguales, en 2 × 2 */
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(6px, 1.6vh, 10px); }
+.modes .mode:not(.main) { padding: clamp(6px, 1.7vh, 10px) 10px; gap: 8px; }
+.modes .mode:not(.main) .mi { width: clamp(24px, 6.6vh, 32px); height: clamp(24px, 6.6vh, 32px); border-radius: 9px; }
+.modes .mode:not(.main) .mt b { font-size: clamp(13px, 3.7vh, 17px); overflow: hidden; text-overflow: ellipsis; }
+.modes .mode:not(.main) .mt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* cada modo con su color de acento */
+#onlineBtn { --ac: 255, 210, 63; } #v2Btn { --ac: 61, 184, 255; } #cupBtn { --ac: 255, 138, 43; } #freeBtn { --ac: 109, 255, 183; }
+.modes .mode:not(.main) .mi { background: rgba(var(--ac), .16); color: rgb(var(--ac)); }
+.modes .mode:not(.main):hover, .modes .mode:not(.main):focus-visible { border-color: rgb(var(--ac)); box-shadow: 0 4px 0 #0a0f2a, 0 0 18px -4px rgba(var(--ac), .7); }
 /* sala online */
 .oncard { max-width: 560px; }
 .ongrid { grid-template-columns: 1fr 1fr; }
@@ -286,8 +279,13 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .oninput:focus { border-color: var(--gold); }
 .onstatus { min-height: 1.3em; margin: 8px 0 4px; text-align: center; font: 600 14px var(--body); color: var(--text); }
 .onstatus.err { color: #ff6b6b; }
-.mode { display: flex; align-items: center; gap: 10px; text-align: left; font-family: var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 14px; padding: clamp(8px, 2.2vh, 13px) 12px; cursor: pointer; box-shadow: 0 4px 0 #0a0f2a; min-width: 0; transition: transform .1s, border-color .15s; }
-.mode:hover { border-color: var(--blue); }
+.mode { display: flex; align-items: center; gap: 10px; text-align: left; font-family: var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 14px; padding: clamp(8px, 2.2vh, 13px) 12px; cursor: pointer; box-shadow: 0 4px 0 #0a0f2a; min-width: 0; transition: transform .12s, border-color .15s, box-shadow .2s, filter .2s; }
+.mode:hover { border-color: var(--blue); transform: translateY(-2px); }
+.mode.main:hover { filter: brightness(1.06); box-shadow: 0 6px 0 #b88f10, 0 0 34px -4px rgba(255, 210, 63, .8); }
+/* brillo que recorre el botón principal cada pocos segundos */
+.mode.main { position: relative; overflow: hidden; }
+.mode.main::after { content: ''; position: absolute; inset: -20% auto -20% -40%; width: 30%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); transform: skewX(-18deg); animation: shine 4.5s ease-in-out 1.2s infinite; pointer-events: none; }
+@keyframes shine { 0%, 70% { left: -40%; } 100% { left: 130%; } }
 .mode:active { transform: translateY(3px); box-shadow: 0 1px 0 #0a0f2a; }
 .mode.main { grid-column: 1 / -1; color: #1a1300; background: linear-gradient(180deg, #ffe066, var(--gold)); border-color: #ffe98a; box-shadow: 0 4px 0 #b88f10, 0 0 24px -6px rgba(255, 210, 63, .6); padding: clamp(10px, 3vh, 17px) 14px; }
 .mode.main:active { box-shadow: 0 1px 0 #b88f10; }
@@ -313,7 +311,26 @@ body[data-st="end"] .toast, body[data-st="menu"] .toast { top: auto; bottom: 12p
 .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(6px, 1.6vh, 10px); }
 .tile { display: grid; justify-items: center; gap: 3px; padding: clamp(6px, 1.6vh, 10px) 4px; font: 700 12px var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 12px; cursor: pointer; box-shadow: 0 3px 0 #0a0f2a; transition: border-color .15s; }
 .tile .ic { width: clamp(18px, 5vh, 26px); height: clamp(18px, 5vh, 26px); color: var(--blue); }
-.tile:hover { border-color: var(--blue); }
+.tile:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: 0 5px 0 #0a0f2a, 0 0 14px -4px rgba(61, 184, 255, .6); }
+.tile { transition: border-color .15s, transform .12s, box-shadow .2s; }
+/* menú translúcido: se ve el partido de demostración detrás */
+#menu.screen { background: radial-gradient(ellipse at center, rgba(5, 8, 22, .25), rgba(5, 8, 22, .7)); backdrop-filter: blur(1.5px); -webkit-backdrop-filter: blur(1.5px); }
+.card.mcard { background: linear-gradient(160deg, rgba(20, 30, 80, .82), rgba(10, 14, 40, .86)); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-color: rgba(90, 120, 230, .55); }
+/* entrada del menú: la tarjeta aparece y los botones llegan uno tras otro */
+#menu.show .mcard { animation: menuIn .45s cubic-bezier(.2, .9, .25, 1.15) both; }
+#menu.show .mleft > *, #menu.show .modes > *, #menu.show #cfgBtn, #menu.show .tiles > * { animation: popIn .4s cubic-bezier(.2, .9, .3, 1.2) both; }
+#menu.show .mleft > :nth-child(2) { animation-delay: .05s; } #menu.show .mleft > :nth-child(3) { animation-delay: .1s; } #menu.show .mleft > :nth-child(n+4) { animation-delay: .15s; }
+#menu.show .modes > :nth-child(1) { animation-delay: .08s; } #menu.show .modes > :nth-child(2) { animation-delay: .14s; } #menu.show .modes > :nth-child(3) { animation-delay: .18s; }
+#menu.show .modes > :nth-child(4) { animation-delay: .22s; } #menu.show .modes > :nth-child(5) { animation-delay: .26s; } #menu.show #cfgBtn { animation-delay: .3s; }
+#menu.show .tiles > :nth-child(1) { animation-delay: .33s; } #menu.show .tiles > :nth-child(2) { animation-delay: .36s; } #menu.show .tiles > :nth-child(3) { animation-delay: .39s; } #menu.show .tiles > :nth-child(4) { animation-delay: .42s; }
+@keyframes menuIn { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+@keyframes popIn { from { opacity: 0; transform: translateY(8px) scale(.96); } }
+/* el título respira con un brillo suave */
+.mleft h1 .b, .mleft h1 .o { animation: glowB 3.2s ease-in-out infinite alternate; }
+.mleft h1 .o { animation-name: glowO; animation-delay: -1.6s; }
+@keyframes glowB { from { text-shadow: 0 0 14px rgba(61, 184, 255, .35); } to { text-shadow: 0 0 26px rgba(61, 184, 255, .8), 0 0 4px rgba(255, 255, 255, .5); } }
+@keyframes glowO { from { text-shadow: 0 0 14px rgba(255, 138, 43, .3); } to { text-shadow: 0 0 26px rgba(255, 138, 43, .8), 0 0 4px rgba(255, 255, 255, .5); } }
+@media (prefers-reduced-motion: reduce) { #menu.show .mcard, #menu.show .mcard *, .mode.main::after, .mleft h1 span { animation: none !important; } .mode:hover, .tile:hover { transform: none; } }
 .tile:active { transform: translateY(2px); box-shadow: 0 1px 0 #0a0f2a; }
 .setupcard .opts { gap: 16px; }
 .hint { font: 500 10.5px var(--body); letter-spacing: 0; text-transform: none; color: var(--mute); margin-left: 6px; }
@@ -714,10 +731,10 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
             <div class="mright">
                 <div class="modes">
                     <button class="mode main" id="playBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span><span class="mt"><b>Jugar partido</b><small>Contra la IA · usa tu configuración</small></span></button>
-                    <button class="mode" id="cupBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.2A5 5 0 0 1 13 15.9V18h3v3H8v-3h3v-2.1A5 5 0 0 1 8.2 12H8a4 4 0 0 1-4-4V5h3V3zm-1 4v1a2 2 0 0 0 2 2V7H6zm12 0h-2v3a2 2 0 0 0 2-2V7z"/></svg></span><span class="mt"><b>Copa Turbo</b><small>8 o 16 equipos</small></span></button>
-                    <button class="mode" id="freeBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></span><span class="mt"><b>Entrenamiento</b><small>Sin reloj</small></span></button>
                     <button class="mode" id="onlineBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.900 6h-3a15.700 15.700 0 0 0-1.300-3.900A8 8 0 0 1 18.900 8zM12 4.100c.8 1.100 1.500 2.400 1.900 3.900h-3.800c.4-1.500 1.100-2.800 1.900-3.900zM4.300 14a8.200 8.200 0 0 1 0-4h3.400a16.500 16.500 0 0 0 0 4H4.300zm.8 2h3a15.700 15.700 0 0 0 1.300 3.900A8 8 0 0 1 5.100 16zm3-8h-3a8 8 0 0 1 4.300-3.900A15.700 15.700 0 0 0 8.100 8zM12 19.900c-.8-1.100-1.500-2.400-1.900-3.900h3.800c-.4 1.500-1.100 2.800-1.900 3.900zm2.300-5.900H9.700a14.700 14.700 0 0 1 0-4h4.600a14.700 14.700 0 0 1 0 4zm.3 5.900c.6-1.200 1-2.500 1.300-3.900h3a8 8 0 0 1-4.300 3.900zm1.700-5.900a16.500 16.500 0 0 0 0-4h3.400a8.200 8.200 0 0 1 0 4h-3.400z"/></svg></span><span class="mt"><b>Online</b><small>Contra un amigo</small></span></button>
                     <button class="mode" id="v2Btn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm8 0a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM2 19c0-3.300 2.700-6 6-6s6 2.700 6 6H2zm11.500 0a7.500 7.500 0 0 0-2-5.100A6 6 0 0 1 22 19h-8.500z"/></svg></span><span class="mt"><b>2 contra 2</b><small>Con compañero IA</small></span></button>
+                    <button class="mode" id="cupBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.2A5 5 0 0 1 13 15.9V18h3v3H8v-3h3v-2.1A5 5 0 0 1 8.2 12H8a4 4 0 0 1-4-4V5h3V3zm-1 4v1a2 2 0 0 0 2 2V7H6zm12 0h-2v3a2 2 0 0 0 2-2V7z"/></svg></span><span class="mt"><b>Copa Turbo</b><small>8 o 16 equipos</small></span></button>
+                    <button class="mode" id="freeBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></span><span class="mt"><b>Entrenar</b><small>Retos y modo libre</small></span></button>
                 </div>
                 <button class="btn ghost wide" id="cfgBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 3h-4l-.4 2.6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.500 7.500 0 0 0 0 2l-2 1.6 2 3.400 2.4-1a7 7 0 0 0 1.700 1L11 21h4l.4-2.600a7 7 0 0 0 1.700-1l2.400 1 2-3.400-2-1.600zM13 15.500a3.500 3.500 0 1 1 0-7 3.500 3.500 0 0 1 0 7z"/></svg> Configurar partido</button>
                 <div class="tiles">
