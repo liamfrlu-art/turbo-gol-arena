@@ -267,6 +267,25 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .modes #v2Btn .mt b { font-size: clamp(14px, 4.2vh, 19px); white-space: nowrap; }
 .modes #v2Btn .mt { max-width: 100%; }
 .modes #v2Btn .mt small { white-space: nowrap; font-size: 10px; overflow: hidden; text-overflow: ellipsis; display: block; }
+/* Online va debajo de 2 contra 2, a la derecha de Jugar partido (que ocupa las dos filas) */
+.modes .mode.main { grid-row: span 2; }
+.modes #onlineBtn { order: 1; grid-column: span 2; flex-direction: column; justify-content: center; gap: 2px; text-align: center; padding: 4px 6px; border-color: rgba(255,210,63,.55); }
+.modes #v2Btn { padding-top: 4px; padding-bottom: 4px; }
+.modes #onlineBtn .mi { display: none; }
+.modes #onlineBtn .mt { max-width: 100%; }
+.modes #onlineBtn .mt b { font-size: clamp(14px, 4.2vh, 19px); white-space: nowrap; }
+.modes #onlineBtn .mt small { white-space: nowrap; font-size: 10px; overflow: hidden; text-overflow: ellipsis; display: block; }
+/* sala online */
+.oncard { max-width: 560px; }
+.ongrid { grid-template-columns: 1fr 1fr; }
+.onbox { display: grid; justify-items: center; gap: 10px; padding: 8px 0; }
+.onbox[hidden], .ongrid[hidden] { display: none; }
+.onbox small { font: 600 12px var(--body); color: var(--mute); letter-spacing: 1px; text-transform: uppercase; }
+.oncode { font: 400 clamp(40px, 13vh, 64px) var(--display); letter-spacing: 10px; color: var(--gold); line-height: 1; user-select: all; }
+.oninput { width: 9ch; padding: 8px 10px; text-align: center; font: 400 clamp(30px, 9vh, 44px) var(--display); letter-spacing: 8px; text-transform: uppercase; color: var(--gold); background: var(--panel-2); border: 2px solid var(--line); border-radius: 14px; outline: none; }
+.oninput:focus { border-color: var(--gold); }
+.onstatus { min-height: 1.3em; margin: 8px 0 4px; text-align: center; font: 600 14px var(--body); color: var(--text); }
+.onstatus.err { color: #ff6b6b; }
 .mode { display: flex; align-items: center; gap: 10px; text-align: left; font-family: var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 14px; padding: clamp(8px, 2.2vh, 13px) 12px; cursor: pointer; box-shadow: 0 4px 0 #0a0f2a; min-width: 0; transition: transform .1s, border-color .15s; }
 .mode:hover { border-color: var(--blue); }
 .mode:active { transform: translateY(3px); box-shadow: 0 1px 0 #0a0f2a; }
@@ -697,6 +716,7 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
                     <button class="mode main" id="playBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span><span class="mt"><b>Jugar partido</b><small>Contra la IA · usa tu configuración</small></span></button>
                     <button class="mode" id="cupBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.2A5 5 0 0 1 13 15.9V18h3v3H8v-3h3v-2.1A5 5 0 0 1 8.2 12H8a4 4 0 0 1-4-4V5h3V3zm-1 4v1a2 2 0 0 0 2 2V7H6zm12 0h-2v3a2 2 0 0 0 2-2V7z"/></svg></span><span class="mt"><b>Copa Turbo</b><small>8 o 16 equipos</small></span></button>
                     <button class="mode" id="freeBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></span><span class="mt"><b>Entrenamiento</b><small>Sin reloj</small></span></button>
+                    <button class="mode" id="onlineBtn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.900 6h-3a15.700 15.700 0 0 0-1.300-3.900A8 8 0 0 1 18.900 8zM12 4.100c.8 1.100 1.500 2.400 1.900 3.900h-3.800c.4-1.500 1.100-2.800 1.900-3.900zM4.300 14a8.200 8.200 0 0 1 0-4h3.400a16.500 16.500 0 0 0 0 4H4.300zm.8 2h3a15.700 15.700 0 0 0 1.300 3.900A8 8 0 0 1 5.100 16zm3-8h-3a8 8 0 0 1 4.300-3.900A15.700 15.700 0 0 0 8.100 8zM12 19.900c-.8-1.100-1.500-2.400-1.900-3.900h3.800c-.4 1.500-1.100 2.800-1.900 3.900zm2.300-5.900H9.700a14.700 14.700 0 0 1 0-4h4.600a14.700 14.700 0 0 1 0 4zm.3 5.900c.6-1.200 1-2.500 1.300-3.900h3a8 8 0 0 1-4.300 3.900zm1.700-5.900a16.500 16.500 0 0 0 0-4h3.400a8.200 8.200 0 0 1 0 4h-3.400z"/></svg></span><span class="mt"><b>Online</b><small>Contra un amigo</small></span></button>
                     <button class="mode" id="v2Btn"><span class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm8 0a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM2 19c0-3.300 2.700-6 6-6s6 2.700 6 6H2zm11.500 0a7.500 7.500 0 0 0-2-5.100A6 6 0 0 1 22 19h-8.500z"/></svg></span><span class="mt"><b>2 contra 2</b><small>Con compañero IA</small></span></button>
                 </div>
                 <button class="btn ghost wide" id="cfgBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 3h-4l-.4 2.6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.500 7.500 0 0 0 0 2l-2 1.6 2 3.400 2.4-1a7 7 0 0 0 1.700 1L11 21h4l.4-2.600a7 7 0 0 0 1.700-1l2.400 1 2-3.400-2-1.600zM13 15.500a3.500 3.500 0 1 1 0-7 3.500 3.500 0 0 1 0 7z"/></svg> Configurar partido</button>
@@ -724,6 +744,31 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
                 <button class="trc" data-d="save"><b>Paradas</b><small>Defiende tu portería de ocho disparos.</small><i class="stars" data-s="save"></i></button>
                 <button class="trc" data-d="prec"><b>Precisión</b><small>Marca dentro del círculo dorado.</small><i class="stars" data-s="prec"></i></button>
             </div>
+        </div>
+    </div>
+
+    <!-- Online contra un amigo -->
+    <div class="screen" id="online">
+        <div class="card shopcard oncard">
+            <div class="ghead">
+                <h2>Online</h2>
+                <button class="btn" id="onOk">← Atrás</button>
+            </div>
+            <div id="onPick" class="trgrid ongrid">
+                <button class="trc" id="onHostBtn"><b>Crear sala</b><small>Te damos un código de 4 letras para que se lo pases a tu amigo.</small></button>
+                <button class="trc" id="onJoinBtn"><b>Unirse</b><small>Escribe el código que te ha dado tu amigo.</small></button>
+            </div>
+            <div id="onHost" class="onbox" hidden>
+                <small>Código de la sala</small>
+                <b id="onCode" class="oncode">····</b>
+                <button class="btn ghost" id="onBack1">Cancelar</button>
+            </div>
+            <div id="onJoin" class="onbox" hidden>
+                <input id="onInput" class="oninput" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD" aria-label="Código de la sala">
+                <div class="row"><button class="btn" id="onGo">Unirse</button><button class="btn ghost" id="onBack2">Cancelar</button></div>
+            </div>
+            <p class="onstatus" id="onStatus" role="status"></p>
+            <div class="shopnote">Cada uno juega con su coche. La duración y los mutadores son los de quien crea la sala. Hace falta internet.</div>
         </div>
     </div>
 
