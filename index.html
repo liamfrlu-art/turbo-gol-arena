@@ -12,13 +12,19 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Turbo Gol Arena</title>
 <style>html, body { margin: 0; padding: 0; background: #070a1a; }</style>
+<link rel="preload" href="fonts/bungee-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* Letras guardadas junto al juego (alfabeto latino, con tildes y ñ): se ven igual aunque nunca haya habido conexión */
+@font-face { font-family: 'Bungee'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/bungee-400.woff2) format('woff2'); }
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/chakra-petch-500.woff2) format('woff2'); }
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/chakra-petch-600.woff2) format('woff2'); }
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/chakra-petch-700.woff2) format('woff2'); }
+</style>
 </head>
 <body>
-<title>Turbo Gol Arena</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 /* Concepto: estadio nocturno en vista lateral, a pantalla completa y en horizontal.
    Azul a la izquierda (tú), naranja a la derecha (IA). El dorado se reserva para el balón y las acciones principales. */
@@ -275,6 +281,12 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .mode:not(.main) .mt b { font-size: clamp(14px, 4vh, 18px); white-space: nowrap; }
 .sum span.mu { text-transform: capitalize; }
 body[data-st="end"] .toast, body[data-st="menu"] .toast { top: auto; bottom: 12px; }
+/* Aviso de versión nueva: solo fuera del partido, para no tapar el marcador ni los controles */
+#upd { position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 100; display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 16px; border-radius: 999px; background: rgba(8,10,30,.94); border: 2px solid var(--gold); color: var(--text); font: 600 14px var(--body); box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+#upd[hidden], body[data-st="count"] #upd, body[data-st="play"] #upd, body[data-st="goal"] #upd { display: none; }
+#upd button { font: 700 14px var(--body); border: 0; border-radius: 999px; cursor: pointer; }
+#updGo { margin-left: 8px; padding: 7px 14px; background: var(--gold); color: #1a1400; }
+#updNo { width: 32px; height: 32px; background: transparent; color: var(--mute); font-size: 18px; line-height: 1; }
 .mt small { font: 600 11px var(--body); color: var(--mute); line-height: 1.2; }
 .mode.main .mt small { color: rgba(26, 19, 0, .7); }
 .btn.wide { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: clamp(8px, 2vh, 11px) 14px; font-size: clamp(14px, 3.8vh, 18px); }
@@ -1136,6 +1148,7 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
         <span>Turbo Gol Arena se juega en horizontal.</span>
     </div>
 </div>
+<div id="upd" role="status" hidden>Hay una versión nueva<button id="updGo" type="button">Actualizar</button><button id="updNo" type="button" aria-label="Más tarde">✕</button></div>
 
 <script src="engine.js" charset="utf-8"></script>
 <script src="cars.js" charset="utf-8"></script>
@@ -1143,7 +1156,17 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
 
 <script>
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { /* sin modo sin conexión */ }); });
+    // Si ya había una versión guardada y llega otra, se avisa en vez de esperar a la siguiente vez que abras la app
+    const hadSW = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW) document.getElementById('upd').hidden = false; });
+    document.getElementById('updGo').onclick = () => location.reload();
+    document.getElementById('updNo').onclick = () => { document.getElementById('upd').hidden = true; };
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(reg => {
+            // la app puede quedarse abierta días: al volver a ella se busca si hay versión nueva
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+        }).catch(() => { /* sin modo sin conexión */ });
+    });
 }
 </script>
 </body>
