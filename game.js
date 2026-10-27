@@ -2318,9 +2318,10 @@
         if (ab > .01 && b.x > 440 && b.x < W - 440) { ctx.fillStyle = 'rgba(0,0,10,' + ab + ')'; ctx.beginPath(); ctx.ellipse(b.x, H - 1, T.BALL_R * (1.1 - hb / 1500), 5, 0, 0, TAU); ctx.fill(); }
     }
 
-    function hbSize(t) {
+    function hbSize(t) {      // ancho × alto de la forma real (ruedas + carrocería)
         let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
-        for (const h of t.hb) { x0 = Math.min(x0, h[0] - h[2]); x1 = Math.max(x1, h[0] + h[2]); y0 = Math.min(y0, h[1] - h[2]); y1 = Math.max(y1, h[1] + h[2]); }
+        for (const h of t.wh) { x0 = Math.min(x0, h[0] - h[2]); x1 = Math.max(x1, h[0] + h[2]); y0 = Math.min(y0, h[1] - h[2]); y1 = Math.max(y1, h[1] + h[2]); }
+        for (const P of t.polys) for (const p of P) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
         return Math.round((x1 - x0) * t.sc) + ' × ' + Math.round((y1 - y0) * t.sc);
     }
     function boostFx(c, t) {
@@ -2874,8 +2875,9 @@
         const w = S.world;
         ctx.save(); ctx.lineWidth = 2.2; ctx.setLineDash([7, 5]); ctx.strokeStyle = 'rgba(70,255,170,.95)'; ctx.fillStyle = 'rgba(70,255,170,.10)';
         for (const c of w.cars) {
-            const co = Math.cos(c.a), si = Math.sin(c.a);
-            for (const h of c.hb) { const lx = h[0] * c.f; ctx.beginPath(); ctx.arc(c.x + co * lx - si * h[1], c.y + si * lx + co * h[1], h[2], 0, TAU); ctx.fill(); ctx.stroke(); }
+            const co = Math.cos(c.a), si = Math.sin(c.a), W2 = (x, y) => [c.x + co * x * c.f - si * y, c.y + si * x * c.f + co * y];
+            for (const h of c.wh) { const p = W2(h[0], h[1]); ctx.beginPath(); ctx.arc(p[0], p[1], h[2], 0, TAU); ctx.fill(); ctx.stroke(); }
+            for (const P of c.polys) { ctx.beginPath(); P.forEach((q, i) => { const p = W2(q[0], q[1]); if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); }); ctx.closePath(); ctx.fill(); ctx.stroke(); }
         }
         ctx.beginPath(); ctx.arc(w.ball.x, w.ball.y, T.BALL_R, 0, TAU); ctx.stroke();
         { const b = w.ball, ww = b.w || 0;      // marca de giro, flecha de giro y último punto de contacto

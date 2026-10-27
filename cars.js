@@ -1782,7 +1782,7 @@ window.CARS = (() => {
     PAINTS.forEach(p => { PAINT_BY[p.id] = p; }); TRAILS.forEach(p => { TRAIL_BY[p.id] = p; });
 
     // Vista previa del garaje: foco de luz, coche con bote suave, ruedas girando y reflejo en el suelo.
-    // Con showHit dibuja encima la hitbox real (3 círculos) del coche.
+    // Con showHit dibuja encima la hitbox real del coche: ruedas y contorno de la carrocería.
     function preview(canvas, model, t, boosting, showHit, locked, extra) {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -1815,8 +1815,10 @@ window.CARS = (() => {
         }
         if (showHit) {
             g.strokeStyle = 'rgba(70,255,170,.98)'; g.fillStyle = 'rgba(70,255,170,.16)'; g.lineWidth = 2.4 / sc; g.setLineDash([3, 2.5]);
-            for (const h of hbw) { g.beginPath(); g.arc(h[0], h[1], h[2], 0, TAU); g.fill(); g.stroke(); }
-            g.setLineDash([]);
+            g.save(); g.scale(s, s); g.lineWidth = 2.4 / sc / s;
+            for (const h of ty0.wh || []) { g.beginPath(); g.arc(h[0], h[1], h[2], 0, TAU); g.fill(); g.stroke(); }
+            for (const P of ty0.polys || []) { g.beginPath(); P.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); g.stroke(); }
+            g.restore(); g.setLineDash([]);
         }
         g.restore();
     }

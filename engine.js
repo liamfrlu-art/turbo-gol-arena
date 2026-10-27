@@ -32,11 +32,49 @@ window.TG = (() => {
         formula: { sc: 1.0, hb: [[-38,6,10],[40,6,10],[-20,-4,9],[0,-4,9],[20,-2,8],[50,4,6],[-45,-13,7],[-4,-11,6]],   top: 1.18, acc: 1.15, jump: .95, air: 1.15, power: 1.0, mass: .95, boostAcc: 1.1, drain: .95, boostMax: 110, dodge: 1.05 },
         prisma:  { sc: 0.8, hb: [[-33,5,11.5],[34,5,11.5],[-12.1,3.6,11.5],[4.4,8.1,8.0],[26.9,0.6,11.0],[10.4,-41.4,11.5],[-4.6,-21.9,6.5],[14.9,9.6,5.5],[23.9,-14.4,5.0],[-13.6,-0.9,11.0],[-0.1,-32.4,5.5],[-6.1,-12.9,4.5],[19.4,-23.4,4.0],[-4.6,6.6,9.5],[23.9,-35.4,3.0]],   top: 1.14, acc: 1.18, jump: 1.12, air: 1.22, power: 1.10, mass: .98,  boostAcc: 1.2,  drain: .8,   boostMax: 135, dodge: 1.15 }
     };
+    // Forma real de cada coche (unidades del dibujo): ruedas redondas (wh: [x, y, radio]) y la carrocería como uno o
+    // varios polígonos que siguen su silueta (polys). Con el balón se choca contra esta forma exacta; con paredes y suelo,
+    // contra las ruedas y una hilera de círculos pequeños pegados por dentro al contorno (hb, se genera solo).
+    const SHAPES = {
+        chispa: { wh: [[-26, 6, 10], [26, 6, 10]], polys: [[[-46, 9.5], [-46, 4], [-43, -3], [-40, -6], [-33, -6], [-31, -16], [-27, -18.5], [5, -18.5], [11, -15.4], [13, -12], [21, -6.4], [38, -4.2], [43, -2.2], [46, 2], [46, 9.5]],
+            [[-39.6, -17.4], [-31, -18.6], [-27, -21.6], [3, -21.6], [3, -18.5], [-31, -16.2]]] },
+        bisonte: { wh: [[-27, 6, 10], [28, 6, 10]], polys: [[[-50, 9.5], [-50, -9.6], [-37, -9.6], [-36, -5.2], [-27, -5], [-15, -16.5], [5, -16.5], [21, -6.4], [24.6, -9.6], [25.6, -18.2], [34.4, -18.2], [35.4, -9.6], [40, -5.2], [46, -3.4], [49.4, 2], [49.4, 9.5]]] },
+        cuna: { wh: [[-27, 6, 10], [28, 6, 10]], polys: [[[-52, 11.4], [-52, 9], [-46, 5], [-46, -1], [-31, -3], [-14, -11.5], [6, -12.5], [28, -3.5], [47, 1], [53, 9], [53, 11.4]],
+            [[-51, -19.4], [-26, -19.4], [-26, -12.6], [-51, -12.6]]] },
+        kaze: { wh: [[-28, 6, 10.5], [29, 6, 10.5]], polys: [[[-52, 11.2], [-52, 5], [-47, -1.5], [-43, -4.7], [-36, -5.2], [-27, -10.6], [-19, -14.9], [-3, -14.9], [4, -12.4], [14, -7.2], [31, -5.4], [44, -3.6], [49.5, 2], [49.5, 9], [55, 9.2], [55, 11.6]],
+            [[-58.6, -26], [-26.4, -26], [-26.4, -18.6], [-58.6, -18.6]]] },
+        fenix: { wh: [[-28, 6, 10.5], [29, 6, 10.5]], polys: [[[-51, 11.2], [-51, 3], [-48, -2], [-43, -6], [-28, -6], [-15, -16.5], [7, -16.5], [22, -7], [39, -5.5], [46, -2], [48.5, 3], [48.5, 9], [50, 11.2]],
+            [[-55.4, -24.4], [-26.6, -24.4], [-26.6, -15.6], [-55.4, -15.6]]] },
+        mula: { wh: [[-30, 6, 10], [32, 6, 10]], polys: [[[-54, 9.5], [-54, -29], [-50, -31], [-44.6, -35.8], [16, -35.8], [19, -31], [23.5, -30.6], [25.5, -27.5], [36.5, -13], [46, -10.2], [51, -4], [53.6, 2.4], [53.6, 9.5]]] },
+        // la carrocería de la Titán va 14 más arriba que en su función de dibujo (suspensión alta); debajo, el chasis tubular
+        titan: { wh: [[-27, 8, 16], [27, 8, 16]], polys: [[[-49, -6], [-49, -17], [-43.5, -20], [-15, -20], [-11, -33], [-8, -34.5], [8, -34.5], [19, -22], [39, -20.5], [46, -17], [49, -13], [49, -6]],
+            [[-42, -8], [42, -8], [42, -2], [-42, -2]]] },
+        formula: { wh: [[-38, 6, 10], [40, 6, 10]], polys: [[[-44, 6.6], [-44, -1.4], [-36, -3.4], [-15.5, -12.2], [-8.6, -16.8], [-5.4, -16.8], [-2.2, -8.4], [13, -7.6], [34, -4.4], [57, 1.8], [60.6, 4.2], [47, 4.4], [33, 3.8], [20, 5.6], [-30, 6.6]],
+            [[-52, -20], [-39, -20], [-39, -9], [-52, -9]]] },
+        prisma: { wh: [[-33, 5, 11.5], [34, 5, 11.5]], polys: [[[-44, 8], [-40, 0], [-20, 4], [18, 6], [26, 8], [18, 14.8], [-19, 14.8], [-40, 10]],
+            [[-17, 6], [-15, -14], [-12, -34], [-8, -48], [2, -52], [12, -48], [16, -41], [27, -43], [30, -36], [28, -10], [24, 6]]] }
+    };
+    // círculos de contacto con paredes: ruedas + círculos de radio CR metidos por dentro a lo largo de cada borde
+    function wallCircles(sh) {
+        const out = sh.wh.map(w => w.slice()), CR = 4.2, GAP = 8;
+        for (const P of sh.polys) {
+            let A = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; A += p[0] * q[1] - q[0] * p[1]; }
+            const sg = A > 0 ? 1 : -1;      // orientación del polígono: para saber hacia dónde queda el interior
+            for (let i = 0; i < P.length; i++) {
+                const p = P[i], q = P[(i + 1) % P.length], dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy); if (L < .1) continue;
+                const ix = -dy / L * sg, iy = dx / L * sg, n = Math.max(1, Math.round(L / GAP));
+                for (let k = 0; k < n; k++) { const u = k / n; out.push([p[0] + dx * u + ix * CR, p[1] + dy * u + iy * CR, CR]); }
+            }
+        }
+        return out;
+    }
+    for (const id in TYPES) { const sh = SHAPES[id]; TYPES[id].wh = sh.wh; TYPES[id].polys = sh.polys; TYPES[id].hb = wallCircles(sh); }
     function hbScaled(t) { return t.hb.map(h => [h[0] * t.sc, h[1] * t.sc, h[2] * t.sc]); }
     function applyType(c, id) {
-        const t = TYPES[id] || TYPES.chispa;
-        c.model = TYPES[id] ? id : 'chispa'; c.st = t; c.sc = t.sc; c.hb = hbScaled(t);
-        c.r = 0; for (const h of c.hb) c.r = Math.max(c.r, h[1] + h[2]);        // distancia del centro al suelo (el punto más bajo: las ruedas)
+        const t = TYPES[id] || TYPES.chispa, s = t.sc;
+        c.model = TYPES[id] ? id : 'chispa'; c.st = t; c.sc = s; c.hb = hbScaled(t);
+        c.wh = t.wh.map(h => [h[0] * s, h[1] * s, h[2] * s]); c.polys = t.polys.map(P => P.map(p => [p[0] * s, p[1] * s]));
+        c.r = 0; for (const h of c.wh) c.r = Math.max(c.r, h[1] + h[2]);        // distancia del centro al suelo (el punto más bajo: las ruedas)
     }
     const events = [];
 
@@ -58,7 +96,8 @@ window.TG = (() => {
     const segs = pts.map((p, i) => {
         const q = pts[(i + 1) % pts.length];
         const dx = q[0] - p[0], dy = q[1] - p[1];
-        return { x1: p[0], y1: p[1], dx, dy, l2: dx * dx + dy * dy || 1 };
+        return { x1: p[0], y1: p[1], dx, dy, l2: dx * dx + dy * dy || 1,
+            mnx: Math.min(p[0], q[0]), mxx: Math.max(p[0], q[0]), mny: Math.min(p[1], q[1]), mxy: Math.max(p[1], q[1]) };      // caja para descartar rápido
     });
 
     const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -69,7 +108,8 @@ window.TG = (() => {
     function collide(o, r, eMax, fric) {
         hitN = 0; hitX = 0; hitY = 0; impact = 0;
         for (let i = 0; i < segs.length; i++) {
-            const s = segs[i];
+            const s = segs[i], m = r + 26;      // margen: el empuje desde dentro de la pared llega hasta r + 24
+            if (o.x < s.mnx - m || o.x > s.mxx + m || o.y < s.mny - m || o.y > s.mxy + m) continue;
             const t = clamp(((o.x - s.x1) * s.dx + (o.y - s.y1) * s.dy) / s.l2, 0, 1);
             const px = s.x1 + s.dx * t, py = s.y1 + s.dy * t;
             let ex = o.x - px, ey = o.y - py;
@@ -101,7 +141,7 @@ window.TG = (() => {
     function makeCar(team, pid) {
         return { team, pid: pid == null ? team : pid, x: 0, y: 0, vx: 0, vy: 0, a: 0, w: 0, f: team === 0 ? 1 : -1, boost: 50, grounded: true,
             nx: 0, ny: -1, jumpLock: 0, airT: 0, used: 0, flipT: 0, flipDir: 0, boosting: false, wheel: 0, spd: 1, roll: 0, rw: 0,
-            r: 17, sc: 1, st: TYPES.chispa, model: 'chispa', hb: hbScaled(TYPES.chispa) };
+            r: 17, sc: 1, st: TYPES.chispa, model: 'chispa', hb: hbScaled(TYPES.chispa), wh: TYPES.chispa.wh, polys: TYPES.chispa.polys };
     }
     function resetCar(c, x) {
         Object.assign(c, { x, y: H - c.r, vx: 0, vy: 0, a: 0, w: 0, f: c.team === 0 ? 1 : -1, boost: 50, grounded: true,
@@ -281,17 +321,46 @@ window.TG = (() => {
             if (impact > 260) events.push(['wall', impact]);
         }
     }
+    // Contacto más profundo entre un círculo (bx, by, R) y la forma real del coche (ruedas + polígonos de carrocería).
+    // Devuelve null o HIT = [px, py, nx, ny, pen]: punto de la superficie del coche, normal hacia fuera (mundo) y penetración.
+    const HIT = [0, 0, 0, 0, 0];
+    function shapeHit(c, bx, by, R) {
+        const co = Math.cos(c.a), si = Math.sin(c.a), f = c.f, dx = bx - c.x, dy = by - c.y;
+        const lx = (dx * co + dy * si) * f, ly = -dx * si + dy * co;      // centro del círculo en coordenadas del dibujo
+        let best = 0, qx = 0, qy = 0, nx = 0, ny = 0;
+        for (const h of c.wh) {
+            const ex = lx - h[0], ey = ly - h[1], m = R + h[2], d2 = ex * ex + ey * ey;
+            if (d2 >= m * m) continue;
+            const d = Math.sqrt(d2), ux = d > 1e-6 ? ex / d : 0, uy = d > 1e-6 ? ey / d : -1;
+            if (m - d > best) { best = m - d; qx = h[0] + ux * h[2]; qy = h[1] + uy * h[2]; nx = ux; ny = uy; }
+        }
+        for (const P of c.polys) {
+            let dmin = 1e18, cx = 0, cy = 0, inside = false;
+            for (let i = 0, n = P.length; i < n; i++) {
+                const p = P[i], q = P[(i + 1) % n], ex = q[0] - p[0], ey = q[1] - p[1];
+                const u = clamp(((lx - p[0]) * ex + (ly - p[1]) * ey) / (ex * ex + ey * ey || 1), 0, 1), px = p[0] + ex * u, py = p[1] + ey * u;
+                const d2 = (lx - px) * (lx - px) + (ly - py) * (ly - py);
+                if (d2 < dmin) { dmin = d2; cx = px; cy = py; }
+                if ((p[1] > ly) !== (q[1] > ly) && lx < ex * (ly - p[1]) / (ey || 1e-9) + p[0]) inside = !inside;
+            }
+            const d = Math.sqrt(dmin);
+            if (!inside && d >= R) continue;
+            const pen = inside ? R + d : R - d;
+            if (pen <= best) continue;
+            best = pen; qx = cx; qy = cy;
+            if (d < 1e-6) { nx = 0; ny = -1; } else if (inside) { nx = (cx - lx) / d; ny = (cy - ly) / d; } else { nx = (lx - cx) / d; ny = (ly - cy) / d; }
+        }
+        if (best <= 0) return null;
+        const wx = qx * f, wnx = nx * f;      // de vuelta al mundo
+        HIT[0] = c.x + co * wx - si * qy; HIT[1] = c.y + si * wx + co * qy; HIT[2] = co * wnx - si * ny; HIT[3] = si * wnx + co * ny; HIT[4] = best;
+        return HIT;
+    }
     function carBall(c, b) {
         const co = Math.cos(c.a), si = Math.sin(c.a);
-        for (let i = 0; i < c.hb.length; i++) {
-            const h = c.hb[i], lx = h[0] * c.f, ly = h[1], cx = c.x + co * lx - si * ly, cy = c.y + si * lx + co * ly, minD = BALL_R + h[2];
-            let dx = b.x - cx, dy = b.y - cy;
-            const d2 = dx * dx + dy * dy;
-            if (d2 >= minD * minD) continue;
-            let d = Math.sqrt(d2);
-            if (d < 1e-6) { dx = 0; dy = -1; d = 1; }
-            const nx = dx / d, ny = dy / d;
-            b.x = cx + nx * minD; b.y = cy + ny * minD;
+        for (let pass = 0; pass < 2; pass++) {      // dos pasadas: por si toca a la vez una rueda y la carrocería
+            const k = shapeHit(c, b.x, b.y, BALL_R); if (!k) break;
+            const cx = k[0], cy = k[1], nx = k[2], ny = k[3];
+            b.x = cx + nx * BALL_R; b.y = cy + ny * BALL_R;
             const rx = cx - c.x, ry = cy - c.y;
             const pvx = c.vx - c.w * ry, pvy = c.vy + c.w * rx;
             const vn = (b.vx - pvx) * nx + (b.vy - pvy) * ny;
@@ -305,7 +374,7 @@ window.TG = (() => {
                     if (nx * wx + ny * wy > 0.72) { c.used = 1; c.airT = 0; c.resetCd = 0.7; events.push(['reset', c.team, b.x, b.y, c.pid]); }
                 }
                 b.vx += nx * j; b.vy += ny * j;
-                spinContact(b, nx, ny, pvx, pvy, j, true); b.cx = cx + nx * h[2]; b.cy = cy + ny * h[2]; b.cAge = 0;
+                spinContact(b, nx, ny, pvx, pvy, j, true); b.cx = cx; b.cy = cy; b.cAge = 0;
                 if (c.flipT > 0) { b.vx += c.flipDir * 320 * c.st.power; b.vy -= 60; }
                 c.vx -= nx * j * 0.08 / c.st.mass; c.vy -= ny * j * 0.08 / c.st.mass;
                 if (-vn > 140) events.push(['hit', -vn, b.x, b.y, c.team, c.pid]);
@@ -315,16 +384,11 @@ window.TG = (() => {
 
     // balón apretado entre un coche y una pared: el coche cede un poco en vez de dejar el balón incrustado
     function pinFix(c, b) {
-        const co = Math.cos(c.a), si = Math.sin(c.a);
-        for (let i = 0; i < c.hb.length; i++) {
-            const h = c.hb[i], lx = h[0] * c.f, ly = h[1], cx = c.x + co * lx - si * ly, cy = c.y + si * lx + co * ly, minD = BALL_R + h[2];
-            const dx = b.x - cx, dy = b.y - cy, d2 = dx * dx + dy * dy;
-            if (d2 >= (minD - 3) * (minD - 3) || d2 < 1e-6) continue;
-            const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, m = Math.min(minD - d, 5);
-            c.x -= nx * m; c.y -= ny * m;
-            const vn = c.vx * nx + c.vy * ny; if (vn > 0) { c.vx -= nx * vn * .5; c.vy -= ny * vn * .5; }
-            break;
-        }
+        const k = shapeHit(c, b.x, b.y, BALL_R);
+        if (!k || k[4] <= 3) return;
+        const nx = k[2], ny = k[3], m = Math.min(k[4], 5);
+        c.x -= nx * m; c.y -= ny * m;
+        const vn = c.vx * nx + c.vy * ny; if (vn > 0) { c.vx -= nx * vn * .5; c.vy -= ny * vn * .5; }
     }
 
     // ---------- Discos de turbo ----------
