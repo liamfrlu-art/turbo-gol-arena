@@ -1217,7 +1217,16 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
 
 <script src="engine.js" charset="utf-8"></script>
 <script src="cars.js" charset="utf-8"></script>
-<script src="game.js" charset="utf-8"></script>
+<!-- el juego, por partes y en este orden (comparten el ámbito global) -->
+<script src="js/base.js" charset="utf-8"></script>
+<script src="js/audio.js" charset="utf-8"></script>
+<script src="js/partido.js" charset="utf-8"></script>
+<script src="js/estadios.js" charset="utf-8"></script>
+<script src="js/render.js" charset="utf-8"></script>
+<script src="js/controles.js" charset="utf-8"></script>
+<script src="js/interfaz.js" charset="utf-8"></script>
+<script src="js/online.js" charset="utf-8"></script>
+<script src="js/main.js" charset="utf-8"></script>
 
 <script>
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
