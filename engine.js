@@ -166,6 +166,7 @@ window.TG = (() => {
             Object.assign(w.ball, { x: W / 2 - 130, y: H - 380, vx: 0, vy: 0, w: 0 });
             Object.assign(w.ball2, { x: W / 2 + 130, y: H - 460, vx: 0, vy: 0, w: 0 });
         } else Object.assign(w.ball, { x: W / 2, y: H - 380, vx: 0, vy: 0, w: 0 });
+        w.ball.ko = true; if (w.ball2) w.ball2.ko = true;      // saque: nadie lo ha tocado todavía
         w.pads.forEach(p => p.cool = 0);
     }
 
@@ -360,7 +361,7 @@ window.TG = (() => {
         for (let pass = 0; pass < 2; pass++) {      // dos pasadas: por si toca a la vez una rueda y la carrocería
             const k = shapeHit(c, b.x, b.y, BALL_R); if (!k) break;
             const cx = k[0], cy = k[1], nx = k[2], ny = k[3];
-            b.x = cx + nx * BALL_R; b.y = cy + ny * BALL_R;
+            b.x = cx + nx * BALL_R; b.y = cy + ny * BALL_R; b.ko = false;      // ya lo ha tocado alguien desde el saque
             const rx = cx - c.x, ry = cy - c.y;
             const pvx = c.vx - c.w * ry, pvy = c.vy + c.w * rx;
             const vn = (b.vx - pvx) * nx + (b.vy - pvy) * ny;
@@ -460,10 +461,10 @@ window.TG = (() => {
     // agg: margen (s) para ir al balón aunque el rival llegue un poco antes · flipP: voltereta al disparar desde el suelo
     // mist: error de colocación (px) · tErr: error al calcular el tiempo de llegada · fake: amago en el saque · carry: conducir el balón sobre el techo
     const DIFFS = [
-        { react: 0.42, spd: 0.8, look: 0.10, boostUse: false, jumpP: 0.3, agg: 0.3, flipP: 0, mist: 80, tErr: 0.28, fake: 0, shadow: false, lazy: 0.22, learn: 0.15 },
-        { react: 0.24, spd: 0.93, look: 0.25, boostUse: true, bAtk: 500, bRet: 9999, jumpP: 0.8, aerial: true, aimErr: 0.22, wallJ: true, dodgeShot: true, agg: 0.16, flipP: 0.3, mist: 36, tErr: 0.15, fake: 0.15, shadow: true, lazy: 0.05, learn: 0.5 },
-        { react: 0.12, spd: 1.0, look: 0.35, boostUse: true, bAtk: 420, bRet: 9999, jumpP: 1.0, aerial: true, aimErr: 0.06, wallJ: true, dodgeShot: true, dribble: true, reset: true, agg: 0.09, flipP: 0.7, mist: 10, tErr: 0.05, fake: 0.25, shadow: true, learn: 0.8 },
-        { react: 0.06, spd: 1.04, look: 0.6, boostUse: true, bAtk: 260, bRet: 9999, jumpP: 1.0, aerial: true, aimErr: 0.02, wallJ: true, dodgeShot: true, dribble: true, reset: true, agg: 0.05, flipP: 0.9, mist: 3, tErr: 0.025, fake: 0.3, shadow: true, carry: true, learn: 1 }
+        { react: 0.34, spd: 0.8, look: 0.10, boostUse: false, jumpP: 0.4, agg: 0.25, flipP: 0, mist: 60, tErr: 0.22, fake: 0, shadow: false, lazy: 0.14, learn: 0.15 },
+        { react: 0.19, spd: 0.93, look: 0.25, boostUse: true, bAtk: 500, bRet: 9999, jumpP: 0.8, aerial: true, aimErr: 0.15, wallJ: true, dodgeShot: true, agg: 0.16, flipP: 0.45, mist: 24, tErr: 0.1, fake: 0.15, shadow: true, lazy: 0.02, learn: 0.5 },
+        { react: 0.1, spd: 1.0, look: 0.35, boostUse: true, bAtk: 420, bRet: 9999, jumpP: 1.0, aerial: true, aimErr: 0.04, wallJ: true, dodgeShot: true, dribble: true, reset: true, agg: 0, flipP: 0.8, mist: 7, tErr: 0.05, fake: 0.25, shadow: true, learn: 0.8 },
+        { react: 0.05, spd: 1.04, look: 0.6, boostUse: true, bAtk: 260, bRet: 9999, jumpP: 1.0, aerial: true, aimErr: 0.02, wallJ: true, dodgeShot: true, dribble: true, reset: true, agg: 0, flipP: 0.9, mist: 3, tErr: 0.025, fake: 0.3, shadow: true, carry: true, learn: 1 }
     ];
     function makeAI(level) {
         return { cfg: DIFFS[level], timer: 0, jcd: 0, mode: 'attack', tx: W * 0.5, pred: null, age: 0, plan: null, planAge: 0, chase: 0, err: 0,
@@ -581,7 +582,7 @@ window.TG = (() => {
         return -1;
     }
     // Primer punto de la trayectoria prevista donde este coche puede golpear el balón hacia su ataque (dirA)
-    function intercept(P, age, car, dirA, cfg, canBoost, high) {
+    function intercept(P, age, car, dirA, cfg, canBoost, high, ko) {      // ko: saque sin tocar (nada de doble salto a un balón que cae)
         if (!P) return null;
         let fb = null;
         const jumpOk = cfg ? cfg.jumpP > 0.3 : true;
@@ -591,7 +592,7 @@ window.TG = (() => {
             if (bx < 30 || bx > W - 30) continue;
             const hb = floorY(bx) - by;
             let type = hb < 92 ? 'g' : null;
-            if (!type && jumpOk) { if (jumpRise(car, hb - 38, false) > 0) type = 'j'; else if (cfg && cfg.aerial && jumpRise(car, hb - 38, true) > 0) type = 'j2'; }
+            if (!type && jumpOk) { if (jumpRise(car, hb - 38, false) > 0) type = 'j'; else if (cfg && cfg.aerial && !ko && jumpRise(car, hb - 38, true) > 0) type = 'j2'; }
             if (!type) continue;
             const ax = bx - dirA * (BALL_R + 24);
             if ((ax - car.x) * dirA < -14 && Math.abs(ax - car.x) > 30) continue;      // el coche está del lado malo del balón
@@ -703,7 +704,12 @@ window.TG = (() => {
             if (TR) { if (TR.chal) agg -= 0.15 * TR.L; if (TR.goalie) agg += 0.08 * TR.L; if (kick && TR.rush) agg += 0.3 * TR.L; }
             if (lead < 0 && tl < 45) agg += 0.12;           // perdiendo al final: más agresiva
             else if (lead > 0 && tl < 45) agg -= 0.06;      // ganando al final: más prudente
-            const me = intercept(P, 0, car, dirA, cfg, canB, !!(TR && TR.goalie && TR.L >= 0.5));
+            // rival de portero (entre el balón y su portería, cerca de ella): mejor un golpe alto que pase por encima que chutarle encima
+            const oppGoalX = dirA > 0 ? W : 0, keeper = !!(opp && Math.abs(opp.x - oppGoalX) < 430 && (opp.x - ball.x) * dirA > 0 && opp.grounded);
+            // saque sin tocar y el rival esperando atrás: nada de lanzarse por el aire (si falla, se queda vendida); si viene a disputarlo, sí
+            const oppRush = !!(opp && (Math.abs(opp.x - ball.x) < 230 || ((ball.x - opp.x) * opp.vx > 0 && Math.abs(opp.vx) > 250)));
+            const koSafe = !!ball.ko && !oppRush;
+            const me = intercept(P, 0, car, dirA, cfg, canB, (cfg.jumpP || 0) > .3 && (keeper || !!(TR && TR.goalie && TR.L >= 0.5)), koSafe);
             // el rival también tiene que reaccionar; si está parado o se aleja del balón, tardará más
             const icpt = (c, d) => { const r = intercept(P, 0, c, d, null, c.boost > 10); if (r) { const toward = (r.ax - c.x) * c.vx > 0 && Math.abs(c.vx) > 120; r.t += 0.15 + (toward ? 0 : 0.3); } return r; };
             let op = opp ? icpt(opp, -dirA) : null;
@@ -743,8 +749,11 @@ window.TG = (() => {
                 if ((tx - homeX) * dirA < 0) tx = homeX;
                 if (car.boost < 30 && thr < 0) { const p = nearestPad(w, car, homeX, ball.x - dirA * 120); if (p) tx = p.x; }
             } else { mode = 'chase'; tx = ball.x - dirA * (BALL_R + 30) + noise; }
+            // contra un portero con el balón pegado a su portería: no meterse en la esquina (el despeje la deja vendida);
+            // espera a media distancia para cortar el despeje o tirar cuando el balón salga
+            if (keeper && mode === 'attack' && Math.abs(ball.x - oppGoalX) < 340 && op && me && op.t < me.t + .35 && (cfg.react || 1) < .3) { mode = 'hold'; tx = oppGoalX - dirA * 720; ai.tgt = null; ai.lastTgt = null; }
             // aéreo: si el balón va alto y llego antes que el rival
-            if (cfg.aerial && !kick && mode !== 'support' && car.grounded && car.ny < -0.93 && car.y > H - 60 && ai.chase <= 0 && !(mode === 'attack' && me.t < 1.2)) {
+            if (cfg.aerial && !kick && !koSafe && mode !== 'support' && car.grounded && car.ny < -0.93 && car.y > H - 60 && ai.chase <= 0 && !(mode === 'attack' && me.t < 1.2)) {
                 const pl = planAerial(ai, car, dirA);
                 if (pl && (pl.x - car.x) * dirA > -60 && (!op || pl.t < op.t + agg) && (!me || pl.t < me.t - 0.2)) { ai.plan = pl; ai.planAge = 0; mode = 'aerial'; tx = pl.x - dirA * 110; ai.tgt = null; }
             }
@@ -757,7 +766,8 @@ window.TG = (() => {
                 else if (Math.abs(tx - mate.x) < 200) tx -= dirA * 220;
                 if ((tx - homeX) * dirA < 0) tx = homeX;
             }
-            ai.mode = mode; car.aiMode = mode;
+            if (mode === 'hold' && car.boost < 40) { const p = nearestPad(w, car, car.x, tx); if (p) tx = p.x; }      // mientras espera, recoge turbo
+            ai.mode = mode; car.aiMode = mode; ai.thr = thr;
             // bocadillos para el compañero (como mucho uno cada 2,5 s)
             if (mate && (ai.sayT || 0) <= 0) {
                 let s = null;
@@ -775,8 +785,8 @@ window.TG = (() => {
             let bo = false;
             if (cfg.boostUse && car.boost > 6) {
                 if (mode === 'attack') { const tNo = groundTime(car, me.ax, false); bo = tNo > me.t - 0.05 || (me.type === 'g' && dist < 260 && (me.x - car.x) * dirA > 0 && Math.abs(me.x - (dirA > 0 ? W : 0)) < 900); }
-                else if (mode === 'recover') bo = dist > 200 && (ball.vx * dirA < -50 || thr >= 0);
-                else if (mode === 'shadow' || mode === 'support') bo = dist > (thr >= 0 ? 120 : 420);
+                else if (mode === 'recover') bo = dist > 160 && (ball.vx * dirA < 0 || thr >= 0);      // volver deprisa si el balón va hacia mi portería
+                else if (mode === 'shadow' || mode === 'support' || mode === 'hold') bo = dist > (thr >= 0 ? 120 : 420);
                 else if (mode === 'aerial') bo = Math.abs(ai.plan.x - car.x) > 260;
                 else bo = dist > (cfg.bAtk || 400);
             }
@@ -796,6 +806,14 @@ window.TG = (() => {
                 if (cfg.wallJ && ai.jcd <= 0 && dBall < 640 && ball.y < H - 120 && (ball.x - car.x) * dirA > -40) { inp.jump = true; ai.jcd = 0.8; ai.chase = 1.8; ai.err = 0; ai.tgo = 0.6; }
                 else inp.dir = car.nx > 0 ? 1 : -1;
                 return;
+            }
+            // parada con salto: el balón va a entrar alto en mi portería y me va a pasar por encima
+            if ((ai.thr == null ? -1 : ai.thr) >= 0 && (cfg.jumpP || 0) >= .4 && ai.jcd <= 0) {
+                const myGoalX = dirA > 0 ? 0 : W, hbB = floorY(ball.x) - ball.y, toGoal = -ball.vx * dirA > 150;
+                const between = (car.x - myGoalX) * dirA < (ball.x - myGoalX) * dirA, reach = 110 + Math.abs(ball.vx) * .22;
+                if (toGoal && between && hbB > 75 && hbB < (cfg.aerial ? 330 : 200) && Math.abs(ball.x - car.x) < reach) {
+                    inp.jump = true; inp.dir = 0; ai.jcd = 0.7; ai.dblJ = cfg.aerial && hbB > 170 ? 0.12 : 0; return;
+                }
             }
             // conducir el balón sobre el techo (Leyenda) y soltarlo con un "flick"
             const onRoof = ball.y < car.y - 28 && ball.y > car.y - 95 && Math.abs(ball.x - car.x) < 34 && Math.abs(ball.vy) < 260;
