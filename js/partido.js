@@ -30,7 +30,8 @@ function applyMut(m) {
 function setWorld(n) { if (S.world.cars.length !== n) { S.world = T.makeWorld(n); RC.n = 0; } }
 function startMatch(mode, cup, v2) {
     audio();
-    if (cfg.stadSel === 'random') { cfg.stad = pickStad(); resize(); }      // estadio nuevo en cada partida
+    if (S.net && S.net.stad) { cfg.stad = S.net.stad; resize(); }      // online: el estadio que ha elegido (o sorteado) el anfitrión
+    else if (cfg.stadSel === 'random') { cfg.stad = pickStad(); resize(); }      // estadio nuevo en cada partida
     S.v2 = !!v2 && !cup && mode === 'match'; setWorld(S.v2 ? 4 : 2);
     S.mode = mode; S.cup = cup || null; S.world.cars[1].ghost = false;
     S.score = [0, 0]; S.time = cfg.time; S.ot = false; S.endAfterGoal = false; S.slow = 1; S.acc = 0;
@@ -592,13 +593,16 @@ function simulate(dt, mode) {
 const interpSave = [];
 function interpApply() {
     interpSave.length = 0;
-    const w = S.world, al = S.alpha == null ? 1 : S.alpha;
-    if (al >= 1 || S.state === 'pause') return;
+    const w = S.world, al = S.alpha == null ? 1 : S.alpha, lerp = al < 1 && S.state !== 'pause';
     for (const o of w.ball2 ? [...w.cars, w.ball, w.ball2] : [...w.cars, w.ball]) {
-        if (o.px == null || Math.abs(o.x - o.px) > 160 || Math.abs(o.y - o.py) > 160) continue;
+        const off = o.vox || o.voy;      // online: desfase visual que suaviza las correcciones del anfitrión
+        if (!off && !lerp) continue;
         interpSave.push([o, o.x, o.y, o.a]);
-        o.x = o.px + (o.x - o.px) * al; o.y = o.py + (o.y - o.py) * al;
-        if (o.pa != null) { let da = o.a - o.pa; da -= TAU * Math.round(da / TAU); o.a = o.pa + da * al; }
+        if (lerp && o.px != null && Math.abs(o.x - o.px) <= 160 && Math.abs(o.y - o.py) <= 160) {
+            o.x = o.px + (o.x - o.px) * al; o.y = o.py + (o.y - o.py) * al;
+            if (o.pa != null) { let da = o.a - o.pa; da -= TAU * Math.round(da / TAU); o.a = o.pa + da * al; }
+        }
+        if (off) { o.x += o.vox || 0; o.y += o.voy || 0; }
     }
 }
 function interpRestore() { for (const r of interpSave) { r[0].x = r[1]; r[0].y = r[2]; r[0].a = r[3]; } interpSave.length = 0; }

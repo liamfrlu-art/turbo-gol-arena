@@ -687,7 +687,7 @@ function drawRings() {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     for (const r of rings) {
         const k = r.l / r.m; ctx.strokeStyle = 'rgba(' + PAL[r.pal].join(',') + ',' + (k * .85) + ')'; ctx.lineWidth = r.w * k + 1;
-        ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.arc(r.x, r.y, Math.max(0, r.r), 0, TAU); ctx.stroke();
     }
     ctx.restore();
 }

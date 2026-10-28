@@ -98,6 +98,12 @@ body { font-family: var(--body); font-size: 14px; }
     pointer-events: none; font-weight: 700;
 }
 #names b:first-child { color: var(--blue); } #names b:last-child { color: var(--orange); }
+#ping {
+    position: absolute; top: calc(26px + clamp(30px, 8.5vh, 52px)); left: 50%; transform: translateX(-50%);
+    font-size: 10px; font-weight: 700; letter-spacing: 1px; pointer-events: none; opacity: .75;
+}
+#ping::before { content: "● "; } #ping.ok { color: #3dffb0; } #ping.mid { color: var(--gold); } #ping.bad { color: #ff6b6b; }
+#app[data-state="menu"] #ping { display: none; }
 
 /* ---------- Controles táctiles ---------- */
 .ctl { position: absolute; bottom: 14px; touch-action: none; transition: opacity .2s; }
@@ -338,6 +344,12 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .oninput:focus { border-color: var(--gold); }
 .onstatus { min-height: 1.3em; margin: 8px 0 4px; text-align: center; font: 600 14px var(--body); color: var(--text); }
 .onstatus.err { color: #ff6b6b; }
+/* ajustes de la sala online */
+.onset { width: 100%; display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; text-align: left; }
+.onset label { font: 700 11px var(--body); letter-spacing: 1px; text-transform: uppercase; color: var(--mute); }
+.onset .seg button { padding: 6px 4px; font-size: 12px; }
+.seg.wrap4 { grid-auto-flow: row; grid-template-columns: repeat(4, 1fr); }
+.oncard { max-width: 640px; }
 .mode { display: flex; align-items: center; gap: 10px; text-align: left; font-family: var(--body); color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 14px; padding: clamp(8px, 2.2vh, 13px) 12px; cursor: pointer; box-shadow: 0 4px 0 #0a0f2a; min-width: 0; transition: transform .12s, border-color .15s, box-shadow .2s, filter .2s; }
 .mode:hover { border-color: var(--blue); transform: translateY(-2px); }
 .mode.main:hover { filter: brightness(1.06); box-shadow: 0 6px 0 #b88f10, 0 0 34px -4px rgba(255, 210, 63, .8); }
@@ -817,6 +829,7 @@ details.adv[open] summary { grid-column: 1 / -1; }
         <div class="score orange" id="so">0</div>
     </div>
     <div id="names"><b>Tú</b><b>IA</b></div>
+    <div id="ping" hidden></div>
     <div id="boostGauge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2c1 4 5 5.5 5 10.5A5 5 0 0 1 7 12.5c0-2.2 1.2-3.5 2.4-4.6-.1 2 1 3.2 2.1 3.6C11.2 8.4 11 5 12 2z"/></svg><span><i></i></span><b>50</b></div>
     <div id="banner"></div>
     <div id="drillBar"></div>
@@ -922,6 +935,15 @@ details.adv[open] summary { grid-column: 1 / -1; }
             <div id="onHost" class="onbox" hidden>
                 <small>Código de la sala</small>
                 <b id="onCode" class="oncode">····</b>
+                <!-- ajustes de la sala: los elige quien la crea y se aplican a los dos -->
+                <div class="onset">
+                    <label>Duración</label>
+                    <div class="seg" id="onTime"><button data-v="60">1 min</button><button data-v="120">2 min</button><button data-v="180">3 min</button></div>
+                    <label>Estadio</label>
+                    <div class="seg wrap4" id="onStad"><button data-v="random">Aleatorio</button><button data-v="snow">Nevado</button><button data-v="neon">Neón</button><button data-v="desierto">Desierto</button><button data-v="ciudad">Ciudad</button><button data-v="volcan">Volcán</button><button data-v="retro">Retro</button></div>
+                    <label>Mutadores</label>
+                    <div class="seg wrap4" id="onMut"><button data-m="giant">Balón gigante</button><button data-m="lowG">Gravedad baja</button><button data-m="inf">Turbo infinito</button><button data-m="fast">Balón rápido</button><button data-m="two">Dos balones</button></div>
+                </div>
                 <button class="btn ghost" id="onBack1">Cancelar</button>
             </div>
             <div id="onJoin" class="onbox" hidden>
@@ -929,7 +951,7 @@ details.adv[open] summary { grid-column: 1 / -1; }
                 <div class="row"><button class="btn" id="onGo">Unirse</button><button class="btn ghost" id="onBack2">Cancelar</button></div>
             </div>
             <p class="onstatus" id="onStatus" role="status"></p>
-            <div class="shopnote">Cada uno juega con su coche. La duración y los mutadores son los de quien crea la sala. Hace falta internet.</div>
+            <div class="shopnote">Cada uno juega con su coche. Quien crea la sala elige duración, estadio y mutadores. Si se corta un momento, se reconecta sola. Hace falta internet.</div>
         </div>
     </div>
 

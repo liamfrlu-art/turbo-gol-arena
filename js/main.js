@@ -12,7 +12,7 @@ let fk = 1, refreshMs = 16.7, fpsT = 0, fpsN = 0;
 const refSamples = [], fpsBox = $('fpsBox');
 function frame(ts) {
     requestAnimationFrame(frame);
-    const raw = Math.min(100, ts - last), dt = Math.min(0.05, raw / 1000); last = ts;
+    const raw = clamp(ts - last, 0, 100), dt = Math.min(0.05, raw / 1000); last = ts;      // nunca hacia atrás (marcas de tiempo desordenadas)
     fk = clamp(raw / 16.67, 0.1, 3);
     // frecuencia de refresco de la pantalla: mediana de los primeros fotogramas
     if (refSamples.length < 90 && raw > 1 && raw < 40 && !document.hidden) { refSamples.push(raw); if (refSamples.length === 90) { const so = refSamples.slice().sort((x, y) => x - y); refreshMs = clamp(so[45], 2, 34); } }
