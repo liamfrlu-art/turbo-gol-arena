@@ -131,7 +131,7 @@ function drawCar(c, t) {
     if (S.state === 'goal') mood = ((S.goalCol === 'blue') === (c.team === 0)) ? 'win' : 'lose';
     CARS.paint(ctx, c.model || 'chispa', c.team, { boosting: c.boosting, wheel: c.wheel * c.f, t, spin: c.spdv || 0, brake: c.brake,
         susF: c.susF, susR: c.susR, lean: c.lean, air: !c.grounded, jumpT: c.grounded ? 9 : c.airT, vf, vu, mood, look: (() => { const bb = S.world.ball, dx = (bb.x - c.x) * c.f, dy = bb.y - c.y; return Math.hypot(dx, dy) < 700 ? Math.atan2(dy, Math.max(dx, 30)) : 0; })(), wall: c.grounded && Math.abs(c.ny) < .75, hitT: c.hitAt ? (performance.now() - c.hitAt) / 1000 : 9, flip: c.flipT > 0,
-        rid: c.rid || (c.rid = {}), state: S.state, ballD: Math.hypot(S.world.ball.x - c.x, S.world.ball.y - c.y),      // memoria y contexto del piloto del patín
+        rid: c.rid || (c.rid = {}), state: S.state, bst: c.boost, ballD: Math.hypot(S.world.ball.x - c.x, S.world.ball.y - c.y),      // memoria y contexto del piloto del patín
         paint: me ? cfg.paint : null, wheelStyle: me ? cfg.wheel : null, trail: me ? cfg.trail : null, dorsal: me ? cfg.dorsal : null, decal: me ? cfg.decal : null });
     ctx.restore();
 }

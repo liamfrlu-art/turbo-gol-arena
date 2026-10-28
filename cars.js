@@ -972,21 +972,12 @@ window.CARS = (() => {
         g.lineCap = 'round'; g.lineJoin = 'round';
         // luz inferior cromática y propulsor
         const ug = g.createRadialGradient(0, 15, 2, 0, 15, 64);
-        ug.addColorStop(0, boost ? 'rgba(255,150,60,.85)' : C(0, 60, .55)); ug.addColorStop(1, boost ? 'rgba(255,150,60,0)' : C(0, 60, 0));
+        ug.addColorStop(0, boost ? 'rgba(' + (CUR.glowRGB || '120,205,255') + ',.8)' : C(0, 60, .45)); ug.addColorStop(1, boost ? 'rgba(' + (CUR.glowRGB || '120,205,255') + ',0)' : C(0, 60, 0));
         g.fillStyle = ug; g.beginPath(); g.ellipse(0, 15.5, 64, 9, 0, 0, TAU); g.fill();
         if (spd > .35) for (let k = 0; k < 2; k++) {      // estela de luz de los neones a gran velocidad
             const L = 20 + spd * 36, sx0 = -6 - k * 8, lg = g.createLinearGradient(sx0, 0, sx0 - L, 0);
             lg.addColorStop(0, 'rgba(' + s.glow + ',' + (.55 * spd) + ')'); lg.addColorStop(1, 'rgba(' + s.glow + ',0)');
             g.strokeStyle = lg; g.lineWidth = 1.3 - k * .4; g.beginPath(); g.moveTo(sx0, 15.6 + k * 1.4); g.lineTo(sx0 - L, 15.6 + k * 1.4); g.stroke();
-        }
-        flame(g, -44, 4, 38, 5.5, o.boosting, t, false);
-        if (boost) for (let i = 0; i < 4; i++) {          // humo caliente tras el turbo
-            const ph = (t * 1.7 + i * .25) % 1; g.fillStyle = 'rgba(70,74,100,' + (.26 * (1 - ph)) + ')'; g.beginPath(); g.arc(-50 - ph * 26, 1 - ph * 12 + Math.sin(i * 2.7 + t * 3) * 2, 3 + ph * 6, 0, TAU); g.fill();
-        }
-        if (boost) glowDot(g, -43, 4, 15 + Math.sin(t * 40) * 3, '255,255,255', .45);       // destello del turbo
-        if (boost) {
-            flame(g, -44, 6.8, 26, 3.4, true, t + .3, false); glowDot(g, -41, 5, 18, '255,160,60', .55);
-            for (let i = 0; i < 6; i++) { const ph = (t * 5 + i * .17) % 1; glowDot(g, -46 - ph * 30, 5 + Math.sin(i * 5.1 + t * 8) * 5 * ph, 1.8 * (1 - ph) + .6, '255,210,120', .9 * (1 - ph)); }
         }
         if (boost) for (let i = 0; i < 4; i++) {                       // líneas de velocidad
             const ph = (t * 3 + i * .27) % 1;
@@ -1018,241 +1009,180 @@ window.CARS = (() => {
                 g.beginPath(); g.moveTo(x + Math.cos(a) * r0 * (i < 3 ? 1 : -1), 16.4 - Math.sin(a) * r0); g.lineTo(x + Math.cos(a) * r1 * (i < 3 ? 1 : -1), 16.4 - Math.sin(a) * r1 * .8); g.stroke();
             }
         }
-        // ---------- rueda todoterreno ----------
+        // ---------- patín eléctrico de calle (inspirado en un patinete de doble suspensión) ----------
+        // Chasis negro mate, un solo color de acento (OR) y luces LED del color del equipo.
+        const M0 = o.rid || null, dt0 = M0 ? K(t - (M0.t0 == null ? t : M0.t0), 0, .05) : 0; if (M0) M0.t0 = t;
+        const smooth = (k, target, rate) => { if (!M0) return target; const v = M0[k] == null ? target : M0[k]; return (M0[k] = v + (target - v) * Math.min(1, dt0 * rate)); };
+        const EC = CUR.glowRGB || '120,205,255';
+        // caballito al celebrar un gol: gira todo el patín sobre la rueda de atrás
+        const whA = smooth('wh', !air && mood === 'win' ? .3 + Math.sin(t * 6) * .045 : 0, 7);
+        g.save(); if (whA > .002) { g.translate(rx, wy + R); g.rotate(-whA); g.translate(-rx, -(wy + R)); }
+        // pata de cabra: bajada al estar parado (y en el garaje), recogida al arrancar
+        const kd = smooth('kd', !air && spd < .03 && !boost && mood !== 'win' && (!M0 || (M0.idle || 0) > .8) && o.state !== 'count' ? 1 : 0, 6);
+        // ---- rueda de calle: neumático con dibujo fino, llanta de 5 radios mecanizada y disco de freno ----
         const wheelS = (x, rear) => {
             g.save(); g.translate(x, wy);
-            g.fillStyle = '#07080f'; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
+            const tg = g.createRadialGradient(-R * .25, -R * .3, R * .55, 0, 0, R); tg.addColorStop(0, '#262a3a'); tg.addColorStop(.8, '#12141e'); tg.addColorStop(1, '#05060b');
+            g.fillStyle = tg; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
+            g.save(); g.rotate(o.wheel); g.strokeStyle = 'rgba(90,98,135,.55)'; g.lineWidth = .6;
+            for (let i = 0; i < 30; i++) { const a = i * TAU / 30; g.beginPath(); g.moveTo(Math.cos(a) * (R - 1.4), Math.sin(a) * (R - 1.4)); g.lineTo(Math.cos(a + .05) * (R - .3), Math.sin(a + .05) * (R - .3)); g.stroke(); }
+            g.restore();
+            g.strokeStyle = 'rgba(255,255,255,.14)'; g.lineWidth = .8; g.beginPath(); g.arc(0, 0, R - .8, Math.PI * 1.15, Math.PI * 1.7); g.stroke();
+            g.fillStyle = '#0a0b12'; g.beginPath(); g.arc(0, 0, R * .66, 0, TAU); g.fill();
+            // disco de freno (los dos ejes) con agujeros; al frenar fuerte se pone al rojo
             g.save(); g.rotate(o.wheel);
-            for (let i = 0; i < 22; i++) {                              // tacos de campo
-                g.save(); g.rotate(i * TAU / 22);
-                g.fillStyle = '#1b2033'; g.fillRect(R - 2.7, -1.15, 2.7, 2.3); g.fillStyle = '#343b5a'; g.fillRect(R - 2.7, -1.15, 2.7, .55);
-                g.fillStyle = '#12162a'; g.fillRect(R - 4.3, i % 2 ? -.7 : -1.6, 1.7, 1.3);
+            g.fillStyle = '#aeb5cf'; g.beginPath(); g.arc(0, 0, R * .5, 0, TAU); g.arc(0, 0, R * .3, 0, TAU, true); g.fill('evenodd');
+            g.fillStyle = 'rgba(20,24,44,.7)'; for (let i = 0; i < 12; i++) { const a = i * TAU / 12; g.beginPath(); g.arc(Math.cos(a) * R * .41, Math.sin(a) * R * .41, R * .035, 0, TAU); g.fill(); }
+            g.restore();
+            if (brake && (o.spin || 0) > 120) { const hk = K(((o.spin || 0) - 120) / 600, 0, 1); g.strokeStyle = 'rgba(255,110,40,' + (.8 * hk) + ')'; g.lineWidth = R * .2; g.beginPath(); g.arc(0, 0, R * .4, 0, TAU); g.stroke(); glowDot(g, 0, 0, R * .8, '255,90,40', .45 * hk); }
+            // llanta: radios negros con filo mecanizado
+            g.save(); g.rotate(o.wheel + (rear ? .3 : 0));
+            for (let i = 0; i < 5; i++) {
+                g.save(); g.rotate(i * TAU / 5);
+                g.fillStyle = '#15171f'; g.beginPath(); g.moveTo(R * .18, -R * .09); g.lineTo(R * .6, -R * .06); g.lineTo(R * .6, R * .06); g.lineTo(R * .18, R * .09); g.closePath(); g.fill();
+                g.fillStyle = 'rgba(220,226,245,.75)'; g.fillRect(R * .2, -R * .085, R * .38, R * .03);
                 g.restore();
             }
-            if (!air && o.spin > 260) { g.fillStyle = 'rgba(112,84,52,' + K((o.spin - 260) / 1200, 0, .6) + ')'; for (let i = 0; i < 9; i++) { g.save(); g.rotate(i * 2.4); g.beginPath(); g.arc(R - 1.6, (i % 3 - 1) * .8, .9 + (i % 2) * .5, 0, TAU); g.fill(); g.restore(); } }       // barro
-            g.fillStyle = 'rgba(230,235,255,.55)'; g.font = '700 1.9px sans-serif'; g.textAlign = 'center'; for (let i = 0; i < 4; i++) { g.save(); g.rotate(.9 + i * .19); g.translate(R - 4.1, 0); g.rotate(Math.PI / 2); g.fillText('VOLT'[i], 0, 0); g.restore(); } g.textAlign = 'start';       // rótulo del flanco
-            g.strokeStyle = 'rgba(140,150,200,.28)'; g.lineWidth = .6; g.setLineDash([1.6, 1.1]); g.beginPath(); g.arc(0, 0, R - 5.1, 0, TAU); g.stroke(); g.setLineDash([]);
             g.restore();
-            g.strokeStyle = 'rgba(190,200,245,.3)'; g.lineWidth = .6; g.beginPath(); g.arc(0, 0, R - 2.9, 0, TAU); g.stroke();
-            g.fillStyle = '#0b0d17'; g.beginPath(); g.arc(0, 0, R * .6, 0, TAU); g.fill();
-            g.strokeStyle = orange(-R, -R, R, R); g.lineWidth = R * .08; g.beginPath(); g.arc(0, 0, R * .585, 0, TAU); g.stroke();      // aro naranja
-            g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = .5; g.beginPath(); g.arc(0, 0, R * .585, Math.PI * 1.1, Math.PI * 1.45); g.stroke();
-            g.save(); g.rotate(o.wheel);
-            g.fillStyle = '#151a2e'; g.beginPath(); g.arc(0, 0, R * .5, 0, TAU); g.fill();
-            if (!rear) {                                                // disco flotante ranurado
-                g.fillStyle = '#b9c0dc'; g.beginPath(); g.arc(0, 0, R * .46, 0, TAU); g.arc(0, 0, R * .26, 0, TAU, true); g.fill('evenodd');
-                g.strokeStyle = '#2b3150'; g.lineWidth = R * .035;
-                for (let i = 0; i < 14; i++) { const a = i * TAU / 14; g.beginPath(); g.moveTo(Math.cos(a) * R * .3, Math.sin(a) * R * .3); g.lineTo(Math.cos(a + .25) * R * .43, Math.sin(a + .25) * R * .43); g.stroke(); }
-                g.fillStyle = '#8f96b4'; for (let i = 0; i < 6; i++) { const a = i * TAU / 6; g.beginPath(); g.arc(Math.cos(a) * R * .22, Math.sin(a) * R * .22, R * .035, 0, TAU); g.fill(); }
-            } else {                                                    // tapa del motor de buje con grafismo naranja
-                const sq = [[.3, .0, .16], [.34, 1.2, .11], [.26, 2.4, .13], [.36, 3.6, .09], [.3, 4.7, .12], [.22, 5.6, .08]];
-                for (const q of sq) { g.save(); g.rotate(q[1]); g.strokeStyle = OR; g.lineWidth = .55; g.strokeRect(R * q[0], -R * q[2] / 2, R * q[2], R * q[2]); g.fillStyle = ORA('.55'); g.fillRect(R * q[0] + R * q[2] * .25, -R * q[2] * .25, R * q[2] * .5, R * q[2] * .5); g.restore(); }
-                g.strokeStyle = ORA('.7'); g.lineWidth = .5; g.beginPath(); g.arc(0, 0, R * .42, .3, 2.2); g.stroke();
-            }
-            g.restore();
-            g.save(); g.rotate(o.wheel);
-            g.fillStyle = rear ? '#1c2036' : '#101322'; g.beginPath(); g.arc(0, 0, R * .17, 0, TAU); g.fill(); g.restore();
-            bolt(g, 0, 0, R * .11);
-            if (!rear) {                                                // pinza de freno fija
-                g.fillStyle = '#10121d'; g.beginPath(); g.arc(0, 0, R * .5, -1.5, -.55); g.arc(0, 0, R * .3, -.55, -1.5, true); g.closePath(); g.fill();
-                g.fillStyle = OR; g.beginPath(); g.arc(0, 0, R * .49, -1.4, -.8); g.arc(0, 0, R * .38, -.8, -1.4, true); g.closePath(); g.fill();
-                if (brake && o.spin > 120) { glowDot(g, 0, 0, R * .75, '255,90,40', .55); g.strokeStyle = 'rgba(255,120,50,.85)'; g.lineWidth = R * .07; g.beginPath(); g.arc(0, 0, R * .36, 0, TAU); g.stroke(); }       // disco al rojo
-            }
-            if (o.spin > 380) { g.strokeStyle = 'rgba(210,220,255,' + Math.min(.3, (o.spin - 380) / 1700) + ')'; g.lineWidth = R * .5; g.beginPath(); g.arc(0, 0, R * .55, 0, TAU); g.stroke(); }
+            g.strokeStyle = '#1b1e29'; g.lineWidth = R * .09; g.beginPath(); g.arc(0, 0, R * .62, 0, TAU); g.stroke();
+            g.strokeStyle = 'rgba(220,226,245,.55)'; g.lineWidth = .45; g.beginPath(); g.arc(0, 0, R * .66, 0, TAU); g.stroke();
+            // buje: el trasero es el motor (más grande, con el acento de color)
+            g.fillStyle = rear ? '#1d2030' : '#14161f'; g.beginPath(); g.arc(0, 0, R * (rear ? .26 : .17), 0, TAU); g.fill();
+            if (rear) { g.strokeStyle = ORA('.9'); g.lineWidth = .7; g.beginPath(); g.arc(0, 0, R * .22, 0, TAU); g.stroke(); }
+            bolt(g, 0, 0, R * .09);
+            // pinza de freno fija (no gira)
+            g.fillStyle = '#0d0f17'; g.beginPath(); g.arc(0, 0, R * .55, -1.55, -.65); g.arc(0, 0, R * .32, -.65, -1.55, true); g.closePath(); g.fill();
+            g.fillStyle = OR; g.beginPath(); g.arc(0, 0, R * .52, -1.45, -.85); g.arc(0, 0, R * .4, -.85, -1.45, true); g.closePath(); g.fill();
+            if (o.spin > 380) { g.strokeStyle = 'rgba(210,220,255,' + Math.min(.28, (o.spin - 380) / 1700) + ')'; g.lineWidth = R * .5; g.beginPath(); g.arc(0, 0, R * .5, 0, TAU); g.stroke(); }
             g.restore();
         };
+        // ---- turbo eléctrico: rayos alrededor de las ruedas, zumbido de luz y chispas azules ----
+        const elec = () => {
+            if (!boost) return;
+            g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round'; g.lineJoin = 'round';
+            for (const x of [rx, fx]) {
+                glowDot(g, x, wy, R + 8 + Math.sin(t * 70 + x) * 2, EC, .5);
+                for (let k = 0; k < 3; k++) {
+                    const a0 = t * 9 * (x > 0 ? 1 : -1) + k * 2.1 + Math.floor(t * 18) * 1.7, n = 6;
+                    const pts = []; for (let i = 0; i <= n; i++) { const a = a0 + i * .22, rr = R + 1.5 + Math.sin(t * 120 + i * 3 + k) * 1.6 + (i % 2) * 1.2; pts.push([x + Math.cos(a) * rr, wy + Math.sin(a) * rr]); }
+                    for (const [w, col] of [[1.8, 'rgba(' + EC + ',.55)'], [.6, 'rgba(255,255,255,.95)']]) { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); }
+                }
+            }
+            // rayo que sale hacia atrás desde el motor y chispas que saltan
+            const pts = []; for (let i = 0; i <= 8; i++) pts.push([rx - R - i * 4.2, wy + Math.sin(t * 95 + i * 2.3) * (1 + i * .45)]);
+            for (const [w, col] of [[2.2, 'rgba(' + EC + ',.45)'], [.7, 'rgba(255,255,255,.9)']]) { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); }
+            for (let i = 0; i < 6; i++) { const ph = (t * 4 + i * .17) % 1; glowDot(g, rx - R - ph * 30, wy + Math.sin(i * 5.1 + t * 8) * 6 * ph, 1.6 * (1 - ph) + .5, EC, .9 * (1 - ph)); }
+            g.restore();
+        };
+        // ---- horquilla y columna: un solo eje inclinado que pasa por el eje de la rueda delantera ----
+        const AX = (u) => [fx - .3232 * u, wy - .9465 * u];      // punto del eje de dirección a u unidades de la rueda (en el chasis)
         wheelS(rx, true);
-        if (boost) glowDot(g, rx, wy, 11, '255,150,60', .45 + .2 * Math.sin(t * 30));       // motor de buje al rojo con el turbo
-
-        // ---------- guardabarros trasero grande ----------
-        g.fillStyle = '#0d0f1a'; g.beginPath(); g.arc(rx, wy, R + 3.6, Math.PI * .96, Math.PI * 1.88); g.arc(rx, wy, R + .9, Math.PI * 1.88, Math.PI * .96, true); g.closePath(); g.fill();
-        g.fillStyle = '#0d0f1a'; g.beginPath(); g.moveTo(rx - R - 3.4, wy - 1); g.lineTo(rx - R - 7.5, wy + 3.8); g.lineTo(rx - R - 4.4, wy + 5.2); g.lineTo(rx - R - .2, wy + 1.4); g.closePath(); g.fill();
-        g.strokeStyle = 'rgba(160,170,220,.5)'; g.lineWidth = .7; g.beginPath(); g.arc(rx, wy, R + 3.1, Math.PI * 1.08, Math.PI * 1.7); g.stroke();
-        g.strokeStyle = 'rgba(255,255,255,.2)'; g.lineWidth = .5; for (let i = 0; i < 6; i++) { const a = Math.PI * (1.2 + i * .1); g.beginPath(); g.moveTo(rx + Math.cos(a) * (R + 1.4), wy + Math.sin(a) * (R + 1.4)); g.lineTo(rx + Math.cos(a) * (R + 3.3), wy + Math.sin(a) * (R + 3.3)); g.stroke(); }
-        { const da = Math.PI * 1.34; g.save(); g.translate(rx + Math.cos(da) * (R + 2.4), wy + Math.sin(da) * (R + 2.4)); g.rotate(da + Math.PI / 2); g.fillStyle = OR; g.font = '700 3px sans-serif'; g.textAlign = 'center'; g.fillText(o.dorsal || '07', 0, 1); g.textAlign = 'start'; g.restore(); }       // dorsal
-        g.fillStyle = '#ff3b2a'; rrect(g, rx - R - 7.1 - brake * 2.6, wy + 1.8, 2.2 + brake * 2.6, 3.2, .8); g.fill();
-        if (air && Math.sin(t * 14) > 0) { glowDot(g, rx - R - 6, wy + 3.4, 11, '255,60,40', .9); glowDot(g, fx + R + 1, wy - 5, 8, '255,190,60', .9); }      // luces de posición parpadeando en el aire
-        glowDot(g, rx - R - 6, wy + 3.4, brake ? 12 : 6, '255,50,40', brake ? .9 : .35);
-
-        // ---------- basculante trasero: brazo de aluminio con corte naranja ----------
-        const pvR = PT(-16, 9.2), axR = [rx, wy];
-        limb(g, pvR[0], pvR[1], axR[0], axR[1], 7, 5.2, '#10121d');
-        limb(g, pvR[0], pvR[1], axR[0], axR[1], 5.6, 3.9, frame(rx, wy - 4, -16, 12));
-        limb(g, pvR[0] - 2.4, pvR[1] - .5, axR[0] + 2.2, axR[1] - .3, 1.2, 1.2, 'rgba(255,255,255,.35)');
-        const asr = Math.atan2(axR[1] - pvR[1], axR[0] - pvR[0]);
-        for (let i = 0; i < 3; i++) { const u = .3 + i * .2, cx = pvR[0] + (axR[0] - pvR[0]) * u, cy = pvR[1] + (axR[1] - pvR[1]) * u; g.save(); g.translate(cx, cy); g.rotate(asr); g.fillStyle = OR; g.fillRect(-1.5 + i * .3, -1.2, 2.6 - i * .5, 2.4); g.restore(); }
-        bolt(g, axR[0], axR[1], 1.9); bolt(g, pvR[0], pvR[1], 2.1);
-        // bieleta (balancín) que abre y cierra con la compresión
-        const rkc = [pvR[0] + (axR[0] - pvR[0]) * .42, pvR[1] + (axR[1] - pvR[1]) * .42];
-        const rkA = Math.atan2(PT(-17, -2)[1] - rkc[1], PT(-17, -2)[0] - rkc[0]) + sR * .22;
-        const rk2 = [rkc[0] + Math.cos(rkA) * 6.5, rkc[1] + Math.sin(rkA) * 6.5];
-        limb(g, rkc[0], rkc[1], rk2[0], rk2[1], 3.2, 2.6, '#12141f'); limb(g, rkc[0], rkc[1], rk2[0], rk2[1], 2, 1.4, orange(rkc[0], rkc[1], rk2[0], rk2[1]));
-        bolt(g, rkc[0], rkc[1], 1.15); bolt(g, rk2[0], rk2[1], 1.1);
-        // amortiguador trasero con depósito, muelle, tope y anillo de precarga
-        const shU = PT(-18.2, -9.4), shL = [pvR[0] + (axR[0] - pvR[0]) * .6, pvR[1] + (axR[1] - pvR[1]) * .6 - 2.6];
-        const drawRearShock = () => {
-            const dx = shL[0] - shU[0], dy = shL[1] - shU[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, px = -uy, py = ux;
-            const at = (u, off) => [shU[0] + dx * u + px * (off || 0), shU[1] + dy * u + py * (off || 0)];
-            const a0 = at(.08), a1 = at(.3);                              // cuerpo superior (varilla cromada)
-            limb(g, a0[0], a0[1], a1[0], a1[1], 1.5, 1.5, metal(a0[0], a0[1], a1[0] + 2, a1[1]));
-            const b0 = at(.56), b1 = at(.97);                              // cilindro del amortiguador
-            limb(g, b0[0], b0[1], b1[0], b1[1], 3.7, 3.7, '#0b0d17'); limb(g, b0[0], b0[1], b1[0], b1[1], 2.8, 2.8, 'rgba(120,130,175,.5)');
-            for (let i = 0; i < 7; i++) { const q = at(.58 + i * .052); g.strokeStyle = i % 2 ? 'rgba(200,210,245,.55)' : 'rgba(10,12,24,.8)'; g.lineWidth = .55; g.beginPath(); g.moveTo(q[0] + px * 2.1, q[1] + py * 2.1); g.lineTo(q[0] - px * 2.1, q[1] - py * 2.1); g.stroke(); }       // aletas
-            const dep0 = at(.62, 4.4), dep1 = at(.92, 4.4);                // depósito piggyback
-            limb(g, dep0[0], dep0[1], dep1[0], dep1[1], 3, 3, '#12141f'); limb(g, dep0[0], dep0[1], dep1[0], dep1[1], 2.1, 2.1, orange(dep0[0], dep0[1], dep1[0], dep1[1]));
-            const cp = at(.62, 2.2); limb(g, cp[0], cp[1], dep0[0], dep0[1], 1.1, 1.1, '#9aa1c2');
-            const sp0 = at(.3), sp1 = at(.56);
-            spring(g, sp0[0], sp0[1], sp1[0], sp1[1], 4, 4.8, OR, 'rgba(255,230,200,.9)', 1.3);
-            const ring = at(.3); g.save(); g.translate(ring[0], ring[1]); g.rotate(Math.atan2(dy, dx)); g.fillStyle = '#c9cfe6'; g.fillRect(-.7, -4.7, 1.4, 9.4); g.restore();
-            const rg = at(.56); g.save(); g.translate(rg[0], rg[1]); g.rotate(Math.atan2(dy, dx)); g.fillStyle = '#5a607c'; g.fillRect(-.6, -4.7, 1.2, 9.4); g.restore();
-            // fuelle de goma sobre la varilla, tope de compresión, marcas de recorrido y visor de aceite
-            for (let i = 0; i < 5; i++) { const q = at(.1 + i * .04), w = 1.5 + (i % 2 ? .5 : 1.1); g.save(); g.translate(q[0], q[1]); g.rotate(Math.atan2(dy, dx)); g.fillStyle = i % 2 ? '#1b2036' : '#0b0d17'; g.fillRect(-.9, -w, 1.8, w * 2); g.restore(); }
-            const bs = at(.275); g.save(); g.translate(bs[0], bs[1]); g.rotate(Math.atan2(dy, dx)); g.fillStyle = '#ffb347'; g.fillRect(-1.3, -2.6, 2.6, 5.2); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(-1.3, -2.6, .7, 5.2); g.restore();
-            for (let i = 0; i < 6; i++) { const q = at(.64 + i * .05, 1.4); g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = .4; g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(q[0] + px * (i % 2 ? .8 : 1.4), q[1] + py * (i % 2 ? .8 : 1.4)); g.stroke(); }
-            const sg = at(.77, 4.4); g.fillStyle = '#05060d'; g.beginPath(); g.arc(sg[0], sg[1], 1.5, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,190,80,.95)'; g.beginPath(); g.arc(sg[0], sg[1], 1, 0, TAU); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(sg[0] - .3, sg[1] - .3, .35, 0, TAU); g.fill();
-            if (sR > .85) { const f = K((sR - .85) * 5, 0, 1); glowDot(g, shL[0], shL[1], 12, '255,170,60', f * .8); glowDot(g, shU[0], shU[1], 9, '255,230,170', f * .6); }
-            bolt(g, shU[0], shU[1], 1.5); bolt(g, shL[0], shL[1], 1.3);
-        };
-
-        // ---------- chasis, columna y manillar (suspendidos) ----------
+        // ---- basculante trasero y amortiguador con muelle (en coordenadas del mundo: unen chasis y rueda) ----
+        const pvR = PT(-19, 9.4), axR = [rx, wy];
+        limb(g, pvR[0], pvR[1], axR[0], axR[1], 5, 3.8, '#0d0f17');
+        limb(g, pvR[0], pvR[1] - .4, axR[0], axR[1] - .4, 3.6, 2.6, '#22252f');
+        limb(g, pvR[0] - 1, pvR[1] - 1.5, axR[0] + 1.6, axR[1] - 1.3, .6, .6, 'rgba(255,255,255,.28)');
+        bolt(g, axR[0], axR[1], 1.6); bolt(g, pvR[0], pvR[1], 1.5);
+        {   // amortiguador trasero: un muelle grande y bien visible
+            const U = PT(-22, 2.4), A = [pvR[0] + (axR[0] - pvR[0]) * .62, pvR[1] + (axR[1] - pvR[1]) * .62 - 1.4];
+            limb(g, U[0], U[1], A[0], A[1], 1.6, 1.6, metal(U[0], U[1], A[0] + 2, A[1]));
+            const dx = A[0] - U[0], dy = A[1] - U[1];
+            spring(g, U[0] + dx * .12, U[1] + dy * .12, U[0] + dx * .88, U[1] + dy * .88, 5, 3.3, OR, 'rgba(255,235,210,.9)', 1.1);
+            bolt(g, U[0], U[1], 1.2); bolt(g, A[0], A[1], 1.2);
+        }
+        // ---------- chasis (suspendido) ----------
         g.save(); g.transform(1, kS, 0, 1, 0, d0);
-        // soporte y pisadera trasera elevada
-        g.fillStyle = frame(-30, -2, -18, 10); g.beginPath(); g.moveTo(-29, 9); g.lineTo(-27, 1); g.lineTo(-20, 1); g.lineTo(-17, 9); g.closePath(); g.fill();
-        g.strokeStyle = 'rgba(5,7,16,.8)'; g.lineWidth = .8; g.stroke();
-        g.fillStyle = '#0c0e19'; g.beginPath(); g.moveTo(-38, -1.8); g.lineTo(-37, -3.6); g.lineTo(-24, -3.6); g.lineTo(-18.5, 0.6); g.lineTo(-18.5, 2.2); g.lineTo(-37.4, 1.6); g.closePath(); g.fill();
-        g.strokeStyle = 'rgba(150,160,215,.55)'; g.lineWidth = .5; for (let x = -35; x < -21; x += 2.3) { g.beginPath(); g.moveTo(x, -3.3); g.lineTo(x + 1.3, 1); g.stroke(); }
-        g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(-37, -3.6, 13, .5);
-        g.fillStyle = '#ff3b2a'; g.fillRect(-38.6, -1.6, 1.8, 2.8); glowDot(g, -38, -.2, brake ? 14 : 6, '255,50,40', brake ? .95 : .4);
-        g.fillStyle = OR; g.fillRect(-26, 3.2, 2.2, 2.2); g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(-26, 3.2, 2.2, .5);
-        g.fillStyle = frame(-24, -10, -14, 8); g.beginPath(); g.moveTo(-23.5, 7.4); g.lineTo(-20.6, -9.6); g.lineTo(-16.4, -9.2); g.lineTo(-16.8, 7.4); g.closePath(); g.fill();
-        g.strokeStyle = 'rgba(5,7,16,.85)'; g.lineWidth = .8; g.stroke(); g.fillStyle = '#0b0d17'; g.beginPath(); g.moveTo(-21, 4); g.lineTo(-19.6, -4.6); g.lineTo(-18.2, -4.4); g.lineTo(-19, 4); g.closePath(); g.fill();
-        // cuerpo de la batería / plataforma
-        const body = () => { g.beginPath(); g.moveTo(-19, 7.2); g.lineTo(18, 7.2); g.lineTo(18, 13); g.quadraticCurveTo(18, 14.6, 16.4, 14.6); g.lineTo(-17.4, 14.6); g.quadraticCurveTo(-19, 14.6, -19, 13); g.closePath(); };
-        body(); g.fillStyle = frame(0, 7, 0, 15); g.fill();
-        g.save(); body(); g.clip();
-        g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(-20, 12.8, 40, 2);
-        g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(-19, 8.4, 38, .6);
-        g.strokeStyle = 'rgba(255,255,255,.1)'; g.lineWidth = .25; for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(-19, 8.8 + i * .62); g.lineTo(18, 8.8 + i * .62 + (i % 2) * .2); g.stroke(); }      // aluminio cepillado
-        { const bx = ((t * 18) % 70) - 25, bg = g.createLinearGradient(bx - 5, 0, bx + 5, 0); bg.addColorStop(0, 'rgba(255,255,255,0)'); bg.addColorStop(.5, 'rgba(255,255,255,.22)'); bg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = bg; g.fillRect(bx - 5, 7.4, 10, 7); }
-        // grafismo naranja de cuadrados (pixel) en la zona trasera y delantera
-        const px = [[-16, 9.4, 3], [-12.6, 10.4, 2.2], [-9.6, 9, 1.6], [-8, 11.2, 2.6], [-4.6, 12, 1.4], [-18, 12.4, 1.6], [13, 9.6, 2], [15.4, 11.4, 1.6], [10.6, 11.6, 1.4]];
-        for (const q of px) { g.fillStyle = ORA('.9'); g.fillRect(q[0], q[1], q[2], q[2] * .8); }
-        g.strokeStyle = ORA('.8'); g.lineWidth = .5; g.strokeRect(-14.6, 8.7, 5, 3.8); g.strokeRect(-7, 9.8, 4, 3);
-        g.fillStyle = '#d3d8ec'; g.fillRect(-1.6, 9.2, 9.6, 3.4); g.fillStyle = 'rgba(10,12,28,.7)'; for (let i = 0; i < 4; i++) g.fillRect(-.8, 9.9 + i * .75, 6 + (i % 2) * 1.6, .35);   // placa de datos
-        { const lv = boost ? 2 + (Math.sin(t * 6) > 0 ? 1 : 0) : 4; g.fillStyle = '#05070f'; g.fillRect(8.6, 8.35, 6.2, 1.5); for (let i = 0; i < 4; i++) { g.fillStyle = i < lv ? (lv < 3 ? '#ff5a5a' : '#56ffb0') : 'rgba(255,255,255,.16)'; g.fillRect(8.9 + i * 1.5, 8.6, 1.1, 1); } }      // indicador de batería
-        g.restore();
-        body(); g.lineWidth = .9; g.strokeStyle = 'rgba(5,8,22,.85)'; g.stroke();
-        // alfombrilla de goma con perfil en V y logotipo naranja
-        const mat = () => rrect(g, -19, 4.6, 37, 3.4, 1.2);
-        mat(); g.fillStyle = '#0a0c16'; g.fill();
-        g.save(); mat(); g.clip();
-        g.strokeStyle = 'rgba(150,160,215,.32)'; g.lineWidth = .55;
-        for (let x = -18; x < 18; x += 2.2) { g.beginPath(); g.moveTo(x, 4.6); g.lineTo(x + 1.1, 6.3); g.lineTo(x, 8); g.stroke(); }
-        g.fillStyle = ORA('.95'); g.fillRect(-16.5, 5.2, 4.6, 2.2); g.fillStyle = '#0a0c16'; g.font = '700 2px sans-serif'; g.fillText('PV', -15.8, 6.9);
-        const sx = ((t * 46) % 120) - 40, sg = g.createLinearGradient(sx - 8, 0, sx + 8, 0);
-        sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(.5, 'rgba(255,255,255,.35)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
-        g.fillStyle = sg; g.fillRect(sx - 8, 4, 16, 5);
-        g.restore();
-        mat(); g.lineWidth = .8; g.strokeStyle = 'rgba(5,8,22,.9)'; g.stroke();
-        g.fillStyle = OR; g.fillRect(-18.5, 7.9, 36, .55);
-        // tira LED cromática bajo el chasis
-        const led = g.createLinearGradient(-18, 0, 18, 0); led.addColorStop(0, C(0, 62)); led.addColorStop(.33, C(100, 62)); led.addColorStop(.66, C(200, 62)); led.addColorStop(1, C(300, 62));
-        g.fillStyle = led; rrect(g, -16, 14.9, 32, 1.2, .6); g.fill(); glowDot(g, 0, 15.6, 26, boost ? '255,170,80' : '255,255,255', .12 + boost * .3);
-        // cable de la batería y pestillo del soporte plegado
-        g.strokeStyle = '#0b0d17'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-19, 11); g.quadraticCurveTo(-22, 11.5, -25, 8.5); g.stroke();
-        limb(g, -1, 15.5, -10.6, 16.2, 2, 1.6, '#10121d'); limb(g, -1.4, 15.2, -10.2, 15.8, .9, .7, '#aab2cf'); g.fillStyle = OR; rrect(g, -12.8, 15.4, 2.9, 1.8, .7); g.fill(); spring(g, -3, 14.7, -6.6, 15.3, 3, .8, '#c2c8de', '#fff', .45); bolt(g, -1, 15.5, 1);      // soporte lateral plegado con muelle
-
-        // cuello delantero con ranura para el amortiguador y reflector
-        const neck = () => { g.beginPath(); g.moveTo(15, 8); g.lineTo(18.6, -10.4); g.lineTo(27.6, -10.4); g.lineTo(26.6, -1); g.lineTo(23.6, 8); g.closePath(); };
-        neck(); g.fillStyle = frame(14, -10, 28, 8); g.fill(); g.lineWidth = .9; g.strokeStyle = 'rgba(5,8,22,.85)'; g.stroke();
-        g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(18.6, -10.4, 9, .6);
-        g.fillStyle = '#0b0d17'; g.beginPath(); g.moveTo(19.6, 4.8); g.lineTo(21.4, -5.8); g.lineTo(24.2, -5.8); g.lineTo(22.8, 4.8); g.closePath(); g.fill();
-        g.fillStyle = OR; g.fillRect(16.6, 1.2, 2.2, 3.4); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(16.6, 1.2, 2.2, .6);
-        bolt(g, 20.8, 6.2, 1.2); bolt(g, 24.4, -8, 1.1);
-        // faro delantero
-        g.fillStyle = '#0b0d17'; rrect(g, 24, -8.6, 5.4, 4.2, 1.4); g.fill();
-        const hl = g.createLinearGradient(26, -8, 29, -5); hl.addColorStop(0, '#ffffff'); hl.addColorStop(1, '#ffe7a0'); g.fillStyle = hl; g.beginPath(); g.arc(27.2, -6.5, 1.5, 0, TAU); g.fill();
-        g.fillStyle = 'rgba(' + s.glow + ',.95)'; g.fillRect(24.6, -5.2, 4, .6); g.strokeStyle = C(60, 72, .85); g.lineWidth = .5; g.beginPath(); g.arc(27.2, -6.5, 2.3, 0, TAU); g.stroke(); glowDot(g, 27.2, -6.5, 9, '255,240,200', .45); headlight(g, 29.6, -6.5, 92);
-        // articulación plegable de la columna: bisagra, pestillo y tornillos
-        g.fillStyle = '#0b0d17'; rrect(g, 19, -17.6, 9.6, 7.6, 1.6); g.fill();
-        g.fillStyle = frame(19, -17, 28, -10); rrect(g, 19.8, -17, 7.8, 5.6, 1.2); g.fill();
-        g.fillStyle = '#10121d'; g.beginPath(); g.moveTo(18.8, -15.4); g.quadraticCurveTo(15.2, -15.4, 15.4, -19.6); g.lineTo(17.2, -19.2); g.quadraticCurveTo(17.2, -16.8, 19.8, -16.6); g.closePath(); g.fill();   // pestillo
-        g.strokeStyle = '#9aa1c2'; g.lineWidth = .5; g.beginPath(); g.moveTo(15.8, -19); g.lineTo(17, -18.8); g.stroke();
-        bolt(g, 21.4, -14.6, 1); bolt(g, 25.8, -14.6, 1); bolt(g, 23.6, -11.4, .9);
-        // columna negra con grafismos naranjas (rake hacia atrás)
-        const sb = [24, -17.2], st = [13.4, -35.4];
-        limb(g, sb[0], sb[1], st[0], st[1], 5.6, 4.8, '#07080f');
-        limb(g, sb[0] - .5, sb[1] - .4, st[0] - .4, st[1] + .4, 3.6, 3, '#171b2c');
-        const sa = Math.atan2(st[1] - sb[1], st[0] - sb[0]);
-        g.save(); g.translate(sb[0], sb[1]); g.rotate(sa);
-        g.fillStyle = OR; g.fillRect(3.4, -1.6, 4.4, 3.2); g.fillStyle = '#0a0b13'; g.font = '700 2.6px sans-serif'; g.fillText('PV', 4.1, .9); g.fillStyle = OR; g.fillRect(9.4, -.8, 1.6, 1.6); g.fillRect(12.4, -1.8, 2.8, 2.2);
-        g.strokeStyle = OR; g.lineWidth = .5; g.strokeRect(4.2, -2.1, 6.4, 3.6); g.beginPath(); g.moveTo(16.4, -1.8); g.lineTo(19.8, 1.4); g.lineTo(19.8, -.6); g.stroke();
-        g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(2, -2.3, 18, .45);
-        g.restore();
-        // cables del manillar al cuello (con holgura que se mueve con la suspensión)
-        const sw = Math.sin(t * 3) * .25 + (sF + sR) * 1.2;
-        for (let i = 0; i < 3; i++) {
-            g.strokeStyle = i === 1 ? '#2a2f48' : '#0b0d17'; g.lineWidth = .85;
-            g.beginPath(); g.moveTo(23.6 - i * .5, -33.6); g.bezierCurveTo(31 + i * 1.6 + sw, -29 + i, 31.4 + sw * 1.4, -20 - i, 27.4 - i * .5, -16.6); g.stroke();
+        // pata de cabra (por detrás de la plataforma)
+        {   const a = Math.PI - .12 - kd * (Math.PI / 2 - .38), px0 = -5, py0 = 10.6, L = 5.9, ex = px0 + Math.cos(a) * L, ey = py0 + Math.sin(a) * L;
+            limb(g, px0, py0, ex, ey, 1.9, 1.5, '#0d0f17'); limb(g, px0, py0 - .3, ex, ey - .3, 1, .8, '#6a7090');
+            g.fillStyle = '#0d0f17'; g.beginPath(); g.ellipse(ex, ey + .3, 1.5, .7, a, 0, TAU); g.fill(); bolt(g, px0, py0, .8); }
+        // guardabarros trasero con luz de freno que parpadea al frenar
+        g.strokeStyle = '#0d0f17'; g.lineWidth = 3.2; g.beginPath(); g.arc(rx, wy, R + 2.4, Math.PI * 1.02, Math.PI * 1.74); g.stroke();
+        g.strokeStyle = '#1c1f2b'; g.lineWidth = 2; g.beginPath(); g.arc(rx, wy, R + 2.4, Math.PI * 1.04, Math.PI * 1.72); g.stroke();
+        g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = .5; g.beginPath(); g.arc(rx, wy, R + 3.4, Math.PI * 1.15, Math.PI * 1.62); g.stroke();
+        {   const bl = brake ? (Math.sin(t * 26) > -.2 ? 1 : .25) : 0, lx = rx - R - 3.9, ly = wy - 2.6;
+            g.fillStyle = '#12060a'; rrect(g, lx - .4, ly - .4, 2.8, 3.4, .8); g.fill();
+            g.fillStyle = bl ? '#ff8070' : '#c0261e'; rrect(g, lx, ly, 2, 2.6, .6); g.fill();
+            glowDot(g, lx + 1, ly + 1.3, 5 + bl * 10, '255,50,40', .35 + bl * .6);
+            if (air && Math.sin(t * 14) > 0) glowDot(g, lx + 1, ly + 1.3, 10, '255,60,40', .8); }
+        // soporte del guardabarros a la plataforma
+        poly(g, [[-27.5, -4.6], [-21, 4.8], [-21, 8.6], [-24, 8.6], [-29.4, -3.4]], '#15171f');
+        // plataforma: negra mate, alfombrilla de goma, tira LED del color del equipo y un solo logo
+        const deck = () => { g.beginPath(); g.moveTo(-22, 5); g.lineTo(16, 5); g.quadraticCurveTo(19.5, 5, 20.5, 8); g.lineTo(19.5, 10.4); g.quadraticCurveTo(18.6, 12, 16.6, 12); g.lineTo(-19.6, 12); g.quadraticCurveTo(-22, 12, -22, 9.6); g.closePath(); };
+        { const dg = g.createLinearGradient(0, 5, 0, 12); dg.addColorStop(0, '#2a2e3d'); dg.addColorStop(.4, '#181b26'); dg.addColorStop(1, '#090a10'); deck(); g.fillStyle = dg; g.fill(); }
+        g.save(); deck(); g.clip();
+        g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(-22, 6.6, 42, .45);      // filo de luz del lateral
+        {   // tira LED: late más deprisa cuanto más corre
+            const ly = 9.2, ph = (t * (1.2 + spd * 6)) % 1;
+            g.fillStyle = 'rgba(' + s.glow + ',.35)'; rrect(g, -19, ly, 35, 1, .5); g.fill();
+            for (let i = 0; i < 3; i++) { const x = -19 + ((ph + i / 3) % 1) * 35; const lg = g.createLinearGradient(x - 5, 0, x + 5, 0); lg.addColorStop(0, 'rgba(' + s.glow + ',0)'); lg.addColorStop(.5, 'rgba(255,255,255,.95)'); lg.addColorStop(1, 'rgba(' + s.glow + ',0)'); g.fillStyle = lg; g.fillRect(x - 5, ly, 10, 1); }
         }
-        // manillar: puño, maneta de freno, pantalla, mandos y correa naranja colgando
-        const grip = [[15, -36.6], [24.4, -35]];
-        limb(g, st[0] + 1, st[1] - 1.2, grip[1][0] + 2, grip[1][1], 2.8, 2.8, '#07080f');
-        limb(g, grip[0][0] + 5, grip[0][1] + .4, grip[1][0] + 4.6, grip[1][1] - .2, 3.2, 3.2, '#0c0e19');
-        g.strokeStyle = 'rgba(150,160,215,.35)'; g.lineWidth = .45; for (let i = 0; i < 6; i++) { const x = grip[0][0] + 6.6 + i * 1.7; g.beginPath(); g.moveTo(x, -38); g.lineTo(x - .3, -35.2); g.stroke(); }
-        g.fillStyle = '#0c0e19'; rrect(g, 23.4, -37.6, 2.2, 3.6, 1); g.fill();
-        g.strokeStyle = '#aab2cf'; g.lineWidth = 1.1; g.beginPath(); g.moveTo(22, -34); g.quadraticCurveTo(28.4, -33.6, 30.4, -28.6); g.stroke();
-        g.strokeStyle = OR; g.lineWidth = 1.3; g.beginPath(); g.moveTo(29.5, -30.4); g.lineTo(30.4, -28.6); g.stroke();
-        g.fillStyle = '#12141f'; rrect(g, 20.4, -35, 4, 2.6, 1); g.fill(); g.fillStyle = '#ff3b2a'; g.fillRect(21.2, -34.4, 1.4, 1.2); g.fillStyle = OR; g.fillRect(23, -34.4, 1, 1.2);
-        limb(g, 22.8, -37.6, 27.6, -36.6, 1.9, 1.7, '#161a2b'); g.fillStyle = OR; g.beginPath(); g.arc(27.7, -36.6, 1, 0, TAU); g.fill();      // acelerador de pulgar
-        bolt(g, 21.2, -32.6, .8); bolt(g, 18.4, -33.4, .7);      // botón de claxon y abrazadera
-        g.save(); g.translate(7.4, -45.4); g.rotate(-.12); g.scale(1.22, 1.22);
-        g.fillStyle = '#0a0c16'; rrect(g, 0, 0, 12.6, 6.8, 1.5); g.fill(); g.strokeStyle = 'rgba(150,160,215,.5)'; g.lineWidth = .5; rrect(g, 0, 0, 12.6, 6.8, 1.5); g.stroke();
-        g.fillStyle = '#05070f'; g.fillRect(.9, .9, 10.8, 5);
-        const dsp = Math.round(spd * 38);
-        for (let i = 0; i < 6; i++) { g.fillStyle = (i < 1 + spd * 5 || boost) ? (i > 4 ? '#ff5a5a' : 'rgba(' + s.glow + ',.95)') : 'rgba(255,255,255,.14)'; g.fillRect(1.6 + i * 1.5, 5.4 - i * .6, 1.05, 1 + i * .6); }
-        g.fillStyle = '#e8ecff'; g.font = '700 2.6px monospace'; g.textBaseline = 'alphabetic'; g.fillText(String(dsp), 10.2 - String(dsp).length * 0.45, 2.7);
-        g.fillStyle = boost ? OR : '#56ffb0'; g.fillRect(8.8, 3.5, 2.4, 1.1); g.fillRect(11.4, 3.8, .4, .5);
-        g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(1.2, 1.1, 5, .45);
-        g.save(); g.beginPath(); g.rect(.9, .9, 10.8, 5); g.clip(); { const gx = -4 + ((t * .35 + spd * t * .4) % 1) * 20; g.strokeStyle = 'rgba(255,255,255,.28)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(gx, 6.2); g.lineTo(gx + 4, .6); g.stroke(); } g.restore();     // reflejo en el cristal
+        g.fillStyle = 'rgba(255,255,255,.45)'; g.font = '700 1.7px sans-serif'; g.fillText('PRISMA', -4.6, 11.4);
         g.restore();
-        // correa naranja con grafismo, se balancea con la aceleración
-        g.save(); g.translate(17.5, -30); g.rotate(-lean * .5 + Math.sin(t * 5 + 1) * .08 * (.3 + spd) + (air ? vu * .3 : 0));
-        g.fillStyle = '#10121d'; rrect(g, -1.7, -.4, 3.4, 1.2, .5); g.fill();
-        g.fillStyle = orange(0, 0, 0, 12); g.beginPath(); g.moveTo(-1.6, .4); g.lineTo(1.6, .4); g.lineTo(1.6, 11); g.lineTo(0, 12.6); g.lineTo(-1.6, 11); g.closePath(); g.fill();
-        g.fillStyle = 'rgba(10,12,24,.8)'; g.fillRect(-.9, 3, 1.4, 1.2); g.fillRect(-.9, 6.2, 1.8, 1.1); g.fillRect(-.4, 9, 1.2, 1.1);
-        g.restore();
+        deck(); g.lineWidth = .8; g.strokeStyle = 'rgba(3,4,10,.9)'; g.stroke();
+        glowDot(g, 0, 13.4, 22, s.glow, .18 + spd * .2);
+        // alfombrilla con estrías finas
+        { const mt = () => rrect(g, -20.5, 4.1, 35.5, 1.5, .7); mt(); g.fillStyle = '#0b0c12'; g.fill();
+          g.save(); mt(); g.clip(); g.strokeStyle = 'rgba(140,150,195,.22)'; g.lineWidth = .4; for (let x = -20; x < 15; x += 1.4) { g.beginPath(); g.moveTo(x, 4.1); g.lineTo(x + .5, 5.6); g.stroke(); } g.restore(); }
+        // cuello: la plataforma sube hacia la pipa de dirección
+        { const c0 = AX(10.5), c1 = AX(20);
+          g.fillStyle = '#15171f'; g.beginPath(); g.moveTo(13, 5); g.quadraticCurveTo(c0[0] - 6, c0[1] + 1, c1[0] - 2.4, c1[1] + 1); g.lineTo(c1[0] + 2.6, c1[1] + 1.6); g.quadraticCurveTo(c0[0] + 1, c0[1] + 2, 20.5, 8.6); g.lineTo(19.5, 10.4); g.closePath(); g.fill();
+          g.strokeStyle = 'rgba(255,255,255,.2)'; g.lineWidth = .5; g.beginPath(); g.moveTo(14.4, 5); g.quadraticCurveTo(c0[0] - 5.4, c0[1], c1[0] - 2.2, c1[1] + .4); g.stroke(); }
+        // pipa de dirección y columna única, gruesa, con cierre de plegado
+        { const h0 = AX(14), h1 = AX(24), s1 = AX(41.5);
+          limb(g, h0[0], h0[1], h1[0], h1[1], 5.6, 5.2, '#0d0f17'); limb(g, h0[0], h0[1], h1[0], h1[1], 4.4, 4, '#1d202c');
+          limb(g, h1[0], h1[1], s1[0], s1[1], 4, 3.4, '#0d0f17'); limb(g, h1[0], h1[1], s1[0], s1[1], 2.8, 2.4, '#262a38');
+          limb(g, h1[0] - .9, h1[1], s1[0] - .8, s1[1], .55, .55, 'rgba(255,255,255,.3)');
+          // cierre de plegado: abrazadera y palanca del color de acento
+          const fl = AX(25.5); g.save(); g.translate(fl[0], fl[1]); g.rotate(Math.atan2(-.9465, -.3232) + Math.PI / 2);
+          g.fillStyle = '#0d0f17'; rrect(g, -3.4, -1.6, 6.8, 3.2, 1); g.fill(); g.fillStyle = '#3a3f52'; rrect(g, -2.9, -1.1, 5.8, 2.2, .7); g.fill();
+          g.fillStyle = OR; rrect(g, 2.4, -3.6, 1.5, 4.4, .6); g.fill(); g.restore();
+          // faro LED en la columna
+          const hl = AX(31); g.fillStyle = '#0d0f17'; rrect(g, hl[0] - .6, hl[1] - 2.2, 4.6, 4.4, 1.4); g.fill();
+          const lg = g.createLinearGradient(hl[0] + 1, hl[1] - 2, hl[0] + 4, hl[1] + 2); lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, '#ffe9b0');
+          g.fillStyle = lg; rrect(g, hl[0] + 1.6, hl[1] - 1.6, 2.2, 3.2, 1); g.fill();
+          g.fillStyle = 'rgba(' + s.glow + ',.95)'; g.fillRect(hl[0] + .1, hl[1] + 1.4, 3.4, .5);
+          headlight(g, hl[0] + 3.6, hl[1], 92);
+          // un solo cable de freno, con holgura que se mueve con la suspensión
+          const sw = Math.sin(t * 3) * .25 + (sF + sR) * 1;
+          g.strokeStyle = '#0b0c12'; g.lineWidth = .8; g.beginPath(); g.moveTo(23.6, -34.6); g.bezierCurveTo(29 + sw, -30, 29.4 + sw, -22, h1[0] + 2, h1[1] + 1); g.stroke(); }
+        // manillar: puño, acelerador, maneta de freno y pantalla pequeña en el centro
+        limb(g, 16.6, -36.4, 24, -35.2, 3, 3, '#0b0c12');
+        g.strokeStyle = 'rgba(150,160,210,.3)'; g.lineWidth = .4; for (let i = 0; i < 5; i++) { const x = 17.6 + i * 1.3; g.beginPath(); g.moveTo(x, -37.6); g.lineTo(x - .2, -35); g.stroke(); }
+        limb(g, 22.4, -37.2, 26.6, -36.6, 1.6, 1.4, '#1d202c'); g.fillStyle = OR; g.beginPath(); g.arc(26.7, -36.6, .8, 0, TAU); g.fill();      // acelerador de gatillo
+        g.strokeStyle = '#a9b0cc'; g.lineWidth = 1; g.beginPath(); g.moveTo(22.2, -34.4); g.quadraticCurveTo(27.4, -34, 29, -30.2); g.stroke();         // maneta de freno
+        {   // pantalla: velocidad y batería (baja con el turbo)
+            const bat = K(o.bst == null ? 1 : o.bst / 100, 0, 1), dsp = Math.round(spd * 38);
+            g.save(); g.translate(18.2, -41.6); g.rotate(-.12);
+            g.fillStyle = '#0b0c12'; rrect(g, 0, 0, 6.8, 3.8, .9); g.fill(); g.strokeStyle = 'rgba(150,160,210,.5)'; g.lineWidth = .35; g.stroke();
+            g.fillStyle = '#05060b'; g.fillRect(.5, .5, 5.8, 2.8);
+            g.fillStyle = '#eef1ff'; g.font = '700 1.9px monospace'; g.fillText(String(dsp), dsp > 9 ? .8 : 1.4, 2.4);
+            g.fillStyle = 'rgba(255,255,255,.16)'; g.fillRect(3.4, 1.1, 2.4, 1.2);
+            g.fillStyle = bat < .25 ? '#ff5a5a' : bat < .5 ? '#ffd23f' : '#56ffb0'; g.fillRect(3.4, 1.1, 2.4 * bat, 1.2);
+            g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(5.85, 1.4, .3, .6);
+            if (boost && Math.sin(t * 20) > 0) { g.fillStyle = 'rgba(' + EC + ',1)'; g.fillRect(3.4, 2.6, 2.4, .4); }
+            g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(.6, .6, 2.6, .3);
+            g.restore();
+            limb(g, 20.4, -38.2, 20.6, -36.4, 1, 1, '#0b0c12');
+        }
         g.restore();   // fin del chasis
-        drawRearShock();
 
-        // ---------- horquilla delantera de brazo: pivote en el cuello, brazo largo y amortiguador ----------
+        // ---------- horquilla delantera: botella con un muelle grande, une la rueda (abajo) con la pipa (arriba) ----------
         wheelS(fx, false);
-        const pvF = PT(18, 9.4), axF = [fx, wy];
-        limb(g, pvF[0], pvF[1], axF[0], axF[1], 8, 6, '#10121d');
-        limb(g, pvF[0], pvF[1], axF[0], axF[1], 6.4, 4.6, frame(18, 4, 34, 12));
-        limb(g, pvF[0] + .6, pvF[1] - 2.4, axF[0] - 1, axF[1] - 2, 1.1, 1.1, 'rgba(255,255,255,.4)');
-        const asf = Math.atan2(axF[1] - pvF[1], axF[0] - pvF[0]);
-        for (let i = 0; i < 3; i++) { const u = .25 + i * .22, cx = pvF[0] + (axF[0] - pvF[0]) * u, cy = pvF[1] + (axF[1] - pvF[1]) * u; g.save(); g.translate(cx, cy); g.rotate(asf); g.fillStyle = OR; g.fillRect(-1.3, -1.4, 2.4 - i * .4, 2.8); g.restore(); }
-        bolt(g, axF[0], axF[1], 2.1); bolt(g, pvF[0], pvF[1], 2.3);
-        {   // amortiguador delantero entre el cuello y el brazo
-            const U = PT(24.4, -9), A = [pvF[0] + (axF[0] - pvF[0]) * .78, pvF[1] + (axF[1] - pvF[1]) * .78 - 1];
-            const dx = A[0] - U[0], dy = A[1] - U[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, px = -uy, py = ux;
-            const at = (u, off) => [U[0] + dx * u + px * (off || 0), U[1] + dy * u + py * (off || 0)];
-            const a0 = at(.05), a1 = at(.32); limb(g, a0[0], a0[1], a1[0], a1[1], 1.7, 1.7, metal(a0[0], a0[1], a1[0] + 2, a1[1]));
-            const b0 = at(.58), b1 = at(.95); limb(g, b0[0], b0[1], b1[0], b1[1], 4, 4, '#0b0d17'); limb(g, b0[0], b0[1], b1[0], b1[1], 3, 3, 'rgba(120,130,175,.5)');
-            const d0p = at(.62, 4.7), d1p = at(.92, 4.7); limb(g, d0p[0], d0p[1], d1p[0], d1p[1], 3, 3, '#12141f'); limb(g, d0p[0], d0p[1], d1p[0], d1p[1], 2.1, 2.1, orange(d0p[0], d0p[1], d1p[0], d1p[1]));
-            const s0 = at(.32), s1 = at(.58); spring(g, s0[0], s0[1], s1[0], s1[1], 4, 4.9, OR, 'rgba(255,230,200,.9)', 1.3);
-            const rr = at(.32); g.save(); g.translate(rr[0], rr[1]); g.rotate(Math.atan2(dy, dx)); g.fillStyle = '#c9cfe6'; g.fillRect(-.7, -4.2, 1.4, 8.4); g.restore();
-            for (let i = 0; i < 4; i++) { const q = at(.08 + i * .05), w = 1.6 + (i % 2 ? .5 : 1.2); g.save(); g.translate(q[0], q[1]); g.rotate(Math.atan2(dy, dx)); g.fillStyle = i % 2 ? '#1b2036' : '#0b0d17'; g.fillRect(-.9, -w, 1.8, w * 2); g.restore(); }
-            const bs = at(.3); g.save(); g.translate(bs[0], bs[1]); g.rotate(Math.atan2(dy, dx)); g.fillStyle = '#ffb347'; g.fillRect(-1.3, -2.8, 2.6, 5.6); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(-1.3, -2.8, .7, 5.6); g.restore();
-            for (let i = 0; i < 6; i++) { const q = at(.64 + i * .05, 1.6); g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = .4; g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(q[0] + px * (i % 2 ? .8 : 1.4), q[1] + py * (i % 2 ? .8 : 1.4)); g.stroke(); }
-            const sg = at(.78, 4.7); g.fillStyle = '#05060d'; g.beginPath(); g.arc(sg[0], sg[1], 1.5, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,190,80,.95)'; g.beginPath(); g.arc(sg[0], sg[1], 1, 0, TAU); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(sg[0] - .3, sg[1] - .3, .35, 0, TAU); g.fill();
-            if (sF > .85) { const f = K((sF - .85) * 5, 0, 1); glowDot(g, A[0], A[1], 12, '255,170,60', f * .8); glowDot(g, U[0], U[1], 9, '255,230,170', f * .6); }
-            bolt(g, U[0], U[1], 1.5); bolt(g, A[0], A[1], 1.3);
+        {   const crown = PT(...AX(15)), low = AX(10);         // la botella va con la rueda; la corona, con el chasis
+            const bot = [fx, wy];
+            limb(g, bot[0], bot[1], low[0], low[1], 3.6, 3.6, '#0d0f17'); limb(g, bot[0], bot[1], low[0], low[1], 2.6, 2.6, '#2a2e3d');
+            limb(g, bot[0] - .6, bot[1] - .2, low[0] - .6, low[1] - .2, .5, .5, 'rgba(255,255,255,.3)');
+            limb(g, low[0], low[1], crown[0], crown[1], 1.6, 1.6, metal(low[0], low[1], crown[0] + 2, crown[1]));
+            spring(g, low[0] + (crown[0] - low[0]) * .08, low[1] + (crown[1] - low[1]) * .08, crown[0], crown[1], 4, 3, OR, 'rgba(255,235,210,.9)', 1.1);
+            bolt(g, bot[0], bot[1], 1.5);
+            // guardabarros delantero (va con la rueda)
+            g.strokeStyle = '#0d0f17'; g.lineWidth = 2.8; g.beginPath(); g.arc(fx, wy, R + 2.2, Math.PI * 1.24, Math.PI * 1.86); g.stroke();
+            g.strokeStyle = '#1c1f2b'; g.lineWidth = 1.7; g.beginPath(); g.arc(fx, wy, R + 2.2, Math.PI * 1.26, Math.PI * 1.84); g.stroke();
+            g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = .45; g.beginPath(); g.arc(fx, wy, R + 3.2, Math.PI * 1.32, Math.PI * 1.78); g.stroke();
+            g.fillStyle = OR; g.save(); g.translate(fx + Math.cos(Math.PI * 1.86) * (R + 2.2), wy + Math.sin(Math.PI * 1.86) * (R + 2.2)); g.fillRect(-.6, -.6, 1.4, 1.2); g.restore();      // reflector
         }
-        // guardabarros delantero y reflector naranja
-        g.strokeStyle = '#0d0f1a'; g.lineWidth = 2.6; g.beginPath(); g.arc(fx, wy, R + 2.3, Math.PI * 1.2, Math.PI * 1.74); g.stroke();
-        g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = .5; g.beginPath(); g.arc(fx, wy, R + 3.4, Math.PI * 1.26, Math.PI * 1.66); g.stroke();
+        elec();
 
         // ---------- piloto reactivo ----------
         g.save(); g.transform(1, kS, 0, 1, 0, d0);
@@ -1275,8 +1205,10 @@ window.CARS = (() => {
             if (hitK > .7 && !M.hit) { kick('an', -2); kick('hd', -3); kick('cr', .8); M.hit = 1; } else if (hitK < .1) M.hit = 0;
             M.air = air; M.fall = air ? Math.max(0, -vu) : 0; M.bst = boost;
             M.idle = !air && spd < .06 && !ready && !win && !lose && !boost ? (M.idle || 0) + dtR : 0;
+            if (M.st === 'count' && o.state === 'play') M.push = 1; M.st = o.state; if (M.push > 0) M.push -= dtR;      // al empezar: dos empujones con el pie
         }
         const idleT = M ? M.idle : 0;
+        const pushK = M && M.push > 0 && !air ? Math.sin(Math.PI * ((1 - M.push) * 2 % 1)) : 0;      // 0..1 en cada empujón
         // en el aire el cuerpo compensa: hacia atrás al subir, hacia delante al caer
         const airK = air && !flip && jt > .18 ? K(vu, -1, 1) : 0;
         // el balón cerca y alto: se prepara para golpearlo (se agacha y adelanta el pecho)
@@ -1291,6 +1223,7 @@ window.CARS = (() => {
         if (air) cT = jt < .14 ? .05 : flip ? .85 : vu > .25 ? .28 : vu < -.25 ? .5 : .38;            // al caer se prepara para el aterrizaje
         if (!air && win) cT = .06;
         if (!air && lose) cT = .34;
+        cT += pushK * .7;
         // muelles casi críticamente amortiguados: llegan rápido y apenas rebotan
         const crouch = K(spr('cr', cT, 220, 27) + Math.max(0, (sF + sR) / 2) * .5, -.05, 1);
         let aT = .22 + spd * .1 + boost * .22 + lean * .26 - brake * .26 - hitK * .18 + strike * .16 + (ready ? .1 : 0) - airK * .12 + (flip ? .26 : 0);
@@ -1313,7 +1246,7 @@ window.CARS = (() => {
         const tmD = 'rgba(0,0,0,.34)', PANT = '#161b32', PANTD = '#0b0d1a';
         // piernas: los dos pies siempre sobre la plataforma; el de atrás sube un poco el talón con velocidad y turbo
         const heel = K(spd * .14 + boost * .14 + strike * .08, 0, .25);
-        const footB = [-12.6 - lean * .8 - brake * .8, 3.4 - hop - heel * 1.2], footF = [4 + lean * .6 + brake * 1.2, 3.4 - hop], footBa = heel, footFa = brake ? -.1 : 0;
+        const footB = [-12.6 - lean * .8 - brake * .8 - pushK * 8, 3.4 - hop - heel * 1.2 + pushK * 9], footF = [4 + lean * .6 + brake * 1.2, 3.4 - hop], footBa = heel, footFa = brake ? -.1 : 0;
         const leg = (foot, dark, fa) => {
             // rodilla siempre hacia delante (dir -1), como una pierna de verdad
             const ax = foot[0] - Math.sin(fa || 0) * 1.6, ay = foot[1] - Math.cos(fa || 0) * 1.6, j = ik2(hx, hy, ax, ay, 11.4, 11.4, -1), col = dark ? PANTD : PANT;
@@ -1459,11 +1392,7 @@ window.CARS = (() => {
         g.restore();
         if (hitK > 0.05) for (let i = 0; i < 5; i++) { const a = -1 + i * .5; glowDot(g, head[0] + 8 + Math.cos(a) * 5 * (1 - hitK + .3), head[1] + Math.sin(a) * 5 * (1 - hitK + .3), 2.2, '255,240,200', hitK); }   // chispas del golpe
         g.restore();
-        // chispas cromáticas flotando
-        for (let i = 0; i < 4; i++) {
-            const ph = (t * .9 + i * .27) % 1, x = -34 + i * 24 + Math.sin(t * 2 + i) * 4, y = 12 - ph * 38;
-            glowDot(g, x, y, 4 * (1 - ph) + 1.2, ((hue + i * 90) % 360 < 180 ? '255,120,230' : '120,230,255'), .8 * (1 - ph));
-        }
+        g.restore();   // fin del caballito
     }
 
     // ---------- Mula: furgoneta de reparto, grande y pesada ----------
