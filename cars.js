@@ -1070,7 +1070,7 @@ window.CARS = (() => {
         };
         // medidas sacadas de la foto lateral del G2 (rueda de radio R = 11.5)
         const DT = -6, DB = 3.3, DX0 = -17.5, DX1 = 16.2;      // plataforma
-        const SB = [25.6, -24.6], STT = [13.5, -74];            // base de la columna (bisagra) y manillar
+        const SB = [25.6, -24.6], STT = [19.2, -50.6];            // base de la columna (bisagra) y manillar
         const SDX = STT[0] - SB[0], SDY = STT[1] - SB[1], SL = Math.hypot(SDX, SDY), SUX = SDX / SL, SUY = SDY / SL;      // dirección de la columna
         wheelS(rx, true);
         // ---- brazo trasero gris (chapa ancha con cuadraditos naranjas) y amortiguador ----
@@ -1192,7 +1192,7 @@ window.CARS = (() => {
         elec();
 
         // ---------- piloto reactivo ----------
-        g.save(); g.transform(1, kS, 0, 1, 0, d0); g.translate(-4, DT); g.scale(1.6, 1.6); g.translate(4, -5);      // el G2 es alto: el piloto va sobre la plataforma y a mayor escala para llegar al manillar
+        g.save(); g.transform(1, kS, 0, 1, 0, d0); g.translate(-4, DT); g.scale(1.05, 1.05); g.translate(4, -5);      // el G2 es alto: el piloto va sobre la plataforma y a mayor escala para llegar al manillar
         const hitA = o.hitT == null ? 9 : o.hitT, hitK = hitA < .3 ? Math.pow(1 - hitA / .3, 2) : 0, flip = !!o.flip, lose = mood === 'lose', win = mood === 'win';
         // ----- memoria del piloto: cada parte del cuerpo es un muelle amortiguado, así los cambios tienen inercia y rebote -----
         // (sin memoria, como en el garaje, se usan las posturas objetivo directamente)
@@ -1328,7 +1328,7 @@ window.CARS = (() => {
             g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(sh[0] - .6, sh[1] - 2.6, 4, .8);
         }
         // brazos con guantes; con gol, un puño en alto bien separado de la cabeza
-        const grp = [6.9 - boost * .4, -37.5 + Math.max(0, sF) * .6 + hitK * .8];
+        const grp = [18.1 - boost * .4, -37.5 + Math.max(0, sF) * .6 + hitK * .8];
         const arm = (hand, dark, up) => {
             const s0 = [sh[0] + (dark ? -.8 : .4), sh[1] + (dark ? -.2 : 0)], ph = dark ? 1.4 : 0;
             // codo hacia abajo (dir 1): el brazo cuelga del hombro y sube hacia el manillar
@@ -1824,7 +1824,7 @@ window.CARS = (() => {
         const ty = { r: Math.max(...hbw.map(h => h[1] + h[2])), off: Math.max(...hbw.map(h => Math.abs(h[0]) + h[2])) };
         g.setTransform(dpr, 0, 0, dpr, 0, 0);
         g.clearRect(0, 0, w, h);
-        const tall = model === 'prisma' || model === 'titan' || model === 'mula', zm = (extra && extra.zoom) || 1, sc = (model === 'prisma' ? Math.min(w / 150, h / 160) : tall ? Math.min(w / 135, h / 68) : model === 'formula' ? Math.min(w / 136, h / 54) : Math.min(w / 120, h / 52)) * zm, gy = h * (tall ? .86 : .78), bob = Math.sin(t * 2) * .7;
+        const tall = model === 'prisma' || model === 'titan' || model === 'mula', zm = (extra && extra.zoom) || 1, sc = (model === 'prisma' ? Math.min(w / 140, h / 112) : tall ? Math.min(w / 135, h / 68) : model === 'formula' ? Math.min(w / 136, h / 54) : Math.min(w / 120, h / 52)) * zm, gy = h * (tall ? .86 : .78), bob = Math.sin(t * 2) * .7;
         g.save(); g.globalCompositeOperation = 'lighter';
         const sp = g.createRadialGradient(w / 2, gy, 2, w / 2, gy, w * .55);
         sp.addColorStop(0, 'rgba(150,180,255,.3)'); sp.addColorStop(1, 'rgba(150,180,255,0)');
