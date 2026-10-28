@@ -758,6 +758,13 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
 .bkmsg.ok { color: #3dffb0; } .bkmsg.bad { color: #ff7a7a; }
 .ctrlcard .opts > div[data-tab~="vibra"] { grid-column: 1 / -1; }
 .ctrlcard[data-tab="pantalla"] .opts > div:nth-child(n) { }
+/* Avanzado: opciones técnicas plegadas al final de Pantalla y sonido */
+.ctrlcard .opts > details.adv { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: rgba(8, 12, 40, .5); }
+.ctrlcard:not([data-tab="pantalla"]) .opts > details.adv { display: none !important; }
+details.adv summary { cursor: pointer; font: 700 13px var(--body); color: var(--mute); }
+details.adv[open] summary { color: var(--gold); margin-bottom: 8px; }
+details.adv[open] { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+details.adv[open] summary { grid-column: 1 / -1; }
 .cpane { font: 600 12px var(--body); color: var(--mute); }
 .cpane small { display: block; margin-top: 6px; line-height: 1.35; }
 .pv { position: relative; width: 100%; aspect-ratio: 2 / 1; border-radius: 14px; border: 2px solid var(--line); background: linear-gradient(180deg, #0f1b46, #070b22 70%, #123a66 70%, #0b2a4c); overflow: hidden; }
@@ -853,7 +860,6 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
         <div class="card mcard">
             <div class="mleft">
                 <h1><span class="b">Turbo</span> <span class="o">Gol</span> Arena</h1>
-                <p class="lead">Fútbol con coches en 2D. Marca más goles que el rival antes de que acabe el reloj.</p>
                 <div class="prof" id="prof">
                     <button class="pcar" id="mShow" type="button" aria-label="Tu coche: abrir el garaje"><canvas id="mCar"></canvas><small id="mCarName"></small></button>
                     <div class="pinfo">
@@ -1174,12 +1180,6 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
                         <button data-v="retro" aria-pressed="false">Retro</button>
                     </div>
                 </div>
-                <div data-tab="pantalla"><label class="t">Efecto de televisor antiguo (estadio Retro)</label>
-                    <div class="seg" id="segCrt">
-                        <button data-v="1" aria-pressed="true">Sí</button>
-                        <button data-v="0" aria-pressed="false">No</button>
-                    </div>
-                </div>
                 <div data-tab="pantalla"><label class="t">Cámara <small class="hint">Dinámica: zoom ligero en disparos y goles · Seguir: se acerca a la jugada · Fija: todo el estadio</small></label>
                     <div class="seg" id="segCam">
                         <button data-v="dinamica" aria-pressed="true">Dinámica</button>
@@ -1222,6 +1222,13 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
                         <button data-v="1" aria-pressed="true">Sí</button>
                     </div>
                 </div>
+                <details class="adv" data-tab="pantalla"><summary>Avanzado</summary>
+                <div data-tab="pantalla"><label class="t">Efecto de televisor antiguo (estadio Retro)</label>
+                    <div class="seg" id="segCrt">
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                        <button data-v="0" aria-pressed="false">No</button>
+                    </div>
+                </div>
                 <div data-tab="pantalla"><label class="t">Contador de FPS</label>
                     <div class="seg" id="segFps">
                         <button data-v="0" aria-pressed="true">No</button>
@@ -1234,6 +1241,7 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
                         <button data-v="0" aria-pressed="true">No</button>
                     </div>
                 </div>
+                </details>
                     </div>
                     <div class="cpane" data-tab="tactil">
                         <div class="pv" id="pv"><i data-k="stick">JOYSTICK</i><i data-k="jump">SALTO</i><i data-k="boost">TURBO</i><i data-k="combo">S+T</i></div>
