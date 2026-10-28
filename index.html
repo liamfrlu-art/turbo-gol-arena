@@ -25,6 +25,8 @@
 </style>
 </head>
 <body>
+    <!-- filtro de pocos colores para el estadio retro en 8 bits -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="r8post" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="discrete" tableValues="0 .27 .55 .8 1"/><feFuncG type="discrete" tableValues="0 .3 .62 1"/><feFuncB type="discrete" tableValues="0 .3 .6 .85 1"/></feComponentTransfer></filter></svg>
 <style>
 /* Concepto: estadio nocturno en vista lateral, a pantalla completa y en horizontal.
    Azul a la izquierda (tú), naranja a la derecha (IA). El dorado se reserva para el balón y las acciones principales. */
@@ -666,6 +668,8 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
 @keyframes cdRing { 0% { transform: translate(-50%, -50%) scale(.5); opacity: .9; } 100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } }
 #banner small { display: block; font-size: .32em; letter-spacing: 3px; margin-top: 4px; }
 #count { font-size: clamp(60px, 26vh, 150px); color: var(--gold); }
+/* estadio retro en 8 bits: letras de recreativa con sombra dura, sin brillo difuminado */
+#app[data-r8="1"] #banner, #app[data-r8="1"] #count { font-family: "Courier New", ui-monospace, monospace; font-weight: 900; letter-spacing: .08em; -webkit-text-stroke: 0; text-shadow: .08em .08em 0 #2e1a5a, -.04em -.04em 0 #ff4fc0, .12em .12em 0 #000; }
 #banner.show, #count.show { opacity: 1; }
 #banner.show:not(.gol) { animation: pop .35s ease-out; }
 @keyframes pop { from { transform: translate(-50%, -50%) scale(.6); } to { transform: translate(-50%, -50%) scale(1); } }
@@ -1261,6 +1265,12 @@ details.adv[open] summary { grid-column: 1 / -1; }
                 <details class="adv" data-tab="pantalla"><summary>Avanzado</summary>
                 <div data-tab="pantalla"><label class="t">Efecto de televisor antiguo (estadio Retro)</label>
                     <div class="seg" id="segCrt">
+                        <button data-v="1" aria-pressed="true">Sí</button>
+                        <button data-v="0" aria-pressed="false">No</button>
+                    </div>
+                </div>
+                <div data-tab="pantalla"><label class="t">Estadio Retro en 8 bits (todo a píxeles)</label>
+                    <div class="seg" id="segR8">
                         <button data-v="1" aria-pressed="true">Sí</button>
                         <button data-v="0" aria-pressed="false">No</button>
                     </div>

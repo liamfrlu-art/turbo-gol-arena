@@ -51,7 +51,9 @@ function initAudio() {
 }
 function tone(f, d, type, v, slide, delay, a, dest) {
     if (cfg.mute || !ac) return;
-    const t = ac.currentTime + (delay || 0), o = mk(type || 'sine', f), g = ac.createGain(), at = a || .004;
+    const r8 = cfg.stad === 'retro' && cfg.r8 !== false && dest !== musicBus;      // estadio retro: pitidos de consola de 8 bits (onda cuadrada y notas exactas)
+    if (r8) { f = mtof(Math.round(69 + 12 * Math.log2(Math.max(30, f) / 440))); if (slide) slide = mtof(Math.round(69 + 12 * Math.log2(Math.max(30, f + slide) / 440))) - f; }
+    const t = ac.currentTime + (delay || 0), o = mk(r8 ? (type === 'sine' || type === 'triangle' || !type ? 'square' : type === 'sawtooth' ? 'square' : type) : (type || 'sine'), f), g = ac.createGain(), at = a || .004;
     if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t + d);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(.0002, v || 0.1), t + at); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
     o.connect(g); g.connect(dest || sfxBus); o.start(t); o.stop(t + d + 0.03);
@@ -170,7 +172,8 @@ function audioUpdate(dt) {
     for (let i = 0; i < 2; i++) {
         const c = w.cars[i], e = eng[i], sp = Math.hypot(c.vx, c.vy), thr = Math.abs(i === 0 ? pInp.dir : S.ai.inp.dir);
         const elec = c.model === 'prisma', MP = { mula: .78, titan: .66, formula: 1.55 }[c.model] || 1;      // tono del motor de cada coche
-        if (elec !== e.elec) { e.elec = elec; e.o1.type = elec ? 'triangle' : 'sawtooth'; e.o2.type = elec ? 'sine' : 'sawtooth'; e.o3.type = elec ? 'sine' : 'square'; }
+        const r8 = cfg.stad === 'retro' && cfg.r8 !== false;      // en el estadio retro el motor suena a consola antigua
+        if (elec !== e.elec || r8 !== e.r8) { e.elec = elec; e.r8 = r8; e.o1.type = r8 ? 'square' : elec ? 'triangle' : 'sawtooth'; e.o2.type = r8 ? 'square' : elec ? 'sine' : 'sawtooth'; e.o3.type = r8 ? 'triangle' : elec ? 'sine' : 'square'; }
         const fr = elec ? 190 + sp * .22 + thr * 20 + (c.boosting ? 60 : 0) : (46 + sp * .06 + thr * 7 + (c.boosting ? 16 + Math.min(c.bt || 0, 1.5) * 14 : 0)) * MP;
         e.o1.frequency.setTargetAtTime(fr, t, .07); e.o2.frequency.setTargetAtTime(fr * (elec ? 2.01 : 1.016), t, .07); e.o3.frequency.setTargetAtTime(fr * (elec ? .5 : .5), t, .07);
         const vol = (i === 0 ? .1 : .055) * (c.grounded ? 1 : .5) * (.3 + Math.min(1, sp / 900) * .7 + thr * .15) * (elec ? .7 : 1);

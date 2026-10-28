@@ -30,7 +30,7 @@ const cfg = {
     haptic: store.get('haptic', true), alpha: store.get('alpha', 'soft'),
     stick: store.get('stick', 'float'), gfx: store.get('gfx', defGfx()),
     flick: store.get('flick', true), hit: store.get('hit', false), music: store.get('music', true), roll: store.get('roll', true), padHide: store.get('padHide', true), dev: store.get('dev', null), combo: store.get('combo', false), comm: store.get('comm', true),
-    fps: store.get('fps', false), paint: store.get('paint', 'team'), wheel: store.get('wheel', 'auto'), trail: store.get('trail', 'auto'), boom: store.get('boom', 'classic'), ball: store.get('ball', 'classic'), stad: store.get('stad', 'snow'), evt: store.get('evt', 'auto'), crt: store.get('crt', true), cam: store.get('cam', !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches))
+    fps: store.get('fps', false), r8: store.get('r8', true), paint: store.get('paint', 'team'), wheel: store.get('wheel', 'auto'), trail: store.get('trail', 'auto'), boom: store.get('boom', 'classic'), ball: store.get('ball', 'classic'), stad: store.get('stad', 'snow'), evt: store.get('evt', 'auto'), crt: store.get('crt', true), cam: store.get('cam', !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches))
 };
 // estadio: stadSel es lo elegido en Controles ('random' o uno fijo) y cfg.stad el que se está viendo.
 // Quien ya había elegido uno a mano lo conserva; si no, cada partida se juega en un estadio al azar.
