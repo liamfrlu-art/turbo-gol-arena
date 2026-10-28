@@ -26,7 +26,7 @@
 </head>
 <body>
     <!-- filtro de pocos colores para el estadio retro en 8 bits -->
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="r8post" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="discrete" tableValues="0 .27 .55 .8 1"/><feFuncG type="discrete" tableValues="0 .3 .62 1"/><feFuncB type="discrete" tableValues="0 .3 .6 .85 1"/></feComponentTransfer></filter></svg>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="r8post" color-interpolation-filters="sRGB"><feColorMatrix type="saturate" values="1.45"/><feComponentTransfer><feFuncR type="linear" slope="1.16" intercept="-.02"/><feFuncG type="linear" slope="1.16" intercept="-.02"/><feFuncB type="linear" slope="1.16" intercept="-.02"/></feComponentTransfer><feComponentTransfer><feFuncR type="discrete" tableValues="0 0 .25 .25 .25 .25 .5 .5 .5 .5 .75 .75 .75 .75 1 1"/><feFuncG type="discrete" tableValues="0 0 0 .333 .333 .333 .333 .333 .667 .667 .667 .667 .667 1 1 1"/><feFuncB type="discrete" tableValues="0 0 .25 .25 .25 .25 .5 .5 .5 .5 .75 .75 .75 .75 1 1"/></feComponentTransfer></filter></svg>
 <style>
 /* Concepto: estadio nocturno en vista lateral, a pantalla completa y en horizontal.
    Azul a la izquierda (tú), naranja a la derecha (IA). El dorado se reserva para el balón y las acciones principales. */

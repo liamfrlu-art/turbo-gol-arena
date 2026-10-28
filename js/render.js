@@ -887,12 +887,12 @@ function retroPost() {
     const P = Math.max(2, Math.round(3.2 * dpr)), w = Math.ceil(cv.width / P), h = Math.ceil(cv.height / P);
     if (!r8Cv) { r8Cv = document.createElement('canvas'); r8Ctx = r8Cv.getContext('2d'); }
     if (r8Cv.width !== w || r8Cv.height !== h) { r8Cv.width = w; r8Cv.height = h; }
-    r8Ctx.imageSmoothingEnabled = true; r8Ctx.filter = Q.beams ? 'url(#r8post)' : 'none';      // paleta corta (en calidad baja, solo píxeles)
+    r8Ctx.imageSmoothingEnabled = false; r8Ctx.filter = Q.beams ? 'url(#r8post)' : 'none';      // paleta corta (en calidad baja, solo píxeles)
     r8Ctx.drawImage(cv, 0, 0, w, h); r8Ctx.filter = 'none';
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
     ctx.imageSmoothingEnabled = false; ctx.drawImage(r8Cv, 0, 0, w, h, 0, 0, w * P, h * P); ctx.imageSmoothingEnabled = true;
     if (cfg.crt) {      // rejilla de recreativa: una línea oscura entre píxeles
-        if (!r8Grid || r8GridP !== P) { const g = document.createElement('canvas'); g.width = g.height = P; const gc = g.getContext('2d'); gc.fillStyle = 'rgba(0,0,0,.28)'; gc.fillRect(P - 1, 0, 1, P); gc.fillRect(0, P - 1, P, 1); r8Grid = ctx.createPattern(g, 'repeat'); r8GridP = P; }
+        if (!r8Grid || r8GridP !== P) { const g = document.createElement('canvas'); g.width = g.height = P; const gc = g.getContext('2d'); gc.fillStyle = 'rgba(0,0,0,.14)'; gc.fillRect(P - 1, 0, 1, P); gc.fillRect(0, P - 1, P, 1); r8Grid = ctx.createPattern(g, 'repeat'); r8GridP = P; }
         ctx.fillStyle = r8Grid; ctx.fillRect(0, 0, cv.width, cv.height);
     }
 }
