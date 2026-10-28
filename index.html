@@ -526,6 +526,39 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
 .ach span { font: 500 11px var(--body); color: var(--mute); }
 .ach.got { opacity: 1; border-color: var(--gold); }
 .ach.got b::before { content: "★ "; color: var(--gold); }
+/* ---------- Logros como insignias ---------- */
+#achList { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+#achList h4 { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+#achList h4 .achbar { flex: 1; height: 7px; border-radius: 99px; background: rgba(0, 0, 0, .35); overflow: hidden; display: block; }
+#achList h4 .achbar b { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), #fff3a8); }
+.ach { grid-template-columns: 34px 1fr; align-items: center; gap: 8px; opacity: .7; filter: saturate(.25); }
+.ach > div { display: grid; gap: 1px; min-width: 0; }
+.ach .aic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; background: rgba(0, 0, 0, .3); border: 1.5px solid var(--line); }
+.ach.got { opacity: 1; filter: none; background: linear-gradient(120deg, rgba(255, 210, 63, .16), var(--panel-2) 60%); }
+.ach.got .aic { border-color: var(--gold); box-shadow: 0 0 12px -2px rgba(255, 210, 63, .7); background: radial-gradient(circle, rgba(255, 210, 63, .3), rgba(0, 0, 0, .25)); }
+.ach.got b::before { content: none; }
+.ach .apr { display: block; height: 5px; margin-top: 3px; border-radius: 99px; background: rgba(0, 0, 0, .35); overflow: hidden; }
+.ach .apr b { display: block; height: 100%; background: var(--blue); }
+.ach em { font: 700 10px var(--body); font-style: normal; color: var(--mute); }
+/* estadísticas como casillas con el número grande */
+#statGrid div { flex-direction: column; justify-content: center; gap: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 9px; background: rgba(8, 12, 40, .5); }
+#statGrid b { font: 800 17px var(--body); order: -1; }
+#statGrid span { font-size: 10.5px; }
+/* monedas con su icono en cualquier sitio */
+.coins { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; color: #ffe28a; }
+.coins::before { content: ''; width: 14px; height: 14px; border-radius: 50%; flex: 0 0 auto; background: radial-gradient(circle at 35% 30%, #fff6c0, #ffd23f 45%, #b88400); box-shadow: 0 0 0 1.5px #7a5600 inset, 0 0 6px rgba(255, 210, 63, .6); }
+/* ---------- Fin de partido ---------- */
+.endcard { position: relative; overflow: hidden; --res: #ffd23f; }
+.endcard[data-res="lose"] { --res: #ff6b6b; } .endcard[data-res="draw"] { --res: #cfd6ff; }
+.endcard::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--res) 30%, transparent), transparent 60%); }
+.endcard h2 { color: var(--res); text-shadow: 0 0 22px color-mix(in srgb, var(--res) 70%, transparent); position: relative; }
+.endcard.in h2 { animation: endTitle .6s cubic-bezier(.2, 1.4, .4, 1) both; }
+.endcard.in .final { animation: popIn .5s .15s both; }
+.endcard[data-res="win"].in h2 { animation: endTitle .6s cubic-bezier(.2, 1.4, .4, 1) both, glowB 1.6s .6s ease-in-out infinite alternate; }
+@keyframes endTitle { from { opacity: 0; transform: scale(.4) rotate(-6deg); } }
+.endcar { display: block; width: min(300px, 70%); height: clamp(60px, 18vh, 120px); margin: -4px auto -6px; position: relative; }
+#endCoins span { animation: chipin .45s both; }
+.endcard.in #endLvl { animation: popIn .4s .9s both; }
 .stat.gold { color: var(--gold); font-weight: 700; }
 .chip-o i { width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); box-sizing: border-box; background-size: cover; }
 .chip-o span { line-height: 1.1; text-align: center; }
@@ -617,9 +650,16 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
 .cm.next { border-color: var(--gold, #ffd23f); box-shadow: 0 0 0 2px rgba(255, 210, 63, .25); }
 .ct { display: flex; justify-content: space-between; gap: 8px; padding: 4px 9px; font: 700 12px var(--body); white-space: nowrap; }
 .ct + .ct { border-top: 1px solid var(--line); }
-.ct span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.ct span:first-of-type { overflow: hidden; text-overflow: ellipsis; }
 .ct.me { color: var(--blue); }
 .ct.lose { opacity: .4; }
+/* escudo de cada equipo de la Copa: su color y su inicial */
+.ct { align-items: center; justify-content: flex-start; }
+.ct span:nth-of-type(2) { margin-left: auto; font-variant-numeric: tabular-nums; }
+.ct .crest { flex: 0 0 auto; width: 18px; height: 20px; display: grid; place-items: center; font: 800 10px var(--body); font-style: normal; color: #0a0d22;
+    background: linear-gradient(180deg, var(--tc), color-mix(in srgb, var(--tc) 55%, #000)); clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%); }
+.ct.win { background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 20%, transparent), transparent); }
+.ct.champ { color: var(--gold); }
 .ct.win { background: rgba(255, 255, 255, .07); }
 .ct.tbd { color: var(--mute); font-weight: 600; }
 .ct.champ { color: var(--gold, #ffd23f); }
@@ -1234,8 +1274,9 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
 
     <!-- Fin de partido -->
     <div class="screen" id="end">
-        <div class="card single">
+        <div class="card single endcard" id="endCard">
             <h2 id="endTitle">Victoria</h2>
+            <canvas id="endCar" class="endcar" aria-hidden="true"></canvas>
             <div class="final"><span class="sb" id="endB">0</span><span class="dash">-</span><span class="so" id="endO">0</span></div>
             <div class="stat" id="endStat"></div>
             <div class="stat" id="endCoins"></div>

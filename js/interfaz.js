@@ -258,8 +258,18 @@ function renderStatsScreen() {
         ['Medias vueltas', st.half], ['Aéreos rápidos', st.fastaer], ['Reinicios de voltereta', st.resets], ['Copas ganadas', st.cups], ['Tiempo jugado', Math.floor(st.secs / 60) + ' min'], ['Monedas ganadas', st.earned]];
     $('statGrid').innerHTML = rows.map(r => '<div><span>' + r[0] + '</span><b>' + r[1] + '</b></div>').join('');
     const got = ACH.filter(x => wallet.ach[x.id]).length;
-    $('achList').innerHTML = '<h4>Logros ' + got + ' / ' + ACH.length + '</h4>' + ACH.map(x => '<div class="ach' + (wallet.ach[x.id] ? ' got' : '') + '"><b>' + x.n + '</b><span>' + x.d + '</span></div>').join('');
+    // insignias: icono, nombre y descripción; los que aún no tienes, en gris y con su barra de progreso si se puede contar
+    $('achList').innerHTML = '<h4>Logros ' + got + ' / ' + ACH.length + '<i class="achbar"><b style="width:' + Math.round(100 * got / ACH.length) + '%"></b></i></h4>' + ACH.map(x => {
+        const ok = !!wallet.ach[x.id], pr = !ok && ACH_PROG[x.id] ? ACH_PROG[x.id]() : null;
+        const bar = pr ? '<i class="apr"><b style="width:' + Math.round(100 * clamp(pr[0] / pr[1], 0, 1)) + '%"></b></i><em>' + Math.min(pr[0], pr[1]) + '/' + pr[1] + '</em>' : '';
+        return '<div class="ach' + (ok ? ' got' : '') + '"><span class="aic">' + (ACH_IC[x.id] || '🏅') + '</span><div><b>' + x.n + '</b><span>' + x.d + '</span>' + bar + '</div></div>';
+    }).join('');
 }
+const ACH_IC = { g1: '⚽', g25: '🎯', g100: '👑', w1: '🏆', w10: '💪', str3: '🔥', air: '🛫', half: '🔄', fast: '🚀', reset: '✨', clean: '🧤', big: '💥', legend: '🐉', mut: '🌀', come: '⏪', gold: '🥇', cup: '🏆', cup16: '🌟', shop5: '🛍️', drill1: '⭐', drill4: '🎓', lv5: '🎖️' };
+// progreso de los logros que se pueden contar: [llevas, hacen falta]
+const ACH_PROG = { g1: () => [wallet.st.goals, 1], g25: () => [wallet.st.goals, 25], g100: () => [wallet.st.goals, 100], w1: () => [wallet.st.wins, 1], w10: () => [wallet.st.wins, 10], str3: () => [wallet.st.best, 3],
+    air: () => [wallet.st.aerial, 1], half: () => [wallet.st.half, 1], fast: () => [wallet.st.fastaer, 1], reset: () => [wallet.st.resets, 1], cup: () => [wallet.st.cups, 1], cup16: () => [wallet.st.cups16, 1],
+    shop5: () => [wallet.st.bought, 5], drill4: () => [['shoot', 'air', 'save', 'prec'].filter(k => (drillBest[k] || 0) >= 3).length, 4], lv5: () => [lvlOf(wallet.xp), 5] };
 $('cfgBtn').addEventListener('click', () => { audio(); openOverlay('setup', 'menu'); });
 $('setupOk').addEventListener('click', () => { closeOverlay('setup'); renderStats(); });
 $('achBtn').addEventListener('click', () => { audio(); openOverlay('ach', 'menu'); renderStatsScreen(); });
@@ -389,7 +399,7 @@ function shopThumb(tab, o, own) {
 function renderShop(keep) {
     const box = $('shopChips'), tab = shopTab, prevScroll = box.scrollTop;
     box.innerHTML = '';
-    $('shopCoins').textContent = wallet.coins + ' monedas';
+    $('shopCoins').textContent = wallet.coins.toLocaleString('es-ES'); $('shopCoins').classList.add('coins');
     $('shopProg').textContent = 'Conseguidos ' + shopProgress();
     if (!shopS.sel[tab]) shopS.sel[tab] = cfg[tab];
     let items = shopList().map((o, idx) => ({ o, idx, own: shopOwn(tab, o), price: priceOf(o, idx) }));
@@ -522,6 +532,9 @@ function cupResult(b, o) {
     $('endTitle').textContent = title; $('endStat').textContent = stat;
     $('cupNext').textContent = (TN.champ || TN.out) ? 'Ver resultado' : 'Siguiente ronda';
 }
+// color de cada equipo de la Copa (tú, siempre azul)
+const TEAM_COL = { me: '#3db8ff', rayo: '#ffd23f', toros: '#e0262b', cuna: '#7fdc6a', kaze: '#a45cff', volt: '#3dfff0', dragon: '#ff6a14', orbita: '#9d86ff', lobos: '#9aa3c8', halcon: '#c9803f', titan: '#4a7bd8', aurora: '#ff6bc4', cobra: '#6fe02a', fantasma: '#e6ebfa', tormenta: '#2a9fd8', inferno: '#ff3b30' };
+const teamCol = id => TEAM_COL[id] || '#93a0d6';
 function renderCup() {
     const box = $('bracket'); box.innerHTML = '';
     const my = TN && !TN.out && !TN.champ ? cupMy() : null;
@@ -537,6 +550,7 @@ function renderCup() {
                 const row = document.createElement('div'), id = m && m[k];
                 row.className = 'ct' + (!id ? ' tbd' : id === 'me' ? ' me' : '') + (m && m.w ? (m.w === id ? ' win' : ' lose') : '') + ((TN ? r === cupLast() : r === (sz === 16 ? 3 : 2)) && m && m.w === id && id ? ' champ' : '');
                 const n = document.createElement('span'); n.textContent = id ? TEAMS[id].n : 'Por decidir';
+                if (id) { const cr = document.createElement('i'); cr.className = 'crest'; cr.style.setProperty('--tc', teamCol(id)); cr.textContent = id === 'me' ? '★' : TEAMS[id].n.replace(/^(Los|Las)\s+/, '').charAt(0); row.appendChild(cr); }
                 const sc = document.createElement('span'); sc.textContent = m && m[sk] !== null ? m[sk] : '';
                 row.append(n, sc); el.appendChild(row);
             });

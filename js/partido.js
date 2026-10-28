@@ -108,6 +108,25 @@ function endMatch() {
         const bar = $('endLvl').querySelector('i'); void bar.offsetWidth; setTimeout(() => { bar.style.width = (p1 * 100) + '%'; }, 250);
     } else $('endLvl').innerHTML = '';
     saveWallet();
+    endFx(b > o ? 'win' : b < o ? 'lose' : 'draw', b, o);
+}
+// pantalla final con vida: color según el resultado, marcador que cuenta hacia arriba, premios que entran
+// uno a uno y tu coche celebrando (o lamentándose) en su vitrina
+let endRaf = 0;
+function endFx(res, b, o) {
+    const card = $('endCard'); card.dataset.res = res;
+    card.classList.remove('in'); void card.offsetWidth; card.classList.add('in');
+    $('endCoins').querySelectorAll('span').forEach((s, i) => { s.style.animationDelay = (.55 + i * .16) + 's'; });
+    const t0 = performance.now(), cnt = (el, v) => { el.textContent = Math.round(v); };
+    const tick = now => {
+        const k = clamp((now - t0 - 250) / 650, 0, 1), e = 1 - Math.pow(1 - k, 3);
+        cnt($('endB'), b * e); cnt($('endO'), o * e);
+        if (S.state !== 'end') { cancelAnimationFrame(endRaf); endRaf = 0; return; }
+        const mood = res === 'win' ? 'win' : res === 'lose' ? 'lose' : '';
+        CARS.preview($('endCar'), S.tryCar || cfg.car, now / 1000, res === 'win', false, isLocked(S.tryCar || cfg.car), { zoom: .9, mood, paint: cfg.paint, wheelStyle: cfg.wheel, dorsal: cfg.dorsal, decal: cfg.decal });
+        endRaf = requestAnimationFrame(tick);
+    };
+    cancelAnimationFrame(endRaf); endRaf = requestAnimationFrame(tick);
 }
 
 function evGoal() {
@@ -363,6 +382,7 @@ function endDrill() {
     award(coins, xp); achCheck(); saveWallet();
     $('endCoins').innerHTML = S.rw.map(t => '<span>' + t + '</span>').join(''); $('endLvl').innerHTML = '';
     sfx('end'); hideBanner(); $('drillBar').style.display = 'none';
+    endFx(st >= 1 ? 'win' : 'lose', D.pts, D.def.max);
 }
 function renderTrain() {
     $('train').querySelectorAll('.stars').forEach(el => { const n = drillBest[el.dataset.s] || 0; el.textContent = '★'.repeat(n) + '☆'.repeat(3 - n); });
