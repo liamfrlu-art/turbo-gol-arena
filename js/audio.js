@@ -177,7 +177,7 @@ function audioUpdate(dt) {
         const fr = elec ? 190 + sp * .22 + thr * 20 + (c.boosting ? 60 : 0) : (46 + sp * .06 + thr * 7 + (c.boosting ? 16 + Math.min(c.bt || 0, 1.5) * 14 : 0)) * MP;
         e.o1.frequency.setTargetAtTime(fr, t, .07); e.o2.frequency.setTargetAtTime(fr * (elec ? 2.01 : 1.016), t, .07); e.o3.frequency.setTargetAtTime(fr * (elec ? .5 : .5), t, .07);
         const vol = (i === 0 ? .1 : .055) * (c.grounded ? 1 : .5) * (.3 + Math.min(1, sp / 900) * .7 + thr * .15) * (elec ? .7 : 1);
-        e.bus.gain.setTargetAtTime(active && !cfg.mute ? vol : 0, t, .08);
+        e.bus.gain.setTargetAtTime(active && !cfg.mute && !c.ghost ? vol : 0, t, .08);      // el coche quitado no suena
         e.f.frequency.setTargetAtTime((elec ? 900 : 320) + sp * 1.2 + (c.boosting ? 700 : 0), t, .08);
         e.ng.gain.setTargetAtTime(c.boosting && active ? .55 : 0, t, .05);
         e.nf.frequency.setTargetAtTime(700 + sp * .9, t, .1);

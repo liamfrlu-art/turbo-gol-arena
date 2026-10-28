@@ -68,7 +68,7 @@ function drawShadows() {
     const w = S.world;
     for (const c of w.cars) {
         const h = Math.max(0, H - c.y), a = clamp(.5 - h / 600, 0, .5);
-        if (a <= .01 || c.x < 440 || c.x > W - 440) continue;
+        if (c.ghost || a <= .01 || c.x < 440 || c.x > W - 440) continue;
         ctx.fillStyle = 'rgba(0,0,10,' + a + ')'; ctx.beginPath(); ctx.ellipse(c.x, H - 1, 46 * c.sc * (1 - h / 1100), 5, 0, 0, TAU); ctx.fill();
     }
     // sombra del balón: en todo el campo (también sobre las rampas) y aunque vaya alto, para calcular los aéreos
@@ -827,8 +827,8 @@ function draw(now) {
     drawShadows();
     for (const c of w.cars) {
         if (Q.ultra) { const cs = Math.hypot(c.vx, c.vy); if (cs > 650) { const ox0 = c.x, oy0 = c.y, a0 = ctx.globalAlpha; for (let k = 3; k >= 1; k--) { c.x = ox0 - c.vx * .0075 * k * (1 / Math.max(.6, S.slow)); c.y = oy0 - c.vy * .0075 * k; ctx.globalAlpha = a0 * .17 * (4 - k) / 3 * Math.min(1, (cs - 650) / 500); drawCar(c, t); } c.x = ox0; c.y = oy0; ctx.globalAlpha = a0; } }
-        if (S.mode === 'drill' && c.ghost) continue;
-        if (S.mode === 'free' && c.team === 1) { ctx.globalAlpha = 0.3; drawCar(c, t); ctx.globalAlpha = 1; } else drawCar(c, t);
+        if (c.ghost) continue;      // coche quitado (retos y entrenamiento libre)
+        drawCar(c, t);
     }
     if (S.v2 && w.cars.length === 4 && S.state !== 'menu') drawTeamMarks(now);
     if (S.mode === 'drill' && S.drill && S.drill.target && S.state !== 'menu') drawTarget(S.drill.target, now / 1000);
