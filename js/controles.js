@@ -272,7 +272,7 @@ const CDEF = {
     tactil: { size: 'm', hand: 'l', stick: 'float', alpha: 'soft', flick: true, roll: true, combo: false, lay: {} },
     mando: { padHide: true },
     vibra: { haptic: true, hap: {}, hapI: 'mid' },
-    pantalla: { gfx: 'high', fps: false, stadSel: 'random', camMode: 'seguir', sky: true, music: true, comm: true, replay: true, hit: false }
+    pantalla: { gfx: 'high', fps: false, stadSel: 'random', camMode: 'dinamica', sky: true, music: true, comm: true, replay: true, hit: false }
 };
 $('cReset').addEventListener('click', () => {
     const tab = document.querySelector('.ctrlcard').dataset.tab, def = CDEF[tab]; if (!def) return;

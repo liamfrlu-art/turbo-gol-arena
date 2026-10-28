@@ -671,7 +671,7 @@ function drawRings() {
 }
 
 // ---------- Cámara ----------
-// Tres modos (Controles > Pantalla): 'fija' enseña todo el estadio; 'dinamica' acerca un poco (máx. 12 %) en disparos,
+// Tres modos (Controles > Pantalla): 'fija' enseña todo el estadio; 'dinamica' (por defecto) acerca un poco (máx. 12 %) en disparos,
 // aéreos y goles; 'seguir' sigue la jugada: se centra entre el balón y tu coche con el zoom justo para ver a los dos,
 // sin enseñar nunca nada fuera del estadio. Resultado: zoom CAM.z y desplazamiento CAM.ox/CAM.oy (px de pantalla).
 const CAM = { z: 1, fx: .5, fy: .5, last: 0, ox: 0, oy: 0, wx: W / 2, wy: H / 2 };
