@@ -143,6 +143,10 @@ window.CARS = (() => {
         const sg = g.createLinearGradient(sx - 9, 0, sx + 9, 0);
         sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(.5, 'rgba(255,255,255,.3)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
         g.fillStyle = sg; g.fillRect(sx - 9, -24, 18, 38);
+        // filos de la chapa: luz del cielo en los bordes de arriba y reflejo del suelo (color del equipo) en los de abajo
+        g.lineJoin = 'round';
+        g.save(); g.translate(0, 1); build(); g.restore(); g.strokeStyle = 'rgba(255,255,255,' + (fin === 'matte' ? .14 : .32) + ')'; g.lineWidth = 1.1; g.stroke();
+        if (CUR.glowRGB || CUR.rgb) { g.save(); g.translate(0, -1.1); build(); g.restore(); g.strokeStyle = 'rgba(' + (CUR.glowRGB || CUR.rgb) + ',.38)'; g.lineWidth = 1.2; g.stroke(); }
         g.restore();
         build(); g.lineWidth = 1.1; g.lineJoin = 'round'; g.strokeStyle = 'rgba(5,8,22,.72)'; g.stroke();
     }
@@ -340,7 +344,15 @@ window.CARS = (() => {
         g.fillStyle = gr; g.beginPath(); g.ellipse(0, 14, w, 9, 0, 0, TAU); g.fill();
     }
     function flame(g, x, y, len, wid, boost, t, hot) {
-        if (!boost) return;
+        if (!boost) {      // sin turbo: bocanadas de humo del escape (más al acelerar); el patín eléctrico no echa humo
+            const k = CUR.puff || 0; if (k <= .02 || CUR.model === 'prisma') return;
+            for (let i = 0; i < 4; i++) {
+                const p = (t * 1.7 + i / 4) % 1, r = 1.2 + p * 4.5;
+                g.fillStyle = 'rgba(175,185,215,' + (k * .3 * (1 - p) * Math.min(1, p * 6)).toFixed(3) + ')';
+                g.beginPath(); g.arc(x - 2 - p * 18, y - p * 5 + Math.sin(t * 5 + i) * .8, r, 0, TAU); g.fill();
+            }
+            return;
+        }
         g.save(); g.globalCompositeOperation = 'lighter';
         const f = len * (0.8 + 0.3 * Math.sin(t * 40 + x));
         const layers = CUR.flame ? CUR.flame.map((c, i) => [c, [1, .72, .44, .2][i]]) : hot ? [['rgba(255,70,18,.85)', 1], ['rgba(255,160,40,.85)', .72], ['rgba(255,230,130,.9)', .44], ['rgba(255,255,255,.9)', .2]]
@@ -351,6 +363,17 @@ window.CARS = (() => {
             g.moveTo(x, y - wid * k); g.quadraticCurveTo(x - f * k * .6, y - wid * k * .5, x - f * k, y);
             g.quadraticCurveTo(x - f * k * .6, y + wid * k * .5, x, y + wid * k); g.closePath(); g.fill();
         }
+        // diamantes de choque: nudos brillantes que laten dentro del chorro
+        for (let i = 1; i <= 3; i++) {
+            const dx = x - f * (.16 + i * .17) + Math.sin(t * 50 + i) * .6, a = (.55 - i * .12) * (.7 + .3 * Math.sin(t * 60 + i * 2));
+            g.fillStyle = 'rgba(255,255,255,' + a.toFixed(3) + ')'; g.beginPath(); g.ellipse(dx, y, wid * .34 / i + .6, wid * .3 / i + .4, 0, 0, TAU); g.fill();
+        }
+        // chispas que salen del escape
+        for (let i = 0; i < 4; i++) {
+            const p = (t * 3.1 + i * .27) % 1, sx = x - p * f * 1.25, sy = y + Math.sin(i * 7.3 + Math.floor(t * 3.1 + i * .27) * 3) * wid * 1.1 * p;
+            g.fillStyle = CUR.flame ? CUR.flame[2] : hot ? 'rgba(255,220,120,.9)' : 'rgba(190,230,255,.9)'; g.globalAlpha = 1 - p; g.fillRect(sx, sy, 1.1, 1.1);
+        }
+        g.globalAlpha = 1;
         g.restore();
         glowDot(g, x - len * .35, y, len * .8, CUR.glowRGB || (hot ? '255,140,40' : '110,190,255'), .55);
     }
@@ -378,7 +401,10 @@ window.CARS = (() => {
         if (!CUR.noArch) { g.fillStyle = 'rgba(2,4,14,.96)'; g.beginPath(); g.arc(0, 0, r + 3.4, Math.PI, 0); g.fill(); }
         g.translate(0, susPart(g, x, r));
         const W = WSPEC[CUR.model] || WSPEC.chispa;
-        g.fillStyle = '#080a18'; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
+        {   // neumático con volumen: goma más clara en el flanco y luz arriba
+            const tg = g.createRadialGradient(-r * .25, -r * .3, r * .5, 0, 0, r); tg.addColorStop(0, '#22263a'); tg.addColorStop(.75, '#11131f'); tg.addColorStop(1, '#05060c');
+            g.fillStyle = tg; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
+        }
         g.save(); g.rotate(o.wheel);                                        // dibujo del neumático: tacos en el borde (los slicks del F1 no tienen)
         g.strokeStyle = 'rgba(70,78,120,.8)'; g.lineWidth = .9;
         if (!CUR.noArch) for (let i = 0; i < 24; i++) { const a = i * TAU / 24; g.beginPath(); g.moveTo(Math.cos(a) * (r - 1.8), Math.sin(a) * (r - 1.8)); g.lineTo(Math.cos(a) * (r - .3), Math.sin(a) * (r - .3)); g.stroke(); }
@@ -388,16 +414,39 @@ window.CARS = (() => {
         const dg = g.createRadialGradient(0, 0, r * .2, 0, 0, r * .66); dg.addColorStop(0, '#2c3150'); dg.addColorStop(.8, '#6a7196'); dg.addColorStop(1, '#3a4066');
         g.fillStyle = dg; g.beginPath(); g.arc(0, 0, r * .64, 0, TAU); g.fill();       // disco de freno
         g.strokeStyle = 'rgba(10,12,28,.5)'; g.lineWidth = .5; g.beginPath(); g.arc(0, 0, r * .5, 0, TAU); g.stroke();
+        if (o.brake && (o.spin || 0) > 120) {      // al frenar fuerte el disco se pone al rojo
+            const hk = Math.min(1, ((o.spin || 0) - 120) / 600), hg = g.createRadialGradient(0, 0, r * .3, 0, 0, r * .66);
+            hg.addColorStop(0, 'rgba(255,90,20,0)'); hg.addColorStop(.7, 'rgba(255,110,30,' + (.75 * hk) + ')'); hg.addColorStop(1, 'rgba(255,200,90,' + (.55 * hk) + ')');
+            g.fillStyle = hg; g.beginPath(); g.arc(0, 0, r * .66, 0, TAU); g.fill();
+        }
+        g.save(); g.rotate(o.wheel); g.fillStyle = 'rgba(10,12,28,.55)';      // disco perforado
+        for (let i = 0; i < 10; i++) { const a = i * TAU / 10; g.beginPath(); g.arc(Math.cos(a) * r * .55, Math.sin(a) * r * .55, r * .035, 0, TAU); g.fill(); }
+        g.restore();
         g.fillStyle = gold ? '#ffb020' : W.cal; rrect(g, r * .12, -r * .62, r * .42, r * .34, 1); g.fill();   // pinza de freno
         g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(r * .16, -r * .6, r * .34, .45);
         g.rotate(o.wheel);
         g.strokeStyle = gold ? '#f4c95a' : W.rim; g.lineCap = 'round'; g.lineWidth = r * W.w;
         if (W.mesh) { g.lineWidth = r * .07; for (let i = 0; i < 12; i++) { const a = i * TAU / 12; g.beginPath(); g.moveTo(Math.cos(a) * r * .16, Math.sin(a) * r * .16); g.lineTo(Math.cos(a + .35) * r * .6, Math.sin(a + .35) * r * .6); g.stroke(); } g.lineWidth = r * .12; }
+        const rimC = g.strokeStyle, sw = g.lineWidth;
+        // radios con relieve: sombra detrás, color y filo de luz
+        g.strokeStyle = 'rgba(8,10,26,.55)'; g.lineWidth = sw * 1.15;
+        for (let i = 0; i < W.n; i++) { const a = i * TAU / W.n + .09; g.beginPath(); g.moveTo(Math.cos(a) * r * .14, Math.sin(a) * r * .14); g.lineTo(Math.cos(a) * r * .56, Math.sin(a) * r * .56); g.stroke(); }
+        g.strokeStyle = rimC; g.lineWidth = sw;
         for (let i = 0; i < W.n; i++) { const a = i * TAU / W.n; g.beginPath(); g.moveTo(Math.cos(a) * r * .14, Math.sin(a) * r * .14); g.lineTo(Math.cos(a) * r * .56, Math.sin(a) * r * .56); g.stroke(); }
-        g.strokeStyle = gold ? '#fff0a8' : '#ffffff'; g.lineWidth = r * .1;
-        g.beginPath(); g.arc(0, 0, r * .62, 0, TAU); g.stroke();
-        g.fillStyle = gold ? '#7a4d00' : '#2a3160'; g.beginPath(); g.arc(0, 0, r * .17, 0, TAU); g.fill();
-        g.fillStyle = gold ? '#fff2b0' : '#ffffff'; g.beginPath(); g.arc(0, 0, r * .07, 0, TAU); g.fill();
+        g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = Math.max(.35, sw * .22);
+        for (let i = 0; i < W.n; i++) { const a = i * TAU / W.n - sw / r * .32; g.beginPath(); g.moveTo(Math.cos(a) * r * .2, Math.sin(a) * r * .2); g.lineTo(Math.cos(a) * r * .54, Math.sin(a) * r * .54); g.stroke(); }
+        {   // aro de la llanta metálico (la luz no gira con la rueda)
+            g.rotate(-o.wheel);
+            const lg = g.createLinearGradient(-r * .6, -r * .6, r * .6, r * .6);
+            lg.addColorStop(0, gold ? '#fff6c8' : '#ffffff'); lg.addColorStop(.5, gold ? '#e0a020' : '#b9c1dc'); lg.addColorStop(1, gold ? '#8a5a00' : '#5c6486');
+            g.strokeStyle = lg; g.lineWidth = r * .11; g.beginPath(); g.arc(0, 0, r * .62, 0, TAU); g.stroke();
+            g.strokeStyle = 'rgba(5,7,20,.6)'; g.lineWidth = .35; g.beginPath(); g.arc(0, 0, r * .565, 0, TAU); g.stroke();
+            g.rotate(o.wheel);
+        }
+        g.fillStyle = gold ? '#7a4d00' : '#2a3160'; g.beginPath(); g.arc(0, 0, r * .19, 0, TAU); g.fill();
+        g.fillStyle = gold ? '#ffe9a0' : '#cfd6f0';      // tuercas
+        for (let i = 0; i < 5; i++) { const a = i * TAU / 5 + .3; g.beginPath(); g.arc(Math.cos(a) * r * .12, Math.sin(a) * r * .12, r * .028, 0, TAU); g.fill(); }
+        g.fillStyle = gold ? '#fff2b0' : '#ffffff'; g.beginPath(); g.arc(0, 0, r * .06, 0, TAU); g.fill();
         if (o.spin > 380) { g.rotate(-o.wheel); g.strokeStyle = 'rgba(210,220,255,' + Math.min(.38, (o.spin - 380) / 1500) + ')'; g.lineWidth = r * .5; g.beginPath(); g.arc(0, 0, r * .5, 0, TAU); g.stroke(); }
         g.restore();
     }
@@ -454,6 +503,11 @@ window.CARS = (() => {
         g.fillStyle = rf; g.fillRect(c.rx0, c.roofY, c.rx1 - c.rx0, 3.2);
         g.strokeStyle = 'rgba(5,8,25,.5)'; g.lineWidth = .5;
         for (const q of c.seams || []) { g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(q[2], q[3]); g.stroke(); }
+        for (const w of c.arches) {      // sombra de contacto alrededor de los pasos de rueda: la chapa gana profundidad
+            const ag = g.createRadialGradient(w[0], 6, w[1] + 3, w[0], 6, w[1] + 10);
+            ag.addColorStop(0, 'rgba(0,0,10,.42)'); ag.addColorStop(1, 'rgba(0,0,10,0)');
+            g.fillStyle = ag; g.fillRect(w[0] - w[1] - 11, -10, (w[1] + 11) * 2, 22);
+        }
         g.restore();
         g.strokeStyle = 'rgba(255,255,255,.28)'; g.lineWidth = .6;
         for (const w of c.arches) { g.beginPath(); g.arc(w[0], 6, w[1] + 3.7, Math.PI * 1.02, Math.PI * 1.98); g.stroke(); }
@@ -857,6 +911,24 @@ window.CARS = (() => {
         g.lineTo(ax - nx * w0 / 2, ay - ny * w0 / 2); g.arc(ax, ay, w0 / 2, a - Math.PI / 2, a + Math.PI / 2, true);
         g.closePath(); g.fill();
     }
+    // brazo o pierna con forma de verdad: de A a B pasando cerca de C, más ancho por el músculo (wm) que en las puntas
+    function flesh(g, ax, ay, cx, cy, bx, by, w0, wm, w1, fill) {
+        const N = 9, L = [], R = [];
+        for (let i = 0; i <= N; i++) {
+            const u = i / N, iu = 1 - u;
+            const px = iu * iu * ax + 2 * iu * u * cx + u * u * bx, py = iu * iu * ay + 2 * iu * u * cy + u * u * by;
+            const tx = 2 * iu * (cx - ax) + 2 * u * (bx - cx), ty = 2 * iu * (cy - ay) + 2 * u * (by - cy), tl = Math.hypot(tx, ty) || 1;
+            const w = (w0 * iu + w1 * u + (wm - (w0 + w1) / 2) * Math.sin(Math.PI * Math.min(1, u * 1.15))) / 2;
+            L.push([px - ty / tl * w, py + tx / tl * w]); R.push([px + ty / tl * w, py - tx / tl * w]);
+        }
+        const a0 = Math.atan2(cy - ay, cx - ax), a1 = Math.atan2(by - cy, bx - cx);
+        g.fillStyle = fill; g.beginPath(); g.moveTo(L[0][0], L[0][1]);
+        for (let i = 1; i <= N; i++) g.lineTo(L[i][0], L[i][1]);
+        g.arc(bx, by, w1 / 2, a1 + Math.PI / 2, a1 - Math.PI / 2, true);
+        for (let i = N; i >= 0; i--) g.lineTo(R[i][0], R[i][1]);
+        g.arc(ax, ay, w0 / 2, a0 - Math.PI / 2, a0 + Math.PI / 2, true);
+        g.closePath(); g.fill();
+    }
     // muelle helicoidal: vueltas inclinadas delante y tramo oscuro por detrás
     function spring(g, x0, y0, x1, y1, n, r, col, hi, th) {
         th = th || 1;
@@ -1245,8 +1317,11 @@ window.CARS = (() => {
         const leg = (foot, dark, fa) => {
             // rodilla siempre hacia delante (dir -1), como una pierna de verdad
             const ax = foot[0] - Math.sin(fa || 0) * 1.6, ay = foot[1] - Math.cos(fa || 0) * 1.6, j = ik2(hx, hy, ax, ay, 11.4, 11.4, -1), col = dark ? PANTD : PANT;
-            g.strokeStyle = col; g.lineWidth = 5.9; g.beginPath(); g.moveTo(hx, hy); g.lineTo(j[0], j[1]); g.stroke();
-            g.lineWidth = 4.7; g.beginPath(); g.moveTo(j[0], j[1]); g.lineTo(ax, ay); g.stroke();
+            // muslo con músculo y gemelo marcado por detrás (la curva sale hacia atrás de la pierna)
+            const tdx = j[0] - hx, tdy = j[1] - hy, sdx2 = ax - j[0], sdy2 = ay - j[1], sl = Math.hypot(sdx2, sdy2) || 1;
+            flesh(g, hx, hy, hx + tdx * .5 + tdy * .06, hy + tdy * .5 - tdx * .06, j[0], j[1], 6.6, 7.3, 5.1, col);
+            flesh(g, j[0], j[1], j[0] + sdx2 * .4 - sdy2 / sl * 1.1, j[1] + sdy2 * .4 + sdx2 / sl * 1.1, ax, ay, 5.1, 5.9, 3.5, col);
+            if (!dark) { flesh(g, hx + .5, hy - 1, hx + tdx * .5 + .5, hy + tdy * .5 - 1.2, j[0] + .4, j[1] - 1, 2.2, 2.6, 1.6, 'rgba(255,255,255,.07)'); }      // volumen: luz encima del muslo
             // borde de luz del color del equipo para que las piernas se lean sobre fondos oscuros
             g.strokeStyle = 'rgba(' + s.glow + ',' + (dark ? .22 : .35) + ')'; g.lineWidth = .7; g.beginPath(); g.moveTo(hx + 2.4, hy + .4); g.lineTo(j[0] + 2.2, j[1]); g.lineTo(ax + 2, ay); g.stroke();
             if (!dark) {
@@ -1278,7 +1353,12 @@ window.CARS = (() => {
         // espalda curva: se encorva al agacharse y se endereza al celebrar
         const sdx = sh[0] - hx, sdy = sh[1] - hy, sL = Math.hypot(sdx, sdy) || 1, nbx = sdy / sL, nby = -sdx / sL;
         const spine = (ox, oy, ox2, oy2, w, col) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(hx + ox, hy + oy); g.quadraticCurveTo((hx + sh[0]) / 2 + nbx * curl + (ox + ox2) / 2, (hy + sh[1]) / 2 + nby * curl + (oy + oy2) / 2, sh[0] + ox2, sh[1] + oy2); g.stroke(); };
-        spine(0, 0, 0, 0, 8, '#0d1226'); spine(.2, -.6, 0, 0, 7.4, tm); spine(-2.2, -.6, -2.2, 0, 2.2, tmD); spine(1.8, -1.6, 1.4, 1.2, 1.1, 'rgba(255,255,255,.5)');
+        {   // tronco con forma: más estrecho en la cintura y ancho de pecho y hombros
+            const mx = (hx + sh[0]) / 2 + nbx * curl, my = (hy + sh[1]) / 2 + nby * curl;
+            flesh(g, hx, hy, mx, my, sh[0], sh[1], 8.2, 10.2, 9.6, '#0d1226');
+            flesh(g, hx + .2, hy - .6, mx + .1, my - .3, sh[0], sh[1], 7.4, 9.4, 8.8, tm);
+            flesh(g, hx + 1.6, hy - 1.4, mx + nbx * -.2 + 1.2, my - 1, sh[0] + 1.2, sh[1] + .8, 2.4, 3.4, 2.8, 'rgba(255,255,255,.12)');      // luz en el pecho
+        } spine(-2.2, -.6, -2.2, 0, 2.2, tmD); spine(1.8, -1.6, 1.4, 1.2, 1.1, 'rgba(255,255,255,.5)');
         const ta = Math.atan2(sh[1] - hy, sh[0] - hx);
         g.save(); g.translate(hx, hy); g.rotate(ta);
         g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = .8; g.beginPath(); g.moveTo(5.4, -3.4); g.lineTo(5.4, 3.4); g.stroke();                        // banda reflectante
@@ -1313,7 +1393,11 @@ window.CARS = (() => {
             const s0 = [sh[0] + (dark ? -.8 : .4), sh[1] + (dark ? -.2 : 0)], ph = dark ? 1.4 : 0;
             // codo hacia abajo (dir 1): el brazo cuelga del hombro y sube hacia el manillar
             const j = up ? [s0[0] + 8 - (dark ? 3 : 0), s0[1] - 1 - (dark ? 3 : 0)] : ik2(s0[0], s0[1], hand[0], hand[1], 10.6, 11, 1), hnd = up ? [s0[0] + 14 - (dark ? 6 : 0) + Math.sin(t * 6 + ph) * 1.6, s0[1] - 12 - (dark ? 4 : 0) - Math.abs(Math.cos(t * 6 + ph)) * 1.2] : [j[2], j[3]];
-            g.strokeStyle = dark ? '#0b0d1a' : tm; g.lineWidth = 3.9; g.beginPath(); g.moveTo(s0[0], s0[1]); g.lineTo(j[0], j[1]); g.lineTo(hnd[0], hnd[1]); g.stroke();
+            {   // brazo con bíceps y antebrazo más ancho junto al codo
+                const ac = dark ? '#0b0d1a' : tm, ux = j[0] - s0[0], uy = j[1] - s0[1], fx = hnd[0] - j[0], fy = hnd[1] - j[1];
+                flesh(g, s0[0], s0[1], s0[0] + ux * .5 + uy * .08, s0[1] + uy * .5 - ux * .08, j[0], j[1], 4.8, 5.2, 3.8, ac);
+                flesh(g, j[0], j[1], j[0] + fx * .35, j[1] + fy * .35, hnd[0], hnd[1], 3.8, 4.3, 2.9, ac);
+            }
             if (!dark) {
                 g.strokeStyle = tmD; g.lineWidth = 1.2; g.beginPath(); g.moveTo(s0[0] - .6, s0[1] + 1.4); g.lineTo(j[0] - .6, j[1] + 1.2); g.stroke();
                 g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = .7; g.beginPath(); g.moveTo(s0[0] + .6, s0[1] - 1.2); g.lineTo(j[0] + .5, j[1] - 1.2); g.stroke();
@@ -1771,11 +1855,14 @@ window.CARS = (() => {
             else { CUR.flame = tr.flame; CUR.glowRGB = tr.glow; }
         }
         if (model === 'prisma') o = Object.assign({}, o, { pal: o.paint && o.paint !== 'team' ? PAINT_BY[o.paint] : null });
-        CUR.model = model;
+        CUR.model = model; CUR.rgb = sk.glow; CUR.puff = o.air ? 0 : .35 + Math.max(0, Math.min(1, (o.lean || 0) * 1.6)) * .65;      // humo del escape: al ralentí poco, acelerando mucho
         const SUSK = { chispa: 2.6, bisonte: 3.4, cuna: 2.4, kaze: 1.7, fenix: 2.4, mula: 3, titan: 4.6, formula: 1.1 }[model];
         if (SUSK && model !== 'prisma') {
             const cl = v => Math.max(-1.2, Math.min(1.2, v || 0));
-            const dF = cl(o.susF) * SUSK, dR = cl(o.susR) * SUSK, kS = (dF - dR) / 57;
+            // motor en marcha: la carrocería vibra un poco parada y más al acelerar fuerte
+            const tt = o.t || 0, acc = Math.max(0, Math.min(1, o.lean || 0)), idle = o.air ? 0 : (Math.abs(o.spin || 0) < 60 ? .16 : .05) + acc * .2;
+            const vib = Math.sin(tt * 63) * idle + Math.sin(tt * 41 + 1) * idle * .5;
+            const dF = cl(o.susF) * SUSK + vib * .6, dR = cl(o.susR) * SUSK + vib, kS = (dF - dR) / 57;
             CUR.sd = { k: kS, d: dR + kS * 28, col: model === 'kaze' ? 'rgb(' + sk.glow + ')' : model === 'fenix' ? '#ffb020' : '#e24b3a' };
             g.save(); g.transform(1, kS, 0, 1, 0, CUR.sd.d);
         } else CUR.sd = null;
