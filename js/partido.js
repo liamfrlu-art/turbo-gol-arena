@@ -568,8 +568,6 @@ function drawBolts() {
 
 function simulate(dt, mode) {
     const w = S.world;
-    // congelado de golpe: unas centésimas de pausa en los golpes fuertes (no online: descuadraría a los dos jugadores)
-    if (S.hitStop > 0 && mode === 'game' && !S.net) { S.hitStop -= dt; return; }
     S.acc += dt * S.slow;
     let steps = 0;
     while (S.acc >= STEP && steps < 12) {
@@ -849,7 +847,6 @@ function handleEvents() {
                     if (toward > 520 && near && w.ball.vx * dA > 0) jMsg('¡PARADÓN!', e[4] === 0 ? '#3db8ff' : '#ff8a2b', 1.6);
                 }
                 if (S.state === 'play' && e[1] > 520) S.camKick = Math.max(S.camKick || 0, Math.min(1, (e[1] - 420) / 700));
-                if (S.state === 'play' && e[1] > 900) S.hitStop = Math.max(S.hitStop || 0, Math.min(.07, .03 + (e[1] - 900) / 9000));      // golpe fuerte: congelado breve
                 if (S.state !== 'menu') { sfx('hit', e[1]); shake = Math.max(shake, Math.min(10, e[1] / 150)); S.punch = Math.max(S.punch, Math.min(.5, e[1] / 2400)); if (e[5] === 0 && e[1] > 380) buzz(18, 'hit'); if (e[5] === 0 && S.state === 'play' && !w.cars[0].grounded && w.ball.y < H - 140) airTouch();
                 if (e[5] === 0) { hk = 'hit'; } if (e[5] === 0) padRumble(90 + e[1] / 6, Math.min(1, e[1] / 1100), Math.min(1, e[1] / 800)); }
                 break;
