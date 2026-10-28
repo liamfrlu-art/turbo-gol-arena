@@ -47,8 +47,8 @@ function startMatch(mode, cup, v2) {
     S.ai.watch = S.world.cars[0]; S.lastTouchPid = -1;
     if (S.v2) {      // tu compañero (azul) y el segundo rival (naranja)
         T.applyType(S.world.cars[2], pickAI()); T.applyType(S.world.cars[3], pickAI());
-        S.mate = T.makeAI(Math.max(1, cfg.diff)); S.mate.mateHuman = true; S.mate.cfg = Object.assign({}, S.mate.cfg, { learn: 0, lazy: 0 });
-        S.ai3 = T.makeAI(cfg.diff); S.ai3.watch = S.world.cars[0]; S.ai.prof = S.ai.prof || T.newProf(); S.ai3.prof = S.ai.prof; S.ai3.profRO = true;      // los dos rivales comparten lo que aprenden de ti
+        S.mate = T.makeAI(Math.min(3, Math.max(1, cfg.diff)));      // el compañero piensa como Leyenda como mucho S.mate.mateHuman = true; S.mate.cfg = Object.assign({}, S.mate.cfg, { learn: 0, lazy: 0 });
+        S.ai3 = T.makeAI(Math.min(3, cfg.diff)); S.ai3.watch = S.world.cars[0]; S.ai.prof = S.ai.prof || T.newProf(); S.ai3.prof = S.ai.prof; S.ai3.profRO = true;      // los dos rivales comparten lo que aprenden de ti
         S.bub = [];
     } else { S.mate = null; S.ai3 = null; }
     T.kickoff(S.world);

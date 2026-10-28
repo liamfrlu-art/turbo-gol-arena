@@ -211,6 +211,7 @@ const ACH = [
     { id: 'clean', n: 'Portería a cero', d: 'Gana sin encajar goles', t: (s, c) => c.clean },
     { id: 'big', n: 'Goleada', d: 'Gana por 5 goles o más', t: (s, c) => c.big },
     { id: 'legend', n: 'Domador de leyendas', d: 'Gana a la IA Leyenda', t: (s, c) => c.legend },
+    { id: 'imposible', n: 'Nada es imposible', d: 'Gana a la IA Imposible', t: (s, c) => c.imposible },
     { id: 'mut', n: 'Caos controlado', d: 'Gana con un mutador activo', t: (s, c) => c.mut },
     { id: 'come', n: 'Remontada', d: 'Gana habiendo ido perdiendo por 2 goles', t: (s, c) => c.comeback },
     { id: 'gold', n: 'Gol de oro', d: 'Gana en la prórroga', t: (s, c) => c.gold },
@@ -291,11 +292,11 @@ function matchRewards(b, o) {
     const st = wallet.st, win = b > o, draw = b === o, lvl = S.cup ? S.cup.lvl : S.net ? 1 : cfg.diff;      // online premia como un partido Normal
     st.matches++;
     if (win) { st.wins++; st.streak++; st.best = Math.max(st.best, st.streak); } else { st.streak = 0; if (draw) st.draws++; else st.losses++; }
-    const mult = [0.6, 1, 1.3, 1.6][lvl] * (S.cup ? 1.2 : 1);
+    const mult = [0.6, 1, 1.3, 1.6, 2][lvl] * (S.cup ? 1.2 : 1);
     const coins = Math.round(((win ? 60 : draw ? 25 : 20) + 8 * Math.min(b, 10)) * mult), xp = (win ? 120 : draw ? 70 : 50) + 10 * b;
     S.rw = ['+' + coins + ' monedas', '+' + xp + ' XP'];
     award(coins, xp);
-    const ctx = { clean: win && o === 0, big: win && b - o >= 5, legend: win && lvl === 3, mut: win && Object.keys(MUT_N).some(k => T.MUT[k]) && !S.cup, comeback: win && S.minDiff <= -2, gold: win && S.ot };
+    const ctx = { clean: win && o === 0, big: win && b - o >= 5, legend: win && lvl >= 3, imposible: win && lvl === 4, mut: win && Object.keys(MUT_N).some(k => T.MUT[k]) && !S.cup, comeback: win && S.minDiff <= -2, gold: win && S.ot };
     achCheck(ctx); saveWallet();
 }
 function renderStatsScreen() {
@@ -538,7 +539,7 @@ function styled(c0, tag, lvl) {
 const RIVALS = Object.keys(TEAMS).filter(k => k !== 'me');
 const RN8 = ['Cuartos', 'Semifinales', 'Final'], RN16 = ['Octavos', 'Cuartos', 'Semifinales', 'Final'];
 const rnA = () => (TN && TN.size === 16) ? RN16 : RN8;
-const DN = ['Fácil', 'Normal', 'Difícil', 'Leyenda'];
+const DN = ['Fácil', 'Normal', 'Difícil', 'Leyenda', 'Imposible'];
 let cups = store.get('cups', 0);
 let TN = store.get('cup', null);
 const tnOk = t => t && Array.isArray(t.rounds) && t.rounds.length === t.r + 1 && t.rounds[t.r].length === ((t.size || 8) / 2) >> t.r &&

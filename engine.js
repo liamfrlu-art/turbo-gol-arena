@@ -464,7 +464,9 @@ window.TG = (() => {
         { react: 0.34, spd: 0.8, look: 0.10, boostUse: false, jumpP: 0.4, agg: 0.25, flipP: 0, mist: 60, tErr: 0.22, fake: 0, shadow: false, lazy: 0.14, learn: 0.15 },
         { react: 0.19, spd: 0.93, look: 0.25, boostUse: true, bAtk: 500, bRet: 9999, jumpP: 0.8, aerial: true, aimErr: 0.15, wallJ: true, dodgeShot: true, agg: 0.16, flipP: 0.45, mist: 24, tErr: 0.1, fake: 0.15, shadow: true, lazy: 0.02, learn: 0.5 },
         { react: 0.1, spd: 1.0, look: 0.35, boostUse: true, bAtk: 420, bRet: 9999, jumpP: 1.0, aerial: true, aimErr: 0.04, wallJ: true, dodgeShot: true, dribble: true, reset: true, agg: 0, flipP: 0.8, mist: 7, tErr: 0.05, fake: 0.25, shadow: true, learn: 0.8 },
-        { react: 0.05, spd: 1.04, look: 0.6, boostUse: true, bAtk: 260, bRet: 9999, jumpP: 1.0, aerial: true, aimErr: 0.02, wallJ: true, dodgeShot: true, dribble: true, reset: true, agg: 0, flipP: 0.9, mist: 3, tErr: 0.025, fake: 0.3, shadow: true, carry: true, learn: 1 }
+        { react: 0.05, spd: 1.04, look: 0.6, boostUse: true, bAtk: 260, bRet: 9999, jumpP: 1.0, aerial: true, aimErr: 0.02, wallJ: true, dodgeShot: true, dribble: true, reset: true, agg: 0, flipP: 0.9, mist: 3, tErr: 0.025, fake: 0.3, shadow: true, carry: true, learn: 1 },
+        // Imposible: el cerebro que piensa por adelantado (mpc), con reacción humana y algo de imprecisión (noise)
+        { react: 0.22, spd: 1.0, look: 0.6, boostUse: true, jumpP: 1.0, aerial: true, agg: 0, mist: 0, tErr: 0, learn: 0, mpc: true, noise: 120, koDelay: 0.3 }
     ];
     function makeAI(level) {
         return { cfg: DIFFS[level], timer: 0, jcd: 0, mode: 'attack', tx: W * 0.5, pred: null, age: 0, plan: null, planAge: 0, chase: 0, err: 0,
@@ -662,7 +664,67 @@ window.TG = (() => {
     }
     const NOTES = { aerial: 'El rival ha notado que haces muchos aéreos', rush: 'El rival ha visto que siempre sales a tope en el saque', wait: 'El rival ha notado que esperas en el saque',
         goalie: 'El rival ha visto que te quedas de portero', chal: 'El rival ha notado que siempre vas a chocar', far: 'El rival ha notado que tiras mucho desde lejos' };
+    // ---------- Nivel Imposible: piensa por adelantado ----------
+    // Cada poco tiempo prueba varias jugadas (ir, frenar, turbo, saltar, voltereta) con la física real en una copia del mundo,
+    // mira cómo acaba cada una en el siguiente medio segundo y se queda con la mejor. Si el aparato va justo, prueba menos.
+    function cloneWorld(w) {
+        return { v2: w.v2, cars: w.cars.map(c => Object.assign({}, c)), ball: Object.assign({}, w.ball), ball2: w.ball2 ? Object.assign({}, w.ball2) : null, pads: w.pads.map(p => Object.assign({}, p)) };
+    }
+    const guessInp = c => ({ dir: Math.abs(c.vx) > 60 ? Math.sign(c.vx) : 0, pitch: 0, aim: false, jump: false, boost: !!c.boosting, roll: false });
+    function planInp(p, t, dirA, out) {
+        out.dir = p.dir; out.pitch = 0; out.aim = false; out.roll = false; out.boost = p.boost; out.jump = false;
+        if (p.jump >= 0 && t >= p.jump && t < p.jump + 0.02) out.jump = true;
+        if (p.dodge && p.jump >= 0 && t >= p.jump + p.dodge && t < p.jump + p.dodge + 0.02) { out.jump = true; out.dir = dirA; }
+        return out;
+    }
+    function planScore(w0, me, dirA, p, H, sdt) {
+        const w = cloneWorld(w0), car0 = w0.cars[me], myGoal = dirA > 0 ? 0 : W, inps = w.cars.map(guessInp), mine = planInp(p, 0, dirA, {});
+        for (let s = 0; s * sdt < H; s++) {
+            const t = s * sdt; inps[me] = planInp(p, t, dirA, mine);
+            const r = stepWorld(w, sdt, inps);
+            if (r >= 0) return (r === car0.team ? 1e5 : -1e5) * (1 - t / (H * 2));
+        }
+        const b = w.ball, c = w.cars[me];
+        let opp = null, od = 1e9; for (const o of w.cars) if (o.team !== c.team && !o.ghost) { const d = Math.hypot(b.x - o.x, b.y - o.y); if (d < od) { od = d; opp = o; } }
+        const dB = Math.hypot(b.x - c.x, b.y - c.y);
+        let sc = (b.x - myGoal) * dirA * 2.2 + b.vx * dirA * 0.9 - dB * 0.6 + c.boost * 3;
+        if ((c.x - b.x) * dirA > 0 && b.vx * dirA < 0) sc -= 900;      // por delante del balón con el balón volviendo: vendido
+        if ((b.x - myGoal) * dirA < 400) sc -= 1200;                     // peligro en mi área
+        if (opp && od < dB) sc -= 200;                                   // el rival más cerca del balón
+        return sc;
+    }
+    // al ejecutar el plan cada salto se pulsa una sola vez (el motor consume la pulsación)
+    function oneShot(ai, inp) { if (inp.jump) { if ((ai.jd || 0) >= 2 || (ai.jdT != null && ai.age - ai.jdT < .05)) inp.jump = false; else { ai.jd = (ai.jd || 0) + 1; ai.jdT = ai.age; } } }
+    function mpcStep(ai, car, ball, w, dt) {
+        const cfg = ai.cfg, inp = ai.inp, dirA = car.team === 0 ? 1 : -1, me = w.cars.indexOf(car);
+        car.spd = cfg.spd; ai.age = (ai.age || 0) + dt;
+        // en el saque arranca con un poco de retraso: si no, ganaría todos los saques
+        if (ball.ko) { if (ai.koD == null) ai.koD = cfg.koDelay || 0; if (ai.koD > 0) { ai.koD -= dt; inp.dir = 0; inp.boost = false; inp.jump = false; ai.plan = null; ai.cand = null; return; } } else ai.koD = null;
+        ai.mt = (ai.mt || 0) - dt;
+        // al acabar la jugada prueba las siguientes; si el aparato va lento, las reparte en varios fotogramas (sin tirones) y mientras sigue con la anterior
+        if (!ai.cand && (!ai.plan || ai.mt <= 0)) {
+            const near = Math.hypot(ball.x - car.x, ball.y - car.y) < 380;
+            const P = [{ dir: 0, boost: false, jump: -1 }];
+            for (const d of [-1, 1]) for (const bo of [false, true]) { P.push({ dir: d, boost: bo, jump: -1 }); if (near) P.push({ dir: d, boost: bo, jump: 0, dodge: .1 }); }
+            if (near) { P.push({ dir: dirA, boost: false, jump: 0 }); P.push({ dir: -dirA, boost: false, jump: 0 }); }
+            ai.cand = P; ai.ci = 0; ai.best = P[0]; ai.bs = -1e9;
+        }
+        if (ai.cand) {
+            const hasT = typeof performance !== 'undefined', t0 = hasT ? performance.now() : 0, evN = events.length;
+            if (ai.ci < ai.cand.length) do {
+                const p = ai.cand[ai.ci++], s = planScore(w, me, dirA, p, .6, 1 / 30) + (Math.random() - .5) * (cfg.noise || 0);
+                if (s > ai.bs) { ai.bs = s; ai.best = p; }
+            } while (ai.ci < ai.cand.length && (!hasT || performance.now() - t0 < 1.5));
+            events.length = evN;
+            if (ai.ci >= ai.cand.length) {
+                ai.plan = ai.best; ai.cand = null; ai.age = 0; ai.jd = 0; ai.jdT = null; ai.mt = cfg.react * (0.9 + Math.random() * 0.3);
+            }
+        }
+        if (!ai.plan) { inp.dir = 0; inp.boost = false; inp.jump = false; return; }
+        planInp(ai.plan, ai.age, dirA, inp); oneShot(ai, inp);
+    }
     function aiStep(ai, car, ball, w, dt) {
+        if (ai.cfg.mpc) return mpcStep(ai, car, ball, w, dt);
         const cfg = ai.cfg, inp = ai.inp;
         if (w && w.ball2) { const b2 = w.ball2; if (Math.hypot(b2.x - car.x, b2.y - car.y) < Math.hypot(ball.x - car.x, ball.y - car.y) - 60) ball = b2; }
         car.spd = cfg.spd;
