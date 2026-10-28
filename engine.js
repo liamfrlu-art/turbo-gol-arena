@@ -508,6 +508,9 @@ window.TG = (() => {
     function airChase(ai, car, ball, dirA, inp, dt) {
         const cfg = ai.cfg, P = ai.pred;
         const d0 = Math.hypot(ball.x - car.x, ball.y - car.y);
+        // si ya me he pasado el balón, cualquier toque lo mandaría hacia mi portería: dejo la persecución y aterrizo
+        // (salvo que lo esté llevando encima en un air dribble, con el balón todavía por delante de la cola)
+        if ((car.x - ball.x) * dirA > 18 && !(cfg.dribble && ball.y < car.y - 20 && (car.x - ball.x) * dirA < 30)) { ai.chase = 0; ai.rstShot = 0; return; }
         const closing = Math.max(350, Math.hypot(car.vx, car.vy) + 250);
         ai.tgo -= dt;
         const tg = clamp(Math.min(ai.tgo > 0 ? ai.tgo : 9, d0 / closing), 0.04, 0.9);
@@ -676,7 +679,9 @@ window.TG = (() => {
         const homeX = dirA > 0 ? RAMP_X + 70 : W - RAMP_X - 70;          // puesto de portero
         // saque inicial: el balón está quieto en el centro
         const kick = Math.abs(ball.vx) < 1 && Math.abs(ball.vy) < 1 && Math.abs(ball.x - W / 2) < 3;
-        if (kick && !ai.koSet) { ai.koSet = true; const tr0 = cfg.learn ? profTraits(ai) : null; let fp = cfg.fake || 0; if (tr0 && tr0.rush) fp = 0; else if (tr0 && tr0.wait) fp = 0; ai.koWait = Math.random() < fp ? 0.35 + Math.random() * 0.5 : 0; ai.timer = 0; }
+        if (kick && !ai.koSet) { ai.koSet = true; const tr0 = cfg.learn ? profTraits(ai) : null; let fp = cfg.fake || 0;
+            // contra quien sale siempre a tope, el amago (esperar y contraatacar) es lo mejor; contra quien espera, salir a por el balón
+            if (tr0 && tr0.rush) fp = Math.max(fp, 0.2 + 0.45 * tr0.L); else if (tr0 && tr0.wait) fp = 0; ai.koWait = Math.random() < fp ? 0.35 + Math.random() * 0.5 : 0; ai.timer = 0; }
         if (!kick) ai.koSet = false;
         const watch = ai.watch || opp;
         if (cfg.learn && !ai.profRO) profObserve(ai, car, watch, ball, dt, dirA, kick);      // profRO: comparte lo aprendido por otra IA (2 contra 2)
@@ -798,12 +803,18 @@ window.TG = (() => {
             // balón entre mi coche y mi portería: pasar por debajo, saltar por encima o apartarse, pero nunca empujarlo hacia mi portería
             if ((ball.x - car.x) * dirA < -4 && dB < 380 && ai.mode !== 'aerial') {
                 const sgn = Math.sign(ball.x - car.x), closing = (car.vx - ball.vx) * sgn, hb = floorY(ball.x) - ball.y;
+                // carrerilla: demasiado cerca y lento para saltarlo, me alejo un poco y vuelvo con velocidad
+                const roomBack = sgn > 0 ? car.x > RAMP_X + 120 : car.x < W - RAMP_X - 120;
+                if (hb < 58 && closing < 430 && dB < 230 && roomBack && ball.x > RAMP_X + 40 && ball.x < W - RAMP_X - 40) ai.runup = 0.55;
+                if (ai.runup > 0) { ai.runup -= dt; if (dB < 380 && roomBack) { inp.dir = -sgn; inp.boost = false; return; } ai.runup = 0; }
                 if (closing > 30 || dB < 120) {
                     const tc = clamp((dB + 40) / Math.max(closing, 60), 0, 1.2), hbC = hb - (ball.vy * tc + 360 * tc * tc);      // altura del balón al cruzarlo
                     if (hb > 112 && hbC > 108) { /* pasa por debajo */ }
-                    else if (hb < 58 && ball.vy > -120 && ball.x > RAMP_X + 40 && ball.x < W - RAMP_X - 40) {
-                        if (ai.jcd <= 0 && dB < clamp(closing * 0.36, 105, 300)) { inp.dir = sgn; inp.jump = true; ai.jcd = 0.6; ai.hop = 0.6; ai.dir = sgn; return; }
-                    } else if (dB < 230) {
+                    else if (hb < 58 && ball.vy > -120 && ball.x > RAMP_X + 40 && ball.x < W - RAMP_X - 40 && closing > 430) {
+                        // saltarlo por encima solo con velocidad suficiente; el despegue se calcula para pasar por lo alto del salto
+                        // (≈0,43 s) justo sobre el balón. Más lento choca con él y lo empuja hacia mi portería.
+                        if (ai.jcd <= 0 && dB < clamp(closing * 0.42 + 30, 150, 340)) { inp.dir = sgn; inp.jump = true; ai.jcd = 0.6; ai.hop = 0.6; ai.dir = sgn; return; }
+                    } else if (dB < 260) {
                         if (car.vx * sgn > 60) { inp.dir = 0; inp.pitch = -1; }       // freno: espero a que el balón suba o baje
                         else inp.dir = -sgn;                                          // el balón viene hacia mí: me aparto
                         inp.boost = false; return;
@@ -821,7 +832,8 @@ window.TG = (() => {
                 if (d < 12 && tg.t > 0.2) inp.dir = 0;
                 const front = (ball.x - car.x) * dirA, dist = Math.hypot(ball.x - car.x, ball.y - car.y);
                 // salto para un balón a media altura
-                if ((tg.type === 'j' || tg.type === 'j2') && ai.jcd <= 0 && front > 0) {
+                // (solo con el coche bien detrás del balón: si salta con el balón ya sobre el capó, lo levanta por encima hacia atrás)
+                if ((tg.type === 'j' || tg.type === 'j2') && ai.jcd <= 0 && front > 34) {
                     const tUp = jumpRise(car, Math.max(10, tg.hb - 38), tg.type === 'j2');
                     if (tUp > 0 && tg.t <= tUp + 0.02 && Math.abs(tg.ax - car.x) < Math.abs(car.vx) * tUp + 70) { inp.jump = true; ai.jcd = 0.7; ai.dblJ = tg.type === 'j2' ? 0.1 : 0; return; }
                 }
@@ -848,7 +860,8 @@ window.TG = (() => {
             if (ai.chase > 0 && cfg.aerial && car.flipT <= 0) { airChase(ai, car, ball, dirA, inp, dt); return; }
             const near = Math.hypot(ball.x - car.x, ball.y - car.y), front = (ball.x - car.x) * dirA;
             if (car.flipT <= 0) {
-                if (car.used < 2 && car.airT > 0.12 && near < 175 && front > -20 && ai.jcd <= 0 && Math.random() < cfg.jumpP) {
+                // voltereta hacia la portería rival solo si el balón está delante del coche (si está encima o detrás, la voltereta lo empujaría hacia atrás)
+                if (car.used < 2 && car.airT > 0.12 && near < 175 && front > 26 && ai.jcd <= 0 && Math.random() < cfg.jumpP) {
                     inp.jump = true; inp.dir = dirA; ai.jcd = 0.7;
                 } else if (cfg.aerial) { inp.aim = true; inp.dir = car.f * 0.9; inp.pitch = 0; }      // aterrizar sobre las ruedas
                 else {
