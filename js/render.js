@@ -127,11 +127,23 @@ function drawCar(c, t) {
     const pF = spr(c.susF, c.susFw, -c.lean * .6 + (c.brake ? .5 : 0)), pR = spr(c.susR, c.susRw, c.lean * .6);
     c.susF = pF[0]; c.susFw = pF[1]; c.susR = pR[0]; c.susRw = pR[1];
     const me = c === S.world.cars[0];
+    // contexto para el piloto del patín: balón que viene fuerte hacia él, choques con otros coches, rival cerca y final del partido
+    const bb = S.world.ball, bdx = bb.x - c.x, bdy = bb.y - c.y, bdl = Math.hypot(bdx, bdy) || 1, appr = -(bdx * bb.vx + bdy * bb.vy) / bdl;
+    const dng = bdl < 260 && appr > 450 ? clamp((appr - 450) / 600, 0, 1) * clamp((260 - bdl) / 120, 0, 1) : 0;
+    let opp = null, od = 1e9;
+    for (const cc of S.world.cars) {
+        if (cc === c || cc.ghost) continue;
+        const d = Math.hypot(cc.x - c.x, cc.y - c.y);
+        if (d < 80 && S.state === 'play') { const cl = -((cc.x - c.x) * (cc.vx - c.vx) + (cc.y - c.y) * (cc.vy - c.vy)) / (d || 1); if (cl > 260 && (!c.bumpAt || performance.now() - c.bumpAt > 700)) c.bumpAt = performance.now(); }
+        if (cc.team !== c.team && d < od) { od = d; opp = cc; }
+    }
+    const fin = S.state === 'end' ? (S.score[c.team] > S.score[1 - c.team] ? 'win' : S.score[c.team] < S.score[1 - c.team] ? 'lose' : 'draw') : '';
     let mood = '';
     if (S.state === 'goal') mood = ((S.goalCol === 'blue') === (c.team === 0)) ? 'win' : 'lose';
     CARS.paint(ctx, c.model || 'chispa', c.team, { boosting: c.boosting, wheel: c.wheel * c.f, t, spin: c.spdv || 0, brake: c.brake,
         susF: c.susF, susR: c.susR, lean: c.lean, air: !c.grounded, jumpT: c.grounded ? 9 : c.airT, vf, vu, mood, look: (() => { const bb = S.world.ball, dx = (bb.x - c.x) * c.f, dy = bb.y - c.y; return Math.hypot(dx, dy) < 700 ? Math.atan2(dy, Math.max(dx, 30)) : 0; })(), wall: c.grounded && Math.abs(c.ny) < .75, hitT: c.hitAt ? (performance.now() - c.hitAt) / 1000 : 9, flip: c.flipT > 0,
-        rid: c.rid || (c.rid = {}), state: S.state, bst: c.boost, ballD: Math.hypot(S.world.ball.x - c.x, S.world.ball.y - c.y),      // memoria y contexto del piloto del patín
+        rid: c.rid || (c.rid = {}), state: S.state, bst: c.boost, dng, fin, oppD: od, oppDx: opp ? (opp.x - c.x) * c.f : 999,
+        bumpT: c.bumpAt ? (performance.now() - c.bumpAt) / 1000 : 9, saveT: c.saveAt ? (performance.now() - c.saveAt) / 1000 : 9, ballD: Math.hypot(S.world.ball.x - c.x, S.world.ball.y - c.y),      // memoria y contexto del piloto del patín
         paint: me ? cfg.paint : null, wheelStyle: me ? cfg.wheel : null, trail: me ? cfg.trail : null, dorsal: me ? cfg.dorsal : null, decal: me ? cfg.decal : null });
     ctx.restore();
 }

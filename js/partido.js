@@ -889,7 +889,7 @@ function handleEvents() {
                 const pal = e[4] === 0 ? 'blue' : 'orange';
                 S.lastTouch = e[4]; S.lastTouchPid = e[5]; S.ballSq = performance.now();
                 if (e[1] > 700) ring(e[2], e[3], 'white', 1000 + e[1], .5, 8);
-                for (const cc of w.cars) if (cc.pid === e[5]) cc.hitAt = performance.now();
+                for (const cc of w.cars) if (cc.pid === e[5]) { cc.hitAt = performance.now(); if (cc.team === 0 ? e[2] < 420 : e[2] > W - 420) cc.saveAt = cc.hitAt; }      // despeje cerca de su portería
                 burst(e[2], e[3], Math.min(16, 4 + e[1] / 110), 380, pal, 9, .5, true);
                 burst(e[2], e[3], 4, 280, 'white', 7, .3, true);
                 if (e[1] > 330) ring(e[2], e[3], pal, 700 + e[1], .35, 5);
