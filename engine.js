@@ -717,7 +717,9 @@ window.TG = (() => {
             let mode, tx;
             const noise = (Math.random() - 0.5) * 2 * (cfg.mist || 0);
             const wasAtk = ai.mode === 'attack', prevMode = ai.mode;
-            const hy = prevMode === 'support' ? 0.15 : 0, support = mate && mt != null && (!me || (ai.mateHuman ? mt < me.t + 0.25 + hy : (mt < me.t - 0.04 + hy || (Math.abs(mt - me.t) <= 0.04 && mate.pid < car.pid))));
+            // si el compañero (IA) ya va a por el balón, solo se lo quito si llego claramente antes: así no van los dos
+            const hy = (prevMode === 'support' ? 0.15 : 0) + (mate && mate.aiMode === 'attack' && prevMode !== 'attack' ? 0.22 : 0);
+            const support = mate && mt != null && (!me || (ai.mateHuman ? mt < me.t + 0.25 + hy : (mt < me.t - 0.04 + hy || (Math.abs(mt - me.t) <= 0.04 && mate.pid < car.pid))));
             if (support && behind) {
                 // apoyo: detrás de mi compañero, entre el balón y mi portería
                 mode = 'support'; ai.lastTgt = null;
@@ -746,7 +748,16 @@ window.TG = (() => {
                 const pl = planAerial(ai, car, dirA);
                 if (pl && (pl.x - car.x) * dirA > -60 && (!op || pl.t < op.t + agg) && (!me || pl.t < me.t - 0.2)) { ai.plan = pl; ai.planAge = 0; mode = 'aerial'; tx = pl.x - dirA * 110; ai.tgt = null; }
             }
-            ai.mode = mode;
+            // 2 contra 2: al defender o volver, el que está más atrás se queda de último hombre y no se apilan en el mismo sitio
+            if (mate && (mode === 'recover' || mode === 'shadow' || mode === 'support')) {
+                const deeper = (car.x - mate.x) * dirA < 0 || (Math.abs(car.x - mate.x) < 4 && car.pid > mate.pid);
+                const mateBusy = mate.aiMode === 'attack' || mate.aiMode === 'aerial' || (ai.mateHuman && Math.hypot(mate.x - ball.x, mate.y - ball.y) < 300);
+                if (mateBusy && mode === 'recover') tx = ball.x - dirA * 520;      // el compañero va al balón: vuelvo por detrás sin cruzarme
+                else if (!deeper) { if ((tx - mate.x) * dirA < 190) tx = mate.x + dirA * 190; }      // en un solo carril no se adelanta: espero por delante de él
+                else if (Math.abs(tx - mate.x) < 200) tx -= dirA * 220;
+                if ((tx - homeX) * dirA < 0) tx = homeX;
+            }
+            ai.mode = mode; car.aiMode = mode;
             // bocadillos para el compañero (como mucho uno cada 2,5 s)
             if (mate && (ai.sayT || 0) <= 0) {
                 let s = null;
