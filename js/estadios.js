@@ -17,6 +17,134 @@ function arenaPath(c) {
     for (let i = 1; i < p.length; i++) c.lineTo(p[i][0], p[i][1]);
     c.closePath();
 }
+// ---------- Marco del estadio ----------
+// recorrido del borde (para colocar detalles y la luz que lo recorre): puntos, distancias acumuladas y longitud total
+let FRP = null;
+function framePerim() {
+    if (FRP) return FRP;
+    const p = T.pts, cum = [0]; let L = 0;
+    for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; L += Math.hypot(b[0] - a[0], b[1] - a[1]); cum.push(L); }
+    return (FRP = { p, cum, L });
+}
+function frameAt(s) {      // punto del borde a la distancia s y normal del tramo (sin saber hacia qué lado da)
+    const F = framePerim(), p = F.p; s = ((s % F.L) + F.L) % F.L;
+    let i = 0; while (i < p.length - 1 && F.cum[i + 1] < s) i++;
+    const a = p[i], b = p[(i + 1) % p.length], l = F.cum[i + 1] - F.cum[i] || 1, u = (s - F.cum[i]) / l, dx = (b[0] - a[0]) / l, dy = (b[1] - a[1]) / l;
+    return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, -dy, dx];
+}
+// material de cada estadio: canto, cuerpo (arriba y abajo) y brillo
+const FRAME_MAT = {
+    neon: { edge: '#070b26', b0: '#4656b0', b1: '#1a2462', hi: 'rgba(200,235,255,.7)' },
+    snow: { edge: '#22130a', b0: '#9a6640', b1: '#4e2e18', hi: 'rgba(255,225,190,.4)' },
+    desierto: { edge: '#4a2c12', b0: '#e0b074', b1: '#9a6634', hi: 'rgba(255,240,210,.5)' },
+    ciudad: { edge: '#12151f', b0: '#9aa3bd', b1: '#3c445c', hi: 'rgba(255,255,255,.55)' },
+    volcan: { edge: '#050202', b0: '#54392f', b1: '#1e100c', hi: 'rgba(255,170,120,.45)' },
+    retro: { edge: '#06020e', b0: '#4a2088', b1: '#180838', hi: 'rgba(255,120,240,.5)' }
+};
+// marco con volumen: solo por fuera del campo (no tapa la zona de juego), con tira de luz por dentro, anclajes,
+// esquinas reforzadas, textura según el estadio y porterías con postes de tubo, base y red que cuelga
+function drawFrame(c, th, rnd) {
+    const M = FRAME_MAT[th] || FRAME_MAT.neon, F = framePerim(), TW = 38;
+    c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
+    const team = c.createLinearGradient(-GD, 0, W + GD, 0);
+    team.addColorStop(0, '#3db8ff'); team.addColorStop(.46, '#7fd4ff'); team.addColorStop(.54, '#ffb066'); team.addColorStop(1, '#ff8a2b');
+    arenaPath(c); c.strokeStyle = team; c.globalAlpha = .14; c.lineWidth = 40; c.stroke(); c.globalAlpha = 1;      // resplandor suave
+    // solo por fuera: recorte del exterior del campo
+    c.save(); c.beginPath(); c.rect(-GD - 200, -200, W + 2 * GD + 400, H + 400);
+    { const p = T.pts; c.moveTo(p[0][0], p[0][1]); for (let i = 1; i < p.length; i++) c.lineTo(p[i][0], p[i][1]); c.closePath(); }
+    c.clip('evenodd');
+    arenaPath(c); c.strokeStyle = M.edge; c.lineWidth = TW + 4; c.stroke();
+    const bg = c.createLinearGradient(0, -20, 0, H + 20); bg.addColorStop(0, M.b0); bg.addColorStop(1, M.b1);
+    arenaPath(c); c.strokeStyle = bg; c.lineWidth = TW - 2; c.stroke();
+    c.save(); c.translate(0, -3); arenaPath(c); c.restore(); c.strokeStyle = M.hi; c.lineWidth = 3.4; c.stroke();      // brillo de arriba
+    c.save(); c.translate(0, 4); arenaPath(c); c.restore(); c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 4; c.stroke();      // sombra de abajo
+    // textura del material a lo largo del borde
+    for (let s = 0; s < F.L; s += 6) {
+        const [x, y, nx, ny] = frameAt(s), k = Math.floor(s / 6);
+        if (th === 'snow' && k % 4 === 0) { c.strokeStyle = 'rgba(30,15,6,.5)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x - nx * 19, y - ny * 19); c.lineTo(x + nx * 19, y + ny * 19); c.stroke(); }      // tablas de madera
+        else if (th === 'ciudad' && k % 5 === 0) { for (const d of [-10, 10]) { c.fillStyle = '#20263a'; c.beginPath(); c.arc(x + nx * d, y + ny * d, 2.2, 0, TAU); c.fill(); c.fillStyle = 'rgba(255,255,255,.6)'; c.beginPath(); c.arc(x + nx * d - .6, y + ny * d - .6, .9, 0, TAU); c.fill(); } }      // remaches
+        else if (th === 'desierto' && rnd() < .35) { c.fillStyle = rnd() < .5 ? 'rgba(120,70,30,.35)' : 'rgba(255,235,200,.35)'; const d = (rnd() - .5) * 36; c.fillRect(x + nx * d, y + ny * d, 1.6, 1.6); }      // grano de la piedra
+        else if (th === 'retro' && k % 2 === 0) { for (const d of [-11, 11]) { c.fillStyle = k % 4 === 0 ? 'rgba(255,60,200,.85)' : 'rgba(60,240,255,.75)'; c.fillRect(Math.round((x + nx * d) / 4) * 4 - 2, Math.round((y + ny * d) / 4) * 4 - 2, 4, 4); } }      // píxeles
+        else if (th === 'neon' && k % 3 === 0) { for (const d of [-10, 10]) { c.fillStyle = 'rgba(160,220,255,.3)'; c.fillRect(x + nx * d - .8, y + ny * d - .8, 1.6, 1.6); } }      // reflejos del cristal
+    }
+    if (th === 'volcan') {      // grietas de lava que brillan
+        c.save(); c.shadowColor = '#ff6a1a'; c.shadowBlur = 12; c.strokeStyle = 'rgba(255,150,50,.95)'; c.lineWidth = 2.2;
+        for (let i = 0; i < 60; i++) { const s = rnd() * F.L, [x, y, nx, ny] = frameAt(s); c.beginPath(); let px = x - nx * 18, py = y - ny * 18; c.moveTo(px, py); for (let j = 1; j <= 4; j++) { px += nx * 6 + (rnd() - .5) * 5; py += ny * 6 + (rnd() - .5) * 5; c.lineTo(px, py); } c.stroke(); }
+        c.restore();
+    }
+    if (th === 'snow') {      // nieve acumulada encima del techo y de los largueros
+        c.fillStyle = '#f4f8ff';
+        for (let s = 0; s < F.L; s += 9) { const [x, y] = frameAt(s); if (!(y < T.TR * .95 || (Math.abs(y - (H - GH)) < 2 && (x < 0 || x > W)))) continue; c.beginPath(); c.arc(x, y - 16, 6.5 + Math.sin(s * .37) * 2.4, 0, TAU); c.fill(); }
+    }
+    // anclajes: placa atravesada con dos tornillos cada cierto tramo
+    for (let s = 60; s < F.L; s += 150) {
+        const [x, y, nx, ny] = frameAt(s), a = Math.atan2(ny, nx);
+        c.save(); c.translate(x, y); c.rotate(a);
+        c.fillStyle = M.edge; rr(c, -21, -6, 42, 12, 3); c.fill(); c.fillStyle = 'rgba(255,255,255,.22)'; c.fillRect(-20, -5.6, 40, 1.2);
+        for (const d of [-13, 13]) { c.fillStyle = '#c9cfe6'; c.beginPath(); c.arc(d, 0, 2.6, 0, TAU); c.fill(); c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(d - 1.4, -.3, 2.8, .6); }
+        c.restore();
+    }
+    // esquinas de arriba reforzadas
+    for (const cx of [T.TR - T.TR * Math.SQRT1_2, W - T.TR + T.TR * Math.SQRT1_2]) {
+        const cy = T.TR - T.TR * Math.SQRT1_2, dx = cx < W / 2 ? -1 : 1;
+        c.fillStyle = M.edge; c.beginPath(); c.moveTo(cx - dx * 18, cy - 6); c.lineTo(cx + dx * 12, cy - 18); c.lineTo(cx + dx * 18, cy + 10); c.lineTo(cx + dx * 4, cy + 14); c.closePath(); c.fill();
+        c.fillStyle = bg; c.beginPath(); c.moveTo(cx - dx * 12, cy - 5); c.lineTo(cx + dx * 10, cy - 13); c.lineTo(cx + dx * 13, cy + 7); c.lineTo(cx + dx * 4, cy + 9); c.closePath(); c.fill();
+        for (const q of [[dx * 6, -9], [dx * 9, 3]]) { c.fillStyle = '#c9cfe6'; c.beginPath(); c.arc(cx + q[0], cy + q[1], 2.2, 0, TAU); c.fill(); }
+    }
+    c.restore();
+    // tira de luz del color del equipo justo en el borde del campo
+    arenaPath(c); c.strokeStyle = team; c.lineWidth = 4.5; c.stroke();
+    arenaPath(c); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 1.2; c.stroke();
+    // porterías: red que cuelga, postes de tubo y base
+    for (const s of [[-1, '#3db8ff', '61,184,255'], [1, '#ff8a2b', '255,138,43']]) {
+        const mouth = s[0] < 0 ? 0 : W, back = s[0] < 0 ? -GD : W + GD, top = H - GH;
+        c.strokeStyle = 'rgba(255,255,255,.2)'; c.lineWidth = 1.2;
+        for (let j = 1; j <= 6; j++) { const y = top + j * (GF - top) / 7; c.beginPath(); c.moveTo(mouth, y); c.quadraticCurveTo((mouth + back) / 2, y + 10, back, y + 2); c.stroke(); }
+        for (let j = 1; j <= 4; j++) { const x = mouth + (back - mouth) * j / 5; c.beginPath(); c.moveTo(x, top); c.quadraticCurveTo(x + (back - mouth) * .06, (top + GF) / 2, x, GF); c.stroke(); }
+        const tube = () => { c.beginPath(); c.moveTo(mouth, top); c.lineTo(back, top); c.lineTo(back, GF); c.lineTo(mouth, GF); };
+        tube(); c.strokeStyle = 'rgba(4,6,18,.9)'; c.lineWidth = 13; c.stroke();
+        tube(); c.strokeStyle = s[1]; c.lineWidth = 8.5; c.stroke();
+        c.save(); c.translate(0, -2.2); tube(); c.restore(); c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 2.2; c.stroke();
+        for (const q of [[mouth, top], [back, top], [back, GF]]) { c.fillStyle = '#fff'; c.beginPath(); c.arc(q[0], q[1], 7.5, 0, TAU); c.fill(); c.fillStyle = s[1]; c.beginPath(); c.arc(q[0], q[1], 4.2, 0, TAU); c.fill(); }
+        c.fillStyle = 'rgba(4,6,18,.9)'; rr(c, Math.min(mouth, back) - 6, GF + 3, GD + 12, 7, 2.5); c.fill(); c.fillStyle = s[1]; c.fillRect(Math.min(mouth, back) - 2, GF + 5.5, GD + 4, 1.6);      // base
+    }
+    c.restore();
+}
+// ---------- Marco vivo: luz que recorre el borde, ondas donde pega el balón, luces del larguero y destello de gol ----------
+const frameHits = [];
+function frameHit(x, y, imp) { if (frameHits.length < 8) frameHits.push({ x, y, k: Math.min(1, imp / 900), t0: performance.now() }); }
+function drawFrameLive(t) {
+    const F = framePerim(), now = performance.now();
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    if (Q.beams) for (let k = 0; k < 2; k++) {      // dos destellos que viajan por el borde
+        const [x, y] = frameAt(t * 240 + k * F.L / 2), rgb = x < W / 2 ? '120,210,255' : '255,180,110';
+        const gr = ctx.createRadialGradient(x, y, 0, x, y, 34); gr.addColorStop(0, 'rgba(255,255,255,.75)'); gr.addColorStop(.25, 'rgba(' + rgb + ',.45)'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, 34, 0, TAU); ctx.fill();
+    }
+    for (let i = frameHits.length - 1; i >= 0; i--) {      // onda de luz donde el balón pegó fuerte
+        const h = frameHits[i], a = (now - h.t0) / 1000; if (a > .55) { frameHits.splice(i, 1); continue; }
+        const u = a / .55, r = 10 + u * (60 + h.k * 70), rgb = h.x < W / 2 ? '140,215,255' : '255,190,120';
+        ctx.strokeStyle = 'rgba(' + rgb + ',' + ((1 - u) * (.5 + h.k * .5)).toFixed(3) + ')'; ctx.lineWidth = 3 + h.k * 4; ctx.beginPath(); ctx.arc(h.x, h.y, r, 0, TAU); ctx.stroke();
+        const gr = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, 40); gr.addColorStop(0, 'rgba(255,255,255,' + ((1 - u) * .7).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(h.x, h.y, 40, 0, TAU); ctx.fill();
+    }
+    // luces del larguero: apagadas normalmente, parpadean en la portería donde se acaba de marcar
+    const gl = S.state === 'goal' && S.goalT > 0 ? clamp(S.goalT / 2.6, 0, 1) : 0;
+    for (const s of [[-1, '61,184,255'], [1, '255,138,43']]) {
+        const mouth = s[0] < 0 ? 0 : W, back = s[0] < 0 ? -GD : W + GD, on = gl > 0 && (S.goalX < W / 2) === (s[0] < 0);
+        for (let i = 0; i < 5; i++) {
+            const x = mouth + (back - mouth) * (i + .5) / 5, y = H - GH, lit = on ? (Math.sin(t * 22 + i * 1.3) > 0 ? 1 : .25) : .12;
+            ctx.fillStyle = 'rgba(255,255,255,' + (.5 * lit + .1) + ')'; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, TAU); ctx.fill();
+            if (lit > .2) { const gr = ctx.createRadialGradient(x, y, 0, x, y, 22); gr.addColorStop(0, 'rgba(' + s[1] + ',' + (.8 * lit) + ')'); gr.addColorStop(1, 'rgba(' + s[1] + ',0)'); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, 22, 0, TAU); ctx.fill(); }
+        }
+    }
+    if (gl > 0) {      // al marcar, todo el marco se ilumina del color del equipo que marca
+        const rgb = S.goalCol === 'blue' ? '61,184,255' : '255,138,43', p = gl * (.55 + .45 * Math.sin(t * 16));
+        arenaPath(ctx); ctx.strokeStyle = 'rgba(' + rgb + ',' + (p * .55).toFixed(3) + ')'; ctx.lineWidth = 18; ctx.lineJoin = 'round'; ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,' + (p * .5).toFixed(3) + ')'; ctx.lineWidth = 3; ctx.stroke();
+    }
+    ctx.restore();
+}
 function pent(c, r) {
     c.beginPath();
     for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * TAU / 5, x = Math.cos(a) * r, y = Math.sin(a) * r; i ? c.lineTo(x, y) : c.moveTo(x, y); }
@@ -417,20 +545,7 @@ function drawSnow() {
     c.restore();
     drawRamps(c, TH);
 
-    // marco de neón: azul a la izquierda, naranja a la derecha
-    arenaPath(c); c.lineJoin = 'round';
-    const og = c.createLinearGradient(-GD, 0, W + GD, 0);
-    og.addColorStop(0, '#3db8ff'); og.addColorStop(.46, '#7fd4ff'); og.addColorStop(.54, '#ffb066'); og.addColorStop(1, '#ff8a2b');
-    c.strokeStyle = og; c.globalAlpha = .16; c.lineWidth = 34; c.stroke();
-    c.globalAlpha = .55; c.lineWidth = 16; c.stroke();
-    c.globalAlpha = 1; c.lineWidth = 5; c.stroke();
-    for (const s of [[-1, '#3db8ff'], [1, '#ff8a2b']]) {
-        const x0 = s[0] < 0 ? 0 : W, x1 = s[0] < 0 ? -GD : W + GD;
-        c.strokeStyle = s[1]; c.lineWidth = 8; c.lineCap = 'round';
-        c.beginPath(); c.moveTo(x0, H - GH); c.lineTo(x1, H - GH); c.lineTo(x1, GF); c.lineTo(x0, GF); c.stroke();
-        c.fillStyle = '#fff'; c.beginPath(); c.arc(x0, H - GH, 9, 0, TAU); c.fill();
-        c.fillStyle = s[1]; c.beginPath(); c.arc(x0, H - GH, 5, 0, TAU); c.fill();
-    }
+    drawFrame(c, TH, rnd);
     // estrellas fuera del estadio
     c.setTransform(1, 0, 0, 1, 0, 0);
     for (let i = 0; i < 90; i++) { c.fillStyle = 'rgba(180,200,255,' + (0.08 + rnd() * 0.25).toFixed(2) + ')'; c.fillRect(rnd() * staticCv.width, rnd() * staticCv.height, 2 * dpr, 2 * dpr); }
@@ -997,20 +1112,7 @@ function drawStatic() {
     c.restore();
     drawRamps(c, false);
 
-    // contorno de cristal con luz de equipo
-    arenaPath(c); c.lineJoin = 'round';
-    const og = c.createLinearGradient(-GD, 0, W + GD, 0);
-    og.addColorStop(0, '#3db8ff'); og.addColorStop(.5, '#b9c6ff'); og.addColorStop(1, '#ff8a2b');
-    c.strokeStyle = og; c.globalAlpha = .13; c.lineWidth = 22; c.stroke();
-    c.globalAlpha = .38; c.lineWidth = 9; c.stroke();
-    c.globalAlpha = 1; c.lineWidth = 3; c.stroke();
-    for (const s of [[-1, '#3db8ff'], [1, '#ff8a2b']]) {
-        const x0 = s[0] < 0 ? 0 : W, x1 = s[0] < 0 ? -GD : W + GD;
-        c.strokeStyle = s[1]; c.lineWidth = 6; c.lineCap = 'round';
-        c.beginPath(); c.moveTo(x0, H - GH); c.lineTo(x1, H - GH); c.lineTo(x1, GF); c.lineTo(x0, GF); c.stroke();
-        c.fillStyle = '#fff'; c.beginPath(); c.arc(x0, H - GH, 8, 0, TAU); c.fill();
-        c.fillStyle = s[1]; c.beginPath(); c.arc(x0, H - GH, 4, 0, TAU); c.fill();
-    }
+    drawFrame(c, 'neon', rnd);
     // focos del techo (estructura)
     for (let i = 0; i < 5; i++) {
         const lx = W * (.18 + .16 * i);

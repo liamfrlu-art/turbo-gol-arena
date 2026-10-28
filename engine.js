@@ -318,7 +318,7 @@ window.TG = (() => {
             const hl = Math.hypot(hitX, hitY) || 1, wnx = hitX / hl, wny = hitY / hl;
             spinContact(b, wnx, wny, 0, 0, impact, impact > 120);
             b.cx = b.x - wnx * BALL_R; b.cy = b.y - wny * BALL_R; b.cAge = 0;
-            if (impact > 260) events.push(['wall', impact]);
+            if (impact > 260) events.push(['wall', impact, b.cx, b.cy]);      // con el punto de contacto (para la onda de luz del marco)
         }
     }
     // Contacto más profundo entre un círculo (bx, by, R) y la forma real del coche (ruedas + polígonos de carrocería).

@@ -872,7 +872,7 @@ function handleEvents() {
                 }
                 break;
             case 'dodge': if (S.state !== 'menu' && S.mode === 'match' && e[4] === 0 && e[2] === 'half') { wallet.st.half++; achCheck(); react('half', pick(['¡Qué media vuelta!', '¡Giro de campeón!', '¡Eso es estilo!']), 40); } if (S.state !== 'menu') { sfx('dodge'); if (w.cars[0].flipT > .4) { buzz(16, 'jump'); padRumble(160, .3, .7); } } break;
-            case 'wall': if (S.state !== 'menu') { S.ballSq = performance.now(); sfx('wall', e[1]); const bb = w.ball; if (S.state === 'play' && e[1] > 480 && bb.y < H - GH + 30 && (bb.x < 150 || bb.x > W - 150)) say(pick(['¡Al larguero!', '¡Uy, por poco!', '¡Qué cerca ha estado!']), 1, 1.18, 1.25); } break;
+            case 'wall': if (S.state !== 'menu') { S.ballSq = performance.now(); sfx('wall', e[1]); if (e[2] != null) frameHit(e[2], e[3], e[1]); const bb = w.ball; if (S.state === 'play' && e[1] > 480 && bb.y < H - GH + 30 && (bb.x < 150 || bb.x > W - 150)) say(pick(['¡Al larguero!', '¡Uy, por poco!', '¡Qué cerca ha estado!']), 1, 1.18, 1.25); } break;
             case 'reset':
                 if (e[4] === 0 && S.state !== 'menu') {
                     if (S.mode === 'match') { wallet.st.resets++; achCheck(); }

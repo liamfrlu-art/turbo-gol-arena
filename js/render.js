@@ -820,6 +820,7 @@ function draw(now) {
         }
     }
     ctx.restore();
+    drawFrameLive(t);
     drawChase(t);
 
     drawPads(t);
