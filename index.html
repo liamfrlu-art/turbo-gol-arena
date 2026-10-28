@@ -72,6 +72,26 @@ body { font-family: var(--body); font-size: 14px; }
 }
 #hud .clock.ot { color: var(--gold); }
 #hud .clock.low { color: #ff6b6b; }
+/* marcador con vida: el número da un golpe al marcar; el reloj late al final y brilla en el gol de oro */
+#hud .score { transition: filter .2s; }
+#hud .score.bump { animation: bump .6s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes bump { 0% { transform: scale(1); } 30% { transform: scale(1.45); filter: brightness(1.5) drop-shadow(0 0 10px #fff); } 100% { transform: scale(1); } }
+#hud .clock { border-top: 2px solid rgba(255, 255, 255, .08); border-bottom: 2px solid rgba(0, 0, 0, .3); }
+#hud .clock.low { animation: lowClock 1s ease-in-out infinite; }
+@keyframes lowClock { 50% { transform: scale(1.1); text-shadow: 0 0 14px #ff3b3b; } }
+#hud .clock.ot { text-shadow: 0 0 12px rgba(255, 210, 63, .7); animation: glowB 1.2s ease-in-out infinite alternate; }
+#hud .blue { box-shadow: 0 0 16px -4px var(--blue); } #hud .orange { box-shadow: 0 0 16px -4px var(--orange); }
+/* indicador de turbo (en PC, donde no se ven los botones táctiles con su anillo) */
+#boostGauge { position: absolute; left: var(--inset-l); bottom: 14px; display: none; align-items: center; gap: 7px; padding: 6px 10px 6px 8px; border-radius: 12px; pointer-events: none;
+    background: rgba(8, 12, 32, .72); border: 2px solid rgba(255, 138, 43, .5); font: 800 14px var(--body); color: #ffd7b0; font-variant-numeric: tabular-nums; }
+#app[data-dev="pc"][data-state="play"] #boostGauge { display: flex; }
+#boostGauge svg { width: 18px; height: 18px; fill: var(--orange); }
+#boostGauge span { width: 130px; height: 10px; border-radius: 99px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+#boostGauge span i { display: block; height: 100%; width: calc(var(--p, 50) * 1%); background: linear-gradient(90deg, #ff6a14, #ffd23f); box-shadow: 0 0 10px rgba(255, 160, 50, .8); transition: width .1s; }
+#boostGauge b { min-width: 3ch; text-align: right; }
+#boostGauge.low { border-color: #ff4a3a; animation: lowBoost .7s ease-in-out infinite; } #boostGauge.low span i { background: #ff4a3a; }
+#boostGauge.full { border-color: var(--gold); box-shadow: 0 0 16px -2px rgba(255, 210, 63, .8); }
+@keyframes lowBoost { 50% { box-shadow: 0 0 14px -2px #ff4a3a; } }
 #names {
     position: absolute; top: calc(8px + clamp(30px, 8.5vh, 52px)); left: 50%; transform: translateX(-50%);
     display: flex; gap: 14px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--mute);
@@ -138,6 +158,11 @@ body { font-family: var(--body); font-size: 14px; }
 }
 #boostBtn svg { fill: var(--orange); }
 #boostBtn.on .in { background: rgba(255, 138, 43, .38); }
+/* turbo casi vacío: el anillo late en rojo; lleno: brilla en dorado. Al pulsar, los botones dan un destello */
+#boostBtn.low { background: conic-gradient(#ff4a3a calc(var(--p, 50) * 1%), rgba(255, 255, 255, .14) 0); animation: lowBoost .7s ease-in-out infinite; }
+#boostBtn.full { box-shadow: 0 0 18px -2px rgba(255, 210, 63, .85); }
+.round.on .in { box-shadow: 0 0 0 3px rgba(255, 255, 255, .25), 0 0 22px rgba(255, 255, 255, .25) inset; }
+.round .in { transition: background .08s, transform .08s, box-shadow .12s; }
 #pauseBtn {
     top: 8px; bottom: auto; left: var(--inset-l); width: 44px; height: 44px; border-radius: 12px;
     background: rgba(14, 20, 48, .6); border: 2px solid var(--line); color: var(--text); display: grid; place-items: center; cursor: pointer; padding: 0;
@@ -155,6 +180,17 @@ body { font-family: var(--body); font-size: 14px; }
     padding: 12px var(--inset-r) 12px var(--inset-l); box-sizing: border-box; overflow: auto;
 }
 .screen.show { display: flex; }
+/* transiciones: el fondo se funde y la tarjeta entra deslizándose (el menú tiene la suya propia) */
+.screen.show { animation: scrFade .22s ease-out both; }
+.screen.show > .card { animation: cardIn .32s cubic-bezier(.2, .9, .25, 1.12) both; }
+@keyframes scrFade { from { opacity: 0; } }
+@keyframes cardIn { from { opacity: 0; transform: translateY(18px) scale(.97); } }
+/* al empezar un partido, un barrido de luz cruza la pantalla */
+#app::after { content: ''; position: absolute; inset: 0; z-index: 40; pointer-events: none; opacity: 0;
+    background: linear-gradient(100deg, transparent 0 30%, rgba(61, 184, 255, .55) 42%, rgba(255, 255, 255, .85) 50%, rgba(255, 138, 43, .55) 58%, transparent 70% 100%); background-size: 300% 100%; }
+#app.wipe::after { animation: wipe .55s ease-in-out both; }
+@keyframes wipe { 0% { opacity: 1; background-position: 100% 0; } 100% { opacity: 1; background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .screen.show, .screen.show > .card, #app.wipe::after { animation: none !important; } }
 .card {
     width: min(860px, 100%); max-height: 100%; box-sizing: border-box; background: var(--panel);
     border: 2px solid var(--line); border-radius: 18px; padding: clamp(14px, 3.5vh, 26px) clamp(16px, 3vw, 30px);
@@ -320,7 +356,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .mode.main .mt b { font-size: clamp(18px, 5.4vh, 26px); }
 .mode:not(.main) .mt b { font-size: clamp(14px, 4vh, 18px); white-space: nowrap; }
 .sum span.mu { text-transform: capitalize; }
-body[data-st="end"] .toast, body[data-st="menu"] .toast { top: auto; bottom: 12px; }
+body[data-st="menu"] .toast { top: auto; bottom: 12px; }
+body[data-st="end"] .toast { top: 10px; bottom: auto; }      /* al final, arriba: abajo taparía Revancha y Menú */
 /* Aviso de versión nueva: solo fuera del partido, para no tapar el marcador ni los controles */
 #upd { position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 100; display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 16px; border-radius: 999px; background: rgba(8,10,30,.94); border: 2px solid var(--gold); color: var(--text); font: 600 14px var(--body); box-shadow: 0 6px 24px rgba(0,0,0,.5); }
 #upd[hidden], body[data-st="count"] #upd, body[data-st="play"] #upd, body[data-st="goal"] #upd { display: none; }
@@ -773,6 +810,7 @@ details.howto summary { cursor: pointer; font: 700 13px var(--body); color: var(
         <div class="score orange" id="so">0</div>
     </div>
     <div id="names"><b>Tú</b><b>IA</b></div>
+    <div id="boostGauge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2c1 4 5 5.5 5 10.5A5 5 0 0 1 7 12.5c0-2.2 1.2-3.5 2.4-4.6-.1 2 1 3.2 2.1 3.6C11.2 8.4 11 5 12 2z"/></svg><span><i></i></span><b>50</b></div>
     <div id="banner"></div>
     <div id="drillBar"></div>
     <div id="rpTag">● REPETICIÓN</div><button id="rpSkip" type="button">Saltar »</button>

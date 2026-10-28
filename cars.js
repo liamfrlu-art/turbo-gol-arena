@@ -229,7 +229,13 @@ window.CARS = (() => {
     function driver(g, x, y, s, o) {
         o = o || {};
         const t = o.t || 0, lose = o.mood === 'lose', win = o.mood === 'win', boost = o.boosting ? 1 : 0, look = Math.max(-.6, Math.min(.6, o.look || 0));
-        const bob = win ? -Math.abs(Math.sin(t * 9)) * .8 : 0, hx = x - boost * .7 + (o.brake ? .5 : 0), hy = y + (lose ? 1 : 0) + bob;
+        // la cabeza reacciona con algo de inercia: atrás con el turbo, adelante al frenar, se hunde al aterrizar y da un respingo con los golpes
+        const hit = o.hitT != null && o.hitT < .3 ? Math.pow(1 - o.hitT / .3, 2) : 0, vu = Math.max(-1, Math.min(1, (o.vu || 0) / 900)), ready = o.state === 'count';
+        let tx = -boost * 1.2 + (o.brake ? .9 : 0) - hit * .9 - (o.lean || 0) * .7, ty = (lose ? 1 : 0) + Math.max(0, ((o.susF || 0) + (o.susR || 0)) / 2) * 1.4 + hit * .6 + (o.air ? -vu * .5 : 0);
+        const M = o.rid;
+        if (M) { const dt = Math.max(0, Math.min(.05, t - (M.drT == null ? t : M.drT))), k = Math.min(1, dt * 12); M.drT = t;
+            M.drX = M.drX == null ? tx : M.drX + (tx - M.drX) * k; M.drY = M.drY == null ? ty : M.drY + (ty - M.drY) * k; tx = M.drX; ty = M.drY; }
+        const bob = win ? -Math.abs(Math.sin(t * 9)) * .8 : ready ? -Math.abs(Math.sin(t * 6)) * .35 : 0, hx = x + tx, hy = y + ty + bob;
         g.save(); if (CUR.gl) { poly(g, CUR.gl); g.clip(); }
         g.fillStyle = '#0b0e1c'; rrect(g, x - 6.4, y - 3, 2.6, 8, 1.1); g.fill();                         // reposacabezas
         g.fillStyle = s.dark; rrect(g, hx - 4.6, hy + 2.2, 8.6, 7, 2.4); g.fill();                        // mono
@@ -237,7 +243,7 @@ window.CARS = (() => {
         g.fillStyle = '#e8ecf6'; rrect(g, hx - 1.4, hy + 2, 2.4, 1.2, .5); g.fill();                     // cuello
         const swx = hx + 6.8, swy = hy + 2.8;
         if (!win) { g.strokeStyle = s.dark; g.lineWidth = 1.8; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(hx + 1.2, hy + 3.8); g.lineTo(hx + 4, hy + 5.6); g.lineTo(swx - .6, swy + .6); g.stroke(); }
-        g.save(); g.translate(swx, swy); g.rotate(.25 + (o.lean || 0) * .12 + (o.air ? Math.sin(t * 6) * .1 : 0));
+        g.save(); g.translate(swx, swy); g.rotate(.25 + (o.lean || 0) * .3 + (o.air ? Math.sin(t * 6) * .1 : 0) + (ready ? Math.sin(t * 9) * .12 : 0) + hit * .3);      // el volante gira con los cambios de velocidad
         g.fillStyle = '#10142a'; g.beginPath(); g.ellipse(0, 0, 1, 3, 0, 0, TAU); g.fill();
         const rv = Math.min(1, (o.spin || 0) / 900), LC = ['#3dff6a', '#ffd23f', '#ff3b30'];
         for (let i = 0; i < 3; i++) { g.fillStyle = rv > i / 3 + .05 ? LC[i] : 'rgba(80,90,120,.6)'; g.fillRect(-.35, -2.3 + i * 1.25, .7, .7); }
@@ -249,7 +255,8 @@ window.CARS = (() => {
             g.fillStyle = '#ffffff'; g.beginPath(); g.arc(hx + 6.4, hy - 2 - up * .7, 1.2, 0, TAU); g.fill(); g.strokeStyle = 'rgba(10,12,24,.6)'; g.lineWidth = .3; g.stroke();
         }
         // casco
-        g.save(); g.translate(hx, hy); g.rotate(look * .35 + (lose ? .38 : 0) - boost * .08);
+        // mira al balón; al subir mira arriba y al caer, abajo; al encajar niega con la cabeza; en la cuenta atrás se mueve al ritmo
+        g.save(); g.translate(hx, hy); g.rotate(look * .35 + (lose ? .38 + Math.sin(t * 6) * .16 : 0) - boost * .1 - hit * .3 - (o.air ? vu * .18 : 0) + (ready ? Math.sin(t * 6) * .06 : 0));
         const R = 3.5, hg = g.createRadialGradient(-1.2, -1.8, .3, 0, 0, R * 1.15);
         hg.addColorStop(0, '#ffffff'); hg.addColorStop(.3, s.lite); hg.addColorStop(1, s.main);
         const shell = () => { g.beginPath(); g.moveTo(-R + .2, R * .66); g.quadraticCurveTo(-R - .5, 0, -R * .5, -R * .88); g.quadraticCurveTo(.4, -R - .8, R * .72, -R * .55); g.quadraticCurveTo(R + .7, .2, R + .2, R * .52); g.lineTo(R - .9, R * .74); g.closePath(); };

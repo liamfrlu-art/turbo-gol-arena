@@ -198,11 +198,33 @@ function drawTarget(tg, t) {
     ctx.fillStyle = 'rgba(255,210,63,' + (.25 + .15 * p) + ')'; ctx.beginPath(); ctx.arc(x, y, 14, 0, TAU); ctx.fill();
     ctx.restore();
 }
+// la red de la portería se ondula tras un gol: ondas que salen del punto donde entró el balón y se apagan en 1,6 s
+function drawNetRipple(now) {
+    const R = S.netRip; if (!R) return;
+    const age = (now - R.t0) / 1000; if (age > 1.6) { S.netRip = null; return; }
+    const top = H - GH, bot = GF, x0 = R.side > 0 ? W : -GD, x1 = R.side > 0 ? W + GD : 0, amp = 9 * Math.exp(-age * 2.6), fade = 1 - age / 1.6;
+    const off = (x, y) => { const d = Math.hypot(x - (R.side > 0 ? W + GD * .55 : -GD * .55), y - R.y); return amp * Math.sin(d * .09 - age * 20) * Math.exp(-d / 160); };
+    ctx.save(); ctx.beginPath(); ctx.rect(x0, top, x1 - x0, bot - top); ctx.clip();
+    ctx.strokeStyle = 'rgba(255,255,255,' + (.45 * fade) + ')'; ctx.lineWidth = 1.6; ctx.globalCompositeOperation = 'lighter';
+    for (let x = x0 + 10; x < x1; x += 16) { ctx.beginPath(); for (let y = top; y <= bot; y += 10) { const d = off(x, y); y === top ? ctx.moveTo(x + d * R.side, y) : ctx.lineTo(x + d * R.side, y); } ctx.stroke(); }
+    for (let y = top + 10; y < bot; y += 16) { ctx.beginPath(); for (let x = x0; x <= x1; x += 10) { const d = off(x, y); x === x0 ? ctx.moveTo(x, y + d * .6) : ctx.lineTo(x, y + d * .6); } ctx.stroke(); }
+    ctx.restore();
+}
 function drawBall(b, sec) {
     const sp = Math.hypot(b.vx, b.vy), pal = ballPal(), now = performance.now(), tt = now / 1000;
-    // sombra en el suelo: se estrecha y se aclara con la altura
-    { const hh = Math.max(0, H - b.y - T.BALL_R), k = Math.max(0, 1 - hh / 560);
-      if (k > .02) { ctx.save(); ctx.fillStyle = 'rgba(0,0,0,' + (.34 * k) + ')'; ctx.beginPath(); ctx.ellipse(b.x, H - 2, T.BALL_R * (.55 + .6 * k), 5 + 5 * k, 0, 0, TAU); ctx.fill(); ctx.restore(); } }
+    // (la sombra en el suelo la dibuja drawShadows, también sobre las rampas)
+    // a gran velocidad: líneas de velocidad detrás del balón y un halo caliente
+    if (sp > 950 && S.state !== 'menu') {
+        const k = clamp((sp - 950) / 700, 0, 1), ux = b.vx / sp, uy = b.vy / sp, px = -uy, py = ux;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+        for (let i = -2; i <= 2; i++) {
+            const o = i * T.BALL_R * .38, L = T.BALL_R * (1.6 + 1.4 * k) * (1 - Math.abs(i) * .18), x0 = b.x + px * o - ux * T.BALL_R * .7, y0 = b.y + py * o - uy * T.BALL_R * .7;
+            const g = ctx.createLinearGradient(x0, y0, x0 - ux * L, y0 - uy * L); g.addColorStop(0, 'rgba(255,255,255,' + (.55 * k) + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.strokeStyle = g; ctx.lineWidth = 3 - Math.abs(i) * .6; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 - ux * L, y0 - uy * L); ctx.stroke();
+        }
+        const hg = ctx.createRadialGradient(b.x, b.y, T.BALL_R * .6, b.x, b.y, T.BALL_R * 1.7); hg.addColorStop(0, 'rgba(255,190,90,' + (.32 * k) + ')'); hg.addColorStop(1, 'rgba(255,120,40,0)');
+        ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(b.x, b.y, T.BALL_R * 1.7, 0, TAU); ctx.fill(); ctx.restore();
+    }
     // aro de peligro: el balón va hacia una portería a gran velocidad
     if (S.state === 'play' && b.y > H - GH && sp > 520 && ((b.x < 330 && b.vx < -300) || (b.x > W - 330 && b.vx > 300))) {
         const k = .5 + .5 * Math.sin(tt * 16); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,70,60,' + (.45 + .4 * k) + ')'; ctx.lineWidth = 3 + 2 * k;
@@ -797,6 +819,7 @@ function draw(now) {
     }
     if (S.v2 && w.cars.length === 4 && S.state !== 'menu') drawTeamMarks(now);
     if (S.mode === 'drill' && S.drill && S.drill.target && S.state !== 'menu') drawTarget(S.drill.target, now / 1000);
+    drawNetRipple(now);
     if (!(S.state === 'goal' || (S.state === 'replay' && S.rp && S.rp.boomed))) { drawBall(w.ball); if (w.ball2) drawBall(w.ball2, true); }      // al marcar, el balón explota y desaparece
     if (cfg.hit) drawHitboxes();
     drawParts();

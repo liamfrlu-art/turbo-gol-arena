@@ -60,6 +60,7 @@ function startMatch(mode, cup, v2) {
     { const on = Object.keys(MUT_N).filter(k => T.MUT[k]); if (on.length) setTimeout(() => say('Mutadores activos: ' + on.map(k => MUT_N[k]).join(', ') + '.', 1, 1.05, 1.1), 1800); }
     parts.length = 0; trail.length = 0; rings.length = 0; timers.length = 0; bolts.length = 0;
     setState('count'); S.cd = 3.0; lastCd = 4;
+    app.classList.remove('wipe'); void app.offsetWidth; app.classList.add('wipe');      // barrido de luz al empezar
     hideBanner(); updateHud(true); requestWake();
 }
 
@@ -219,8 +220,10 @@ let lastCd = 4;
 const hudCache = { sb: -1, so: -1, clock: '' };
 function fmt(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
 function updateHud(force) {
-    if (force || hudCache.sb !== S.score[0]) { $('sb').textContent = S.score[0]; hudCache.sb = S.score[0]; }
-    if (force || hudCache.so !== S.score[1]) { $('so').textContent = S.score[1]; hudCache.so = S.score[1]; }
+    // al cambiar el marcador (no al reiniciarlo) el número da un golpe
+    const bump = el => { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); };
+    if (force || hudCache.sb !== S.score[0]) { $('sb').textContent = S.score[0]; if (!force && S.score[0] > hudCache.sb) bump($('sb')); hudCache.sb = S.score[0]; }
+    if (force || hudCache.so !== S.score[1]) { $('so').textContent = S.score[1]; if (!force && S.score[1] > hudCache.so) bump($('so')); hudCache.so = S.score[1]; }
     const clock = $('clock');
     const txt = S.mode === 'free' ? 'LIBRE' : S.mode === 'drill' ? 'RETO' : (S.ot ? 'ORO' : fmt(S.time));
     if (force || hudCache.clock !== txt) {
@@ -405,6 +408,7 @@ function goal(scorer) {
       jMsg('¡GOL!', hex, 2.6, air ? '¡GOL AÉREO!' : S.mode === 'match' && !S.v2 ? (scorer === 0 ? 'TÚ' : (S.cup ? TEAMS[S.cup.rival].n : S.net ? 'Amigo' : 'IA').toUpperCase()) : (scorer === 0 ? 'AZUL' : 'NARANJA')); }
     if (Q.crowd !== false) { const cx = W / 2, cy = H * .38, pn = scorer === 0 ? 'blue' : 'orange'; ring(cx, cy, pn, 900, .7, 10); ring(cx, cy, 'white', 600, .5, 5); burst(cx, cy, 26, 520, pn, 5, .8); burst(cx, cy, 12, 420, 'white', 4, .6); shake = Math.max(shake, 12); }
     goalFx(scorer, scorer === 0 ? cfg.boom : 'classic', S.world.ball.x, S.world.ball.y);     // el balón estalla en el punto donde entra
+    S.netRip = { x: scorer === 0 ? W : 0, y: S.world.ball.y, side: scorer === 0 ? 1 : -1, t0: performance.now() };      // la red se ondula desde donde entró
     sfx('goal'); buzz([40, 40, 80], 'goal'); padRumble(scorer === 0 ? 900 : 500, scorer === 0 ? 1 : .6, scorer === 0 ? .9 : .4);
     if (S.mode === 'match' && S.ot) S.endAfterGoal = true;
     updateHud();
@@ -564,6 +568,8 @@ function drawBolts() {
 
 function simulate(dt, mode) {
     const w = S.world;
+    // congelado de golpe: unas centésimas de pausa en los golpes fuertes (no online: descuadraría a los dos jugadores)
+    if (S.hitStop > 0 && mode === 'game' && !S.net) { S.hitStop -= dt; return; }
     S.acc += dt * S.slow;
     let steps = 0;
     while (S.acc >= STEP && steps < 12) {
@@ -692,7 +698,15 @@ function update(dt) {
     S.punch = Math.max(0, S.punch - dt * 2.4);
     S.flash = Math.max(0, S.flash - dt * 2.2);
     shake = Math.max(0, shake - dt * 30);
-    boostEl.style.setProperty('--p', (w.cars[0].boost / w.cars[0].st.boostMax * 100).toFixed(1));
+    // turbo: anillo del botón táctil e indicador de PC, con aviso de casi vacío y de lleno
+    const bp = w.cars[0].boost / w.cars[0].st.boostMax * 100, bLow = bp < 18 && !T.MUT.inf, bFull = bp >= 99.5;
+    boostEl.style.setProperty('--p', bp.toFixed(1));
+    if (bLow !== boostEl.classList.contains('low')) boostEl.classList.toggle('low', bLow);
+    if (bFull !== boostEl.classList.contains('full')) boostEl.classList.toggle('full', bFull);
+    const bg = $('boostGauge'); bg.style.setProperty('--p', bp.toFixed(1));
+    const bt = String(Math.round(bp)); if (bg.lastChild.textContent !== bt) bg.lastChild.textContent = bt;
+    if (bLow !== bg.classList.contains('low')) bg.classList.toggle('low', bLow);
+    if (bFull !== bg.classList.contains('full')) bg.classList.toggle('full', bFull);
 }
 
 // estelas del turbo personalizadas
@@ -835,6 +849,7 @@ function handleEvents() {
                     if (toward > 520 && near && w.ball.vx * dA > 0) jMsg('¡PARADÓN!', e[4] === 0 ? '#3db8ff' : '#ff8a2b', 1.6);
                 }
                 if (S.state === 'play' && e[1] > 520) S.camKick = Math.max(S.camKick || 0, Math.min(1, (e[1] - 420) / 700));
+                if (S.state === 'play' && e[1] > 900) S.hitStop = Math.max(S.hitStop || 0, Math.min(.07, .03 + (e[1] - 900) / 9000));      // golpe fuerte: congelado breve
                 if (S.state !== 'menu') { sfx('hit', e[1]); shake = Math.max(shake, Math.min(10, e[1] / 150)); S.punch = Math.max(S.punch, Math.min(.5, e[1] / 2400)); if (e[5] === 0 && e[1] > 380) buzz(18, 'hit'); if (e[5] === 0 && S.state === 'play' && !w.cars[0].grounded && w.ball.y < H - 140) airTouch();
                 if (e[5] === 0) { hk = 'hit'; } if (e[5] === 0) padRumble(90 + e[1] / 6, Math.min(1, e[1] / 1100), Math.min(1, e[1] / 800)); }
                 break;
