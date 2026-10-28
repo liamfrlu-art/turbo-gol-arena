@@ -29,6 +29,7 @@ function applyMut(m) {
 // mundo de 2 coches (1 contra 1) o 4 coches (2 contra 2)
 function setWorld(n) { if (S.world.cars.length !== n) { S.world = T.makeWorld(n); RC.n = 0; } }
 function startMatch(mode, cup, v2) {
+    S.tuto = null; $('drillBar').classList.remove('tuto');
     audio();
     if (S.net && S.net.stad) { cfg.stad = S.net.stad; resize(); }      // online: el estadio que ha elegido (o sorteado) el anfitrión
     else if (cfg.stadSel === 'random') { cfg.stad = pickStad(); resize(); }      // estadio nuevo en cada partida
@@ -67,6 +68,7 @@ function startMatch(mode, cup, v2) {
 
 function toMenu() {
     if (S.net) netLeave();
+    S.tuto = null; $('drillBar').classList.remove('tuto');
     $('pause').classList.remove('show');
     setWorld(2); S.v2 = false; S.mate = null; S.ai3 = null;
     S.cup = null; S.tryCar = null; S.world.cars[1].ghost = false; $('names').innerHTML = '<b>Tú</b><b>IA</b>';
@@ -145,7 +147,7 @@ function evGoal() {
 }
 function renderStats() {
     const L = lvlOf(wallet.xp), a = lvlStart(L), bnd = lvlStart(L + 1);
-    $('pLvl').textContent = 'Nivel ' + L; $('pCoins').textContent = wallet.coins.toLocaleString('es-ES'); $('pCoins').title = wallet.coins + ' monedas'; evUI();
+    $('pLvl').textContent = 'Nivel ' + L; $('pCoins').textContent = wallet.coins.toLocaleString('es-ES'); $('pCoins').title = wallet.coins + ' monedas'; evUI(); dailyUI(); tutoMenu();
     { const inf = CARS.LIST.find(c => c.id === cfg.car); $('mCarName').textContent = inf ? inf.name : ''; }
     $('pBar').style.width = (clamp((wallet.xp - a) / (bnd - a), 0, 1) * 100).toFixed(0) + '%';
     $('pXp').textContent = (wallet.xp - a) + ' / ' + (bnd - a) + ' XP para el nivel ' + (L + 1);
@@ -235,7 +237,7 @@ function updateHud(force) {
     const solo = S.mode === 'free' || S.mode === 'drill';
     $('names').style.visibility = solo ? 'hidden' : 'visible';
     $('so').style.display = solo ? 'none' : '';
-    $('drillBar').style.display = S.mode === 'drill' && S.state !== 'menu' ? 'block' : 'none';
+    $('drillBar').style.display = (S.mode === 'drill' || S.tuto) && S.state !== 'menu' ? 'block' : 'none';
 }
 
 // ---------- Simulación ----------
@@ -297,6 +299,54 @@ function replayStep(dt) {
     if (!rp.boomed) { const bb = w.ball; if (bb.x > W + T.BALL_R * .6 || bb.x < -T.BALL_R * .6) { rp.boomed = true; const sc = bb.x > W / 2 ? 0 : 1; goalFx(sc, sc === 0 ? cfg.boom : 'classic', bb.x, bb.y); } }
     S.alpha = 1;
 }
+// ---------- Tutorial: lo básico paso a paso en el modo libre ----------
+const TUTO = [
+    { id: 'move', pc: 'Conduce con A / D o las flechas ← →', pad: 'Conduce con el stick izquierdo', touch: 'Conduce con el joystick: izquierda y derecha', say: 'Primero, conduce a un lado y a otro.' },
+    { id: 'jump', pc: 'Salta con Espacio', pad: 'Salta con el botón A', touch: 'Salta con el botón de salto', say: 'Ahora, salta.' },
+    { id: 'boost', pc: 'Mantén Mayús para usar el turbo', pad: 'Mantén B o RT para usar el turbo', touch: 'Mantén pulsado el botón de turbo', say: 'Usa el turbo para ir más rápido.' },
+    { id: 'dodge', all: 'Salta y, en el aire, vuelve a saltar con dirección: ¡voltereta!', say: 'Salta dos veces con dirección para dar una voltereta.' },
+    { id: 'hit', all: 'Ve a por el balón y dale un buen golpe', say: 'Ve a por el balón y golpéalo.' },
+    { id: 'goal', all: '¡Marca gol en la portería naranja, a la derecha!', say: 'Por último, ¡marca un gol!' }
+];
+function startTuto() {
+    startMatch('free');
+    S.tuto = { i: 0, acc: 0, x: S.world.cars[0].x, bt: 0, ok: 0 };
+    $('drillBar').classList.add('tuto'); $('drillBar').style.display = 'block'; tutoShow();
+}
+function tutoShow() {
+    const U = S.tuto, s = TUTO[U.i], dev = pad.on ? 'pad' : cfg.dev === 'pc' ? 'pc' : 'touch';
+    $('drillBar').textContent = 'Tutorial ' + (U.i + 1) + '/' + TUTO.length + '  ·  ' + (s.all || s[dev]);
+    setTimeout(() => { if (S.tuto === U) say(s.say, 2, 1.05, 1.1); }, U.i ? 700 : 1800);
+}
+function tutoDo(id) {
+    const U = S.tuto; if (!U || U.ok > 0 || TUTO[U.i].id !== id) return;
+    U.ok = 0.8; sfx('cling'); showCombo('¡BIEN!', '#3dffb0');      // pequeña pausa antes del siguiente paso
+}
+function tutoTick(dt) {
+    const U = S.tuto, c = S.world.cars[0];
+    if (U.ok > 0) {
+        U.ok -= dt; if (U.ok > 0) return;
+        U.ok = 0; U.i++;
+        if (U.i < TUTO.length) { tutoShow(); return; }
+        S.tuto = null; $('drillBar').classList.remove('tuto'); $('drillBar').style.display = 'none';
+        say('¡Tutorial completado! Ya estás listo para jugar.', 2, 1.1, 1.2); jMsg('¡TUTORIAL COMPLETADO!', '#3dffb0', 2.6);
+        if (!store.get('tutoDone', false)) { store.set('tutoDone', true); award(100, 60); saveWallet(); qToast('Tutorial completado  +100 monedas', '#ffd23f'); }
+        return;
+    }
+    const s = TUTO[U.i].id;
+    if (s === 'move') { U.acc += Math.abs(c.x - U.x); if (U.acc > 520) tutoDo('move'); }
+    else if (s === 'boost') { if (c.boosting) U.bt += dt; if (U.bt > 0.6) tutoDo('boost'); if (c.boost < 20) c.boost = 100; }
+    U.x = c.x;
+}
+function tutoEvents(ev) {
+    for (const e of ev) {
+        if (e[0] === 'jump' && e[4] === 0) tutoDo('jump');
+        else if (e[0] === 'dodge' && e[4] === 0) tutoDo('dodge');
+        else if (e[0] === 'hit' && e[5] === 0) tutoDo('hit');
+    }
+}
+function tutoMenu() { const b = $('tutoBtn'); if (b) b.hidden = store.get('tutoDone', false) || wallet.st.matches >= 3; }
+
 // ---------- Retos de entrenamiento ----------
 const drillBest = store.get('drills', {});
 const DRILLS = {
@@ -392,6 +442,7 @@ function renderTrain() {
     $('train').querySelectorAll('.stars').forEach(el => { const n = drillBest[el.dataset.s] || 0; el.textContent = '★'.repeat(n) + '☆'.repeat(3 - n); });
 }
 function goal(scorer) {
+    if (S.tuto && scorer === 0) tutoDo('goal');
     S.score[scorer]++;
     if (S.mode === 'match') {
         const st = wallet.st, w0 = S.world;
@@ -682,6 +733,7 @@ function update(dt) {
             }
         }
         if (S.state === 'play' && S.mode === 'match') wallet.st.secs += dt;
+        if (S.tuto && S.state === 'play') tutoTick(dt);
         if (S.state === 'play' && S.mode === 'drill') drillTick(dt);
         if (S.state === 'play' || S.state === 'goal') simulate(dt, 'game');
         updateHud();
@@ -807,6 +859,7 @@ function effects(dt, st) {
 
 function handleEvents() {
     const ev = T.events, w = S.world;
+    if (S.tuto) tutoEvents(ev);
     for (const e of ev) {
         switch (e[0]) {
             case 'jump': if (S.state !== 'menu') sfx('jump'); if (S.state !== 'menu' && S.mode === 'match' && e[2] === 'fast' && e[4] === 0) { wallet.st.fastaer++; achCheck(); react('fast', pick(['¡Aéreo rápido! ¡Qué reflejos!', '¡Despega como un cohete!']), 40); } break;

@@ -226,6 +226,52 @@ function achCheck(ctx) {
         qToast('Logro: ' + a.n + '  +40 monedas', '#ffd23f'); sfx('unlock');
         if (S.rw) S.rw.push('Logro «' + a.n + '» +40');
     }
+    dailyCheck();
+}
+// ---------- Retos diarios: tres al día (iguales para todos ese día), se cuentan desde las estadísticas ----------
+const DAILY = [
+    { k: 'matches', n: 3, c: 60, t: n => 'Juega ' + n + ' partidos' },
+    { k: 'wins', n: 2, c: 90, t: n => 'Gana ' + n + ' partidos' },
+    { k: 'goals', n: 6, c: 70, t: n => 'Marca ' + n + ' goles' },
+    { k: 'goals', n: 10, c: 100, t: n => 'Marca ' + n + ' goles' },
+    { k: 'aerial', n: 1, c: 80, t: () => 'Marca un gol aéreo' },
+    { k: 'half', n: 2, c: 70, t: n => 'Haz ' + n + ' medias vueltas' },
+    { k: 'fastaer', n: 2, c: 70, t: n => 'Haz ' + n + ' aéreos rápidos' },
+    { k: 'secs', n: 600, c: 60, t: n => 'Juega ' + n / 60 + ' minutos' }
+];
+const DAILY_ALL = 100;      // premio extra por completar los tres
+const dayKey = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+function dailyToday() {
+    let D = store.get('daily', null);
+    const day = dayKey();
+    if (!D || D.day !== day) {
+        let h = 2166136261; for (const ch of day) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+        const ids = []; while (ids.length < 3) { h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0; const i = h % DAILY.length; if (!ids.includes(i) && !ids.some(j => DAILY[j].k === DAILY[i].k)) ids.push(i); }
+        D = { day, ids, base: ids.map(i => wallet.st[DAILY[i].k] || 0), done: [0, 0, 0], all: 0 };
+        store.set('daily', D);
+    }
+    return D;
+}
+const dailyProg = (D, j) => Math.min(DAILY[D.ids[j]].n, (wallet.st[DAILY[D.ids[j]].k] || 0) - D.base[j]);
+function dailyCheck() {
+    const D = dailyToday(); let ch = false;
+    D.ids.forEach((i, j) => {
+        if (D.done[j] || dailyProg(D, j) < DAILY[i].n) return;
+        D.done[j] = 1; ch = true; wallet.coins += DAILY[i].c; wallet.st.earned += DAILY[i].c;
+        qToast('Reto diario: ' + DAILY[i].t(DAILY[i].n) + '  +' + DAILY[i].c + ' monedas', '#3dffb0'); sfx('unlock');
+        if (S.rw) S.rw.push('Reto diario +' + DAILY[i].c);
+    });
+    if (ch && !D.all && D.done.every(Boolean)) { D.all = 1; wallet.coins += DAILY_ALL; wallet.st.earned += DAILY_ALL; qToast('¡Los tres retos del día!  +' + DAILY_ALL + ' monedas', '#ffd23f'); }
+    if (ch) { store.set('daily', D); saveWallet(); }
+}
+function dailyUI() {
+    const D = dailyToday(), el = $('dlyList'); if (!el) return;
+    const now = new Date(), h = 23 - now.getHours(), m = 59 - now.getMinutes();
+    $('dlyLeft').textContent = D.all ? '✓ Completados' : 'Cambian en ' + (h ? h + ' h ' : '') + m + ' min';
+    el.innerHTML = D.ids.map((i, j) => {
+        const R = DAILY[i], p = R.k === 'secs' ? Math.floor(dailyProg(D, j) / 60) : dailyProg(D, j), n = R.k === 'secs' ? R.n / 60 : R.n;
+        return '<div class="dlr' + (D.done[j] ? ' ok' : '') + '"><span>' + R.t(R.n) + '</span><i><b style="width:' + (p / n * 100).toFixed(0) + '%"></b></i><em>' + (D.done[j] ? '✓' : p + '/' + n) + ' · ' + R.c + '</em></div>';
+    }).join('');
 }
 function award(coins, xp) {
     const l0 = lvlOf(wallet.xp);
@@ -584,10 +630,11 @@ $('playBtn').addEventListener('click', () => startMatch('match'));
 $('v2Btn').addEventListener('click', () => startMatch('match', null, true));
 $('freeBtn').addEventListener('click', () => { audio(); openOverlay('train', 'menu'); renderTrain(); });
 $('trOk').addEventListener('click', () => closeOverlay('train'));
+$('tutoBtn').addEventListener('click', () => { audio(); startTuto(); });
 $('train').addEventListener('click', e => {
     const b = e.target.closest('.trc'); if (!b) return;
     $('train').classList.remove('show'); overlayFrom = null;
-    if (b.dataset.d === 'free') startMatch('free'); else startDrill(b.dataset.d);
+    if (b.dataset.d === 'tuto') startTuto(); else if (b.dataset.d === 'free') startMatch('free'); else startDrill(b.dataset.d);
 });
 $('pauseBtn').addEventListener('click', () => { audio(); pause(); });
 $('resumeBtn').addEventListener('click', resume);

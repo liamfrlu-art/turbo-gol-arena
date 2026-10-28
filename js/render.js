@@ -846,12 +846,14 @@ function draw(now) {
     // resplandor (bloom): versión pequeña, contrastada y desenfocada, sumada encima
     if (Q.bloom) {
         bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.globalCompositeOperation = 'source-over';
-        bctx.filter = 'brightness(.9) contrast(1.45)';
+        // el desenfoque se hace en la copia pequeña (a 1/4 cuesta 16 veces menos que a pantalla completa) y luego se estira
+        bctx.clearRect(0, 0, bloomCv.width, bloomCv.height);
+        bctx.filter = 'brightness(.9) contrast(1.45) blur(' + (1.25 * dpr).toFixed(2) + 'px)';
         bctx.drawImage(cv, 0, 0, bloomCv.width, bloomCv.height);
         bctx.filter = 'none';
-        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .6; ctx.filter = 'blur(' + Math.round(5 * dpr) + 'px)';
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .6;
         ctx.drawImage(bloomCv, 0, 0, cv.width, cv.height);
-        ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
         if (Q.bloom2) {      // segundo resplandor, más ancho y suave
             b2ctx.setTransform(1, 0, 0, 1, 0, 0); b2ctx.clearRect(0, 0, bloom2Cv.width, bloom2Cv.height); b2ctx.filter = 'brightness(.85) contrast(1.6) blur(2px)'; b2ctx.drawImage(bloomCv, 0, 0, bloom2Cv.width, bloom2Cv.height); b2ctx.filter = 'none';      // desde el resplandor pequeño: barato
             ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .42;

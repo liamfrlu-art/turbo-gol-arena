@@ -18,11 +18,17 @@ const store = {
     lock: false,      // se activa justo antes de recargar tras importar una copia, para que nada la pise
     set(k, v) { if (store.lock) return; try { localStorage.setItem('tga_' + k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
 };
+// calidad inicial según el aparato (solo la primera vez; luego se ajusta sola si va lento): poca memoria o pocos núcleos, menos efectos
+function defGfx() {
+    const mem = navigator.deviceMemory, cores = navigator.hardwareConcurrency;
+    if (!mem) return 'high';      // Safari no lo dice: empieza alto y baja solo si hace falta
+    return mem <= 2 || (cores && cores <= 2) ? 'low' : mem <= 4 || (cores && cores <= 4) ? 'mid' : 'high';
+}
 const cfg = {
     diff: store.get('diff', 1), dorsal: store.get('dorsal', ''), decal: store.get('decal', 'none'), cupSize: store.get('cupSize', 8), replay: store.get('replay', true), sky: store.get('sky', true), hap: store.get('hap', {}), hapI: store.get('hapI', 'mid'), lay: store.get('lay', {}), mut: store.get('mut', {}), time: store.get('time', 120), mute: store.get('mute', false),
     car: store.get('car', 'fenix'), size: store.get('size', 'm'), hand: store.get('hand', 'l'),
     haptic: store.get('haptic', true), alpha: store.get('alpha', 'soft'),
-    stick: store.get('stick', 'float'), gfx: store.get('gfx', 'high'),
+    stick: store.get('stick', 'float'), gfx: store.get('gfx', defGfx()),
     flick: store.get('flick', true), hit: store.get('hit', false), music: store.get('music', true), roll: store.get('roll', true), padHide: store.get('padHide', true), dev: store.get('dev', null), combo: store.get('combo', false), comm: store.get('comm', true),
     fps: store.get('fps', false), paint: store.get('paint', 'team'), wheel: store.get('wheel', 'auto'), trail: store.get('trail', 'auto'), boom: store.get('boom', 'classic'), ball: store.get('ball', 'classic'), stad: store.get('stad', 'snow'), evt: store.get('evt', 'auto'), crt: store.get('crt', true), cam: store.get('cam', !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches))
 };
