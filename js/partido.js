@@ -124,12 +124,15 @@ function evGoal() {
 }
 function renderStats() {
     const L = lvlOf(wallet.xp), a = lvlStart(L), bnd = lvlStart(L + 1);
-    $('pLvl').textContent = 'Nivel ' + L; $('pCoins').textContent = wallet.coins + ' monedas'; evUI();
+    $('pLvl').textContent = 'Nivel ' + L; $('pCoins').textContent = wallet.coins.toLocaleString('es-ES'); $('pCoins').title = wallet.coins + ' monedas'; evUI();
+    { const inf = CARS.LIST.find(c => c.id === cfg.car); $('mCarName').textContent = inf ? inf.name : ''; }
     $('pBar').style.width = (clamp((wallet.xp - a) / (bnd - a), 0, 1) * 100).toFixed(0) + '%';
     $('pXp').textContent = (wallet.xp - a) + ' / ' + (bnd - a) + ' XP para el nivel ' + (L + 1);
     const mu = Object.keys(MUT_N).filter(k => cfg.mut[k]);
     $('cfgSum').innerHTML = '<span>' + DN[cfg.diff] + '</span><span>' + Math.round(cfg.time / 60) + ' min</span>' + mu.map(k => '<span class="mu">' + MUT_N[k] + '</span>').join('');
-    $('stats').textContent = (record.w + record.l) ? 'Balance: ' + record.w + ' victorias, ' + record.l + ' derrotas' : 'Aún no has jugado ningún partido.';
+    // historial en etiquetas: victorias, derrotas y racha
+    const stk = (wallet.st && wallet.st.streak) || 0;
+    $('stats').innerHTML = (record.w + record.l) ? '<span class="w">' + record.w + ' victorias</span><span class="l">' + record.l + ' derrotas</span>' + (stk >= 2 ? '<span class="r">🔥 ' + stk + ' seguidas</span>' : '') : '<span>Primer partido: ¡suerte!</span>';
 }
 
 // online el partido no se puede parar: la pausa solo abre el menú encima mientras sigue el juego

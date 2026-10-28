@@ -54,6 +54,15 @@ const STAT_DEFS = [
     ['Potencia', t => t.power, .9, 1.2],
     ['Turbo', t => t.boostMax / 100 * t.boostAcc / t.drain, .95, 1.75]
 ];
+// iconos de las estadísticas, en el mismo orden: velocímetro, rayo, flecha arriba, giro, impacto y llama
+const STAT_IC = [
+    'M12 4a9 9 0 0 0-9 9 9 9 0 0 0 1.5 5h15A9 9 0 0 0 21 13a9 9 0 0 0-9-9zm4.2 4.4-3.1 5.4a1.6 1.6 0 1 1-1.5-.9l3.6-5.2z',
+    'M13 2 4 14h6l-1 8 9-12h-6z',
+    'M12 3 5 11h4v10h6V11h4z',
+    'M12 4a8 8 0 1 0 8 8h-2.5A5.5 5.5 0 1 1 12 6.5V9l4-3.5L12 2z',
+    'M12 2l2.2 6.3L21 9l-5 4.3 1.6 6.7L12 16.5 6.4 20 8 13.3 3 9l6.8-.7z',
+    'M12 2c1 4 5 5.5 5 10.5A5 5 0 0 1 7 12.5c0-2.2 1.2-3.5 2.4-4.6-.1 2 1 3.2 2.1 3.6C11.2 8.4 11 5 12 2z'
+];
 let sel = cfg.car, gShowHit = false;
 function showInfo(id) {
     const info = CARS.LIST.find(c => c.id === id), t = T.TYPES[id], rar = CARS.RARITY[info.rarity], te = T.TYPES[cfg.car], lk = isLocked(id);
@@ -63,10 +72,11 @@ function showInfo(id) {
     $('ciDesc').textContent = lk ? 'Rareza cromática, la más difícil de conseguir. ' + chromaHint() : info.desc;
     { const gh = $('gHint'); gh.hidden = !lk; if (lk) gh.querySelector('span').textContent = chromaHint(); }
     $('ciHit').textContent = lk ? 'Bloqueado' : 'Hitbox ' + hbSize(t) + '  ·  Peso ' + t.mass.toFixed(2) + '  ·  Turbo máx. ' + t.boostMax;
-    $('ciStats').innerHTML = lk ? '' : STAT_DEFS.map(d => {
+    // cada estadística con su icono, el número grande y, si no es tu coche, la diferencia con el tuyo (+ verde, − rojo)
+    $('ciStats').innerHTML = lk ? '' : STAT_DEFS.map((d, i) => {
         const f = ty => clamp((d[1](ty) - d[2]) / (d[3] - d[2]), .05, 1), p = f(t), v = Math.max(1, Math.round(p * 10)), ve = Math.max(1, Math.round(f(te) * 10));
         const cmp = id !== cfg.car, dl = v - ve;
-        return '<div class="srow"><span>' + d[0] + '</span><div class="bar"><i style="width:' + Math.round(p * 100) + '%"></i>' + (cmp ? '<u style="left:' + Math.round(f(te) * 100) + '%"></u>' : '') + '</div><em class="' + (cmp && dl ? (dl > 0 ? 'up' : 'dn') : '') + '">' + v + (cmp && dl ? ' ' + (dl > 0 ? '+' : '') + dl : '') + '</em></div>';
+        return '<div class="srow"><svg class="sic" viewBox="0 0 24 24" aria-hidden="true"><path d="' + STAT_IC[i] + '"/></svg><span>' + d[0] + '</span><div class="bar"><i style="width:' + Math.round(p * 100) + '%"></i>' + (cmp ? '<u style="left:' + Math.round(f(te) * 100) + '%"></u>' : '') + '</div><em>' + v + '</em><small class="' + (cmp && dl ? (dl > 0 ? 'up' : 'dn') : '') + '">' + (cmp && dl ? (dl > 0 ? '+' : '−') + Math.abs(dl) : '') + '</small></div>';
     }).join('');
     const eq = $('gEquip'); eq.className = 'btn' + (id === cfg.car ? ' eqd' : ''); eq.textContent = lk ? 'Bloqueado' : id === cfg.car ? 'Equipado ✓' : 'Equipar';
     $('gTest').style.display = lk ? 'none' : '';
@@ -98,13 +108,16 @@ function unlockChroma() {
 }
 function selCar(id, quiet) {
     sel = id; cards.forEach(k => { k.el.setAttribute('aria-pressed', String(k.id === id)); k.el.classList.toggle('eq', k.id === cfg.car); });
+    // la tira de coches se desliza sola hasta dejar el elegido a la vista
+    const k = cards.find(c => c.id === id), strip = $('carGrid');
+    if (k && strip.scrollWidth > strip.clientWidth) strip.scrollTo({ left: k.el.offsetLeft - (strip.clientWidth - k.el.offsetWidth) / 2, behavior: quiet ? 'auto' : 'smooth' });
     showInfo(id); if (!quiet) { sfx('click'); buzz(10, 'ui'); }
 }
 function equipCar(id) {
     if (isLocked(id)) return;
     cfg.car = id; store.set('car', id);
     T.applyType(S.world.cars[0], id); T.kickoff(S.world); S.world.cars[0].spd = 1;
-    selCar(id, true); sfx('unlock'); buzz([15, 20, 25], 'ui');
+    selCar(id, true); sfx('unlock'); buzz([15, 20, 25], 'ui'); renderStats();      // también el nombre de la vitrina del menú
 }
 function stepCar(d) {
     const ids = CARS.LIST.filter(c => !isLocked(c.id)).map(c => c.id);
@@ -134,6 +147,13 @@ function buildGarage() {
         grid.appendChild(b); cards.push({ id: c.id, el: b, cv: b.querySelector('canvas') });
     });
     $('gPrev').addEventListener('click', () => stepCar(-1)); $('gNext').addEventListener('click', () => stepCar(1));
+    { // deslizar el dedo (o el ratón) sobre el coche pasa al siguiente o al anterior
+        const stg = $('gStage'); let sx = null, sy = 0;
+        stg.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; sx = e.clientX; sy = e.clientY; });
+        stg.addEventListener('pointerup', e => { if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null; if (Math.abs(dx) > 45 && Math.abs(dy) < 70) stepCar(dx < 0 ? 1 : -1); });
+        stg.addEventListener('pointercancel', () => { sx = null; });
+        stg.style.touchAction = 'pan-y';
+    }
     $('gEquip').addEventListener('click', () => equipCar(sel));
     $('gHit').addEventListener('click', () => { gShowHit = !gShowHit; $('gHit').setAttribute('aria-pressed', String(gShowHit)); sfx('click'); });
     $('gShop').addEventListener('click', () => { $('garage').classList.remove('show'); stopGarage(); openOverlay('shop', 'menu'); renderShop(); });
@@ -420,6 +440,14 @@ $('shopTabs').addEventListener('click', e => {
 $('shopBtn').addEventListener('click', () => { audio(); openOverlay('shop', 'menu'); renderShop(); });
 $('shopOk').addEventListener('click', () => { stopShop(); closeOverlay('shop'); });
 $('garageBtn').addEventListener('click', () => { audio(); openOverlay('garage', 'menu'); selCar(cfg.car, true); startGarage(); });
+$('mShow').addEventListener('click', () => $('garageBtn').click());      // la vitrina del menú también abre el garaje
+// vitrina del menú: tu coche equipado, con su pintura y ruedas; solo se dibuja con el menú a la vista (unos 30 fps)
+{ let lastV = 0; const vit = ts => {
+    requestAnimationFrame(vit);
+    if (ts - lastV < 33 || !$('menu').classList.contains('show') || document.hidden) return;
+    lastV = ts;
+    CARS.preview($('mCar'), cfg.car, ts / 1000, false, false, isLocked(cfg.car), { zoom: .95, paint: cfg.paint, wheelStyle: cfg.wheel, dorsal: cfg.dorsal, decal: cfg.decal });
+}; requestAnimationFrame(vit); }
 $('garageOk').addEventListener('click', () => closeOverlay('garage'));
 $('ctrlBtn').addEventListener('click', () => { audio(); openOverlay('ctrls', 'menu'); });
 $('ctrlBtn2').addEventListener('click', () => openOverlay('ctrls', 'pause'));

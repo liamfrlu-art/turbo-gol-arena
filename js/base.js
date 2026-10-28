@@ -70,9 +70,10 @@ function evUI() {
     const d = real ? evDaysLeft() : 0;
     $('evDays').textContent = real ? (d <= 1 ? 'Último día' : 'Quedan ' + d + ' días') : 'Vista previa';
     $('evBar').style.width = Math.min(100, p.g / EV_GOALS * 100).toFixed(0) + '%';
+    $('evCnt').textContent = p.done ? '✓' : Math.min(p.g, EV_GOALS) + '/' + EV_GOALS + ' goles';
     const tn = (CARS.TRAILS.find(t => t.id === 'ev_' + EV) || {}).name || '';
-    $('evTask').textContent = p.done ? 'Reto completado: estela «' + tn + '» conseguida' : real ? 'Reto: marca ' + EV_GOALS + ' goles en partidos (' + p.g + '/' + EV_GOALS + ') · Premio: ' + EV_COINS + ' monedas y estela «' + tn + '»' : 'El reto solo cuenta en las fechas del evento';
-    $('evGift').textContent = 'Balón del evento gratis en el Taller' + (real ? '' : ' (en sus fechas)');
+    $('evTask').textContent = p.done ? 'Reto completado: estela «' + tn + '» conseguida' : real ? 'Premio: ' + EV_COINS + ' monedas + estela «' + tn + '»' : 'El reto solo cuenta en las fechas del evento';
+    $('evGift').textContent = '🎁 Balón del evento gratis en el Taller' + (real ? '' : ' (en sus fechas)');
 }
 const record = store.get('record', { w: 0, l: 0 });
 const CAR_IDS = CARS.LIST.map(c => c.id);
