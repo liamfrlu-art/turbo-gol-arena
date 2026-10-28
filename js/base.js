@@ -33,6 +33,11 @@ cfg.stadSel = store.get('stadSel', store.get('stad', 'random'));
 if (cfg.stadSel !== 'random' && STADS.indexOf(cfg.stadSel) < 0) cfg.stadSel = 'random';
 const pickStad = () => { const o = STADS.filter(s => s !== cfg.stad); return o[Math.floor(Math.random() * o.length)]; };
 cfg.stad = cfg.stadSel === 'random' ? STADS[Math.floor(Math.random() * STADS.length)] : cfg.stadSel;
+// cámara: 'seguir' (sigue la jugada, por defecto), 'dinamica' (zoom ligero en jugadas) o 'fija' (todo el estadio).
+// Quien había quitado la cámara dinámica, o pide menos movimiento al sistema, empieza con la fija.
+const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+cfg.camMode = store.get('camMode', store.get('cam', true) === false || REDUCED ? 'fija' : 'seguir');
+if (['seguir', 'dinamica', 'fija'].indexOf(cfg.camMode) < 0) cfg.camMode = 'seguir';
 let hapMark = null;
 // ---------- eventos de temporada según la fecha del dispositivo ----------
 const EVENTS = {

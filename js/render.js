@@ -71,8 +71,16 @@ function drawShadows() {
         if (a <= .01 || c.x < 440 || c.x > W - 440) continue;
         ctx.fillStyle = 'rgba(0,0,10,' + a + ')'; ctx.beginPath(); ctx.ellipse(c.x, H - 1, 46 * c.sc * (1 - h / 1100), 5, 0, 0, TAU); ctx.fill();
     }
-    const b = w.ball, hb = Math.max(0, H - b.y), ab = clamp(.5 - hb / 700, 0, .5);
-    if (ab > .01 && b.x > 440 && b.x < W - 440) { ctx.fillStyle = 'rgba(0,0,10,' + ab + ')'; ctx.beginPath(); ctx.ellipse(b.x, H - 1, T.BALL_R * (1.1 - hb / 1500), 5, 0, 0, TAU); ctx.fill(); }
+    // sombra del balón: en todo el campo (también sobre las rampas) y aunque vaya alto, para calcular los aéreos
+    for (const b of w.ball2 ? [w.ball, w.ball2] : [w.ball]) {
+        if (b.x < 20 || b.x > W - 20 || (S.state === 'goal')) continue;
+        const fy = T.floorY(b.x), hb = Math.max(0, fy - b.y - T.BALL_R), k = clamp(1 - hb / 620, 0, 1), ab = .14 + .38 * k;
+        const rx = T.BALL_R * (.55 + .55 * k), ry = 3 + 3 * k;
+        ctx.save(); ctx.translate(b.x, fy - 1); ctx.rotate(fy < H - 2 ? Math.atan2(T.floorY(b.x + 4) - T.floorY(b.x - 4), 8) : 0);      // sobre la rampa, inclinada como ella
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx); g.addColorStop(0, 'rgba(0,0,12,' + ab + ')'); g.addColorStop(1, 'rgba(0,0,12,0)');
+        ctx.fillStyle = g; ctx.scale(1, ry / rx); ctx.beginPath(); ctx.arc(0, 0, rx, 0, TAU); ctx.fill();
+        ctx.restore();
+    }
 }
 
 function hbSize(t) {      // ancho × alto de la forma real (ruedas + carrocería)
@@ -662,36 +670,96 @@ function drawRings() {
     ctx.restore();
 }
 
-// cámara dinámica: zoom suave (máx. 12 %) hacia la jugada en disparos fuertes, aéreos y goles
-const CAM = { z: 1, fx: .5, fy: .5, last: 0 };
+// ---------- Cámara ----------
+// Tres modos (Controles > Pantalla): 'fija' enseña todo el estadio; 'dinamica' acerca un poco (máx. 12 %) en disparos,
+// aéreos y goles; 'seguir' sigue la jugada: se centra entre el balón y tu coche con el zoom justo para ver a los dos,
+// sin enseñar nunca nada fuera del estadio. Resultado: zoom CAM.z y desplazamiento CAM.ox/CAM.oy (px de pantalla).
+const CAM = { z: 1, fx: .5, fy: .5, last: 0, ox: 0, oy: 0, wx: W / 2, wy: H / 2 };
+function camLimits() {      // zoom máximo de «seguir»: que se vean al menos 900 × 560 del campo
+    return clamp(Math.min(ch / (sc * 560), cw / (sc * 900)), 1, 1.7);
+}
 function camUpdate(now) {
     const dt = clamp((now - (CAM.last || now)) / 1000, 0, .1); CAM.last = now;
+    const w = S.world, mode = cfg.camMode, st = S.state, b = w && w.ball;
+    S.camKick = Math.max(0, (S.camKick || 0) - dt * .55);
+    if (mode === 'seguir' && w && (st === 'play' || st === 'goal' || st === 'replay' || st === 'count' || st === 'pause')) {
+        const me = w.cars[0], zMax = camLimits();
+        let fx, fy, zt;
+        if (st === 'goal') { fx = S.goalX; fy = H - GH / 2; zt = zMax * .92; }
+        else if (st === 'count') {      // saque: los dos coches y el balón
+            const xs = w.cars.map(c => c.x).concat(b.x);
+            fx = (Math.min(...xs) + Math.max(...xs)) / 2; fy = H - 230;
+            zt = clamp(cw / (sc * (Math.max(...xs) - Math.min(...xs) + 380)), 1, zMax);
+        } else {
+            // el balón manda (adelantado un poco según su velocidad); tu coche tira del encuadre para no salirse
+            const bx = b.x + clamp(b.vx * .16, -160, 160), by = b.y + clamp(b.vy * .1, -90, 90);
+            const solo = S.mode === 'replay' || st === 'replay' || !me;
+            fx = solo ? bx : bx * .62 + me.x * .38; fy = solo ? by : by * .62 + me.y * .38;
+            const spanX = (solo ? 0 : Math.abs(bx - me.x)) + 460, spanY = (solo ? 0 : Math.abs(by - me.y)) + 360;
+            zt = clamp(Math.min(cw / (sc * spanX), ch / (sc * spanY)), 1, zMax) * (1 + .05 * S.camKick);
+        }
+        const kz = Math.min(1, dt * (zt > CAM.z ? 2.4 : 1.6)), kf = Math.min(1, dt * 4.5);
+        CAM.z += (zt - CAM.z) * kz; CAM.wx += (fx - CAM.wx) * kf; CAM.wy += (fy - CAM.wy) * kf;
+        const z = CAM.z;
+        // el punto enfocado al centro de la pantalla, pero sin pasarse de los bordes del estadio (porterías incluidas)
+        const lim = (wpos, o, s, lo, hi, size) => {
+            let off = size / 2 - z * (o + wpos * s);
+            const a = size - z * (o + hi * s), bb = -z * (o + lo * s);      // a ≤ off ≤ bb para cubrir la pantalla
+            return a > bb ? (a + bb) / 2 : clamp(off, a, bb);
+        };
+        CAM.ox = lim(CAM.wx, ox, sc, -GD - 14, W + GD + 14, cw); CAM.oy = lim(CAM.wy, oy, sc, -12, H + 14, ch);
+        return;
+    }
+    // fija o dinámica: zoom alrededor de un punto de la pantalla (fx, fy)
     let k = 0, fx = .5, fy = .5;
-    const w = S.world, live = cfg.cam && (S.state === 'play' || S.state === 'goal' || S.state === 'replay') && S.mode !== 'drill';
+    const live = mode === 'dinamica' && (st === 'play' || st === 'goal' || st === 'replay') && S.mode !== 'drill';
     if (live && w) {
-        const b = w.ball, bxs = (ox + b.x * sc) / cw, bys = (oy + b.y * sc) / ch;
-        S.camKick = Math.max(0, (S.camKick || 0) - dt * .55);
+        const bxs = (ox + b.x * sc) / cw, bys = (oy + b.y * sc) / ch;
         k = S.camKick;
         for (const c of w.cars) if (!c.grounded && c.y < H - 200 && Math.hypot(c.x - b.x, c.y - b.y) < 260) k = Math.max(k, .55);      // aéreo cerca del balón
-        if (S.state === 'goal') { k = Math.max(k, clamp((S.goalT - .6) / 1.2, 0, 1)); fx = clamp((ox + S.goalX * sc) / cw, .08, .92); fy = clamp((oy + (H - GH / 2) * sc) / ch, .2, .8); }
+        if (st === 'goal') { k = Math.max(k, clamp((S.goalT - .6) / 1.2, 0, 1)); fx = clamp((ox + S.goalX * sc) / cw, .08, .92); fy = clamp((oy + (H - GH / 2) * sc) / ch, .2, .8); }
         else { fx = .5 + (clamp(bxs, 0, 1) - .5) * .8; fy = .5 + (clamp(bys, 0, 1) - .5) * .8; }
     }
-    const zt = 1 + .12 * k, sp = zt > CAM.z ? 5 : 1.3;
+    const zt = live ? 1 + .12 * k : 1, sp = zt > CAM.z ? 5 : 1.3;
     CAM.z += (zt - CAM.z) * Math.min(1, dt * sp);
     CAM.fx += (fx - CAM.fx) * Math.min(1, dt * 4); CAM.fy += (fy - CAM.fy) * Math.min(1, dt * 4);
-    if (!cfg.cam) { CAM.z = 1; CAM.fx = .5; CAM.fy = .5; }
+    if (mode === 'fija') { CAM.z = 1; CAM.fx = .5; CAM.fy = .5; }
+    CAM.ox = cw * CAM.fx * (1 - CAM.z); CAM.oy = ch * CAM.fy * (1 - CAM.z);
+    CAM.wx = (cw / 2 - CAM.ox - CAM.z * ox) / (CAM.z * sc); CAM.wy = (ch / 2 - CAM.oy - CAM.z * oy) / (CAM.z * sc);      // para pasar a «seguir» sin salto
+}
+// flechas en el borde de la pantalla hacia el balón y los rivales que la cámara no está enseñando
+function drawOffscreen(now) {
+    if (cfg.camMode !== 'seguir' || S.mode !== 'match' || !(S.state === 'play' || S.state === 'count')) return;      // en entrenamiento no hace falta
+    const w = S.world, z = CAM.z, m = 30, items = [[w.ball, '255,255,255', true]];
+    for (const c of w.cars) if (c !== w.cars[0] && !c.ghost) items.push([c, c.team === 0 ? '61,184,255' : '255,138,43', false]);
+    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    for (const [o, col, isBall] of items) {
+        const X = z * (ox + o.x * sc) + CAM.ox, Y = z * (oy + o.y * sc) + CAM.oy, r = isBall ? T.BALL_R * sc * z : 20;
+        if (X > -r && X < cw + r && Y > -r && Y < ch + r) continue;
+        const ex = clamp(X, m, cw - m), ey = clamp(Y, m + 34, ch - m), a = Math.atan2(Y - ey, X - ex), d = Math.hypot(X - ex, Y - ey);
+        const pulse = 1 + Math.sin(now / 160) * .08, s = clamp(1.25 - d / 900, .7, 1.2) * pulse;
+        ctx.save(); ctx.translate(ex, ey); ctx.scale(s, s);
+        ctx.fillStyle = 'rgba(6,10,30,.72)'; ctx.beginPath(); ctx.arc(0, 0, 17, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(' + col + ',.95)'; ctx.lineWidth = 2.5; ctx.stroke();
+        if (isBall) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(20,24,50,.9)'; pent(ctx, 3); ctx.fill(); }
+        else { ctx.fillStyle = 'rgb(' + col + ')'; rr(ctx, -8, -3, 16, 6, 2.5); ctx.fill(); ctx.beginPath(); ctx.arc(-4.5, 3.5, 2.6, 0, TAU); ctx.arc(4.5, 3.5, 2.6, 0, TAU); ctx.fill(); }
+        ctx.rotate(a); ctx.fillStyle = 'rgba(' + col + ',.95)'; ctx.beginPath(); ctx.moveTo(26, 0); ctx.lineTo(17, -7); ctx.lineTo(17, 7); ctx.closePath(); ctx.fill();
+        ctx.restore();
+    }
+    ctx.restore();
 }
 let crtPat = null;
 function draw(now) {
     if (!cw) return;
     camUpdate(now);
-    const t = now / 1000, z = (1 + S.punch * 0.03) * CAM.z;
+    // golpe de cámara (punch) alrededor del centro de la pantalla, encima del encuadre de la cámara
+    const t = now / 1000, pz = 1 + S.punch * 0.03, z = pz * CAM.z;
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-    const dx = cv.width * CAM.fx, dy = cv.height * CAM.fy;
-    ctx.setTransform(z, 0, 0, z, dx * (1 - z), dy * (1 - z));
+    const offX = dpr * (pz * CAM.ox + cw / 2 * (1 - pz)), offY = dpr * (pz * CAM.oy + ch / 2 * (1 - pz));
+    ctx.setTransform(z, 0, 0, z, offX, offY);
     ctx.drawImage(staticCv, 0, 0);
     const sx = shake ? (Math.random() - 0.5) * shake : 0, sy = shake ? (Math.random() - 0.5) * shake : 0;
-    ctx.setTransform(z * dpr * sc, 0, 0, z * dpr * sc, z * dpr * (ox + sx) + dx * (1 - z), z * dpr * (oy + sy) + dy * (1 - z));
+    ctx.setTransform(z * dpr * sc, 0, 0, z * dpr * sc, z * dpr * (ox + sx) + offX, z * dpr * (oy + sy) + offY);
     const w = S.world;
 
     // fondo animado dentro del estadio
@@ -735,6 +803,7 @@ function draw(now) {
     drawRings();
     drawBolts();
     drawDancer(now / 1000);           // el piloto va por encima de las partículas para que se vea bien
+    drawOffscreen(now);
 
     // destello de gol y viñeta
     ctx.setTransform(1, 0, 0, 1, 0, 0);
