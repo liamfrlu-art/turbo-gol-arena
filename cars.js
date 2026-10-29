@@ -229,6 +229,74 @@ window.CARS = (() => {
         v.addColorStop(0, 'hsla(' + ((h + 200) % 360) + ',75%,32%,1)'); v.addColorStop(.45, 'hsla(' + ((h + 270) % 360) + ',70%,24%,1)'); v.addColorStop(.8, 'hsla(' + ((h + 30) % 360) + ',85%,42%,1)'); v.addColorStop(1, 'hsla(' + ((h + 60) % 360) + ',90%,55%,1)');
         return v;
     }
+    // ---------- Casco integral (todos los pilotos) ----------
+    // Dibujado mirando a +x con radio R. col: { a: claro, b: principal, c: oscuro, glow: 'r,g,b' }.
+    // ex: { t, open (0..1 visera levantada), boost, hit, look, ballNear (0..1), dorsal, model }
+    const HSHELL = g => { g.beginPath(); g.moveTo(-3.6, 2.6); g.quadraticCurveTo(-4.6, -1, -2.6, -3.6); g.quadraticCurveTo(.2, -5.4, 3, -3.6); g.quadraticCurveTo(4.6, -2, 4.6, .8); g.lineTo(4.4, 2.8); g.quadraticCurveTo(2.4, 4, .2, 3.4); g.quadraticCurveTo(-1.8, 3, -3.6, 2.6); g.closePath(); };
+    const HVISOR = g => { g.beginPath(); g.moveTo(.4, -2.4); g.quadraticCurveTo(3.4, -3.2, 4.75, -1.2); g.lineTo(4.75, 1); g.quadraticCurveTo(2.6, 1.25, .6, .9); g.quadraticCurveTo(.1, -.6, .4, -2.4); g.closePath(); };
+    function helmetDesign(g, model, col, t) {
+        const G = 'rgb(' + col.glow + ')';
+        switch (model) {
+            case 'fenix': for (let k = 0; k < 3; k++) { const c = ['#ff4a12', '#ff9a1e', '#ffe066'][k], s = 1 - k * .25; g.fillStyle = c; g.beginPath(); g.moveTo(-5, 3); for (let i = 0; i < 3; i++) { const x = -4.2 + i * 2.2 * s, w = Math.sin(t * 7 + i + k) * .25; g.quadraticCurveTo(x + .6, .6 * s + w, x + 1.4, -1.8 * s - i * .5 * s + w); g.quadraticCurveTo(x + 1.3, .8, x + 2.2 * s, 3); } g.closePath(); g.fill(); } break;
+            case 'kaze': g.fillStyle = G; g.beginPath(); g.moveTo(-3.6, -2.4); g.lineTo(-.6, -1.2); g.lineTo(-1.4, -.4); g.lineTo(1.6, 1.4); g.lineTo(-1.8, .6); g.lineTo(-1, -.2); g.closePath(); g.fill(); g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = .25; g.stroke(); break;
+            case 'bisonte': for (const d of [0, 1]) { g.beginPath(); g.moveTo(-1.6 + d * 1.2, -2.8 - d * .4); g.quadraticCurveTo(-4.4 + d, -4.8 - d * .2, -4.9 + d * .8, -2.8 - d * .6); g.quadraticCurveTo(-3.6 + d, -3.4, -2 + d * 1.2, -2.1 - d * .4); g.closePath(); g.fillStyle = '#f2e6c8'; g.fill(); g.strokeStyle = '#3a2410'; g.lineWidth = .3; g.stroke(); } g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(-5, -2.3, 3.2, .3); break;
+            case 'formula': for (const [o, c] of [[-.9, col.c], [.2, '#ffffff'], [.9, col.c]]) { g.strokeStyle = c; g.lineWidth = .55; g.beginPath(); g.moveTo(-4, -1.6 + o); g.quadraticCurveTo(0, -5.6 + o, 4.6, -2.8 + o); g.stroke(); } break;
+            case 'titan': g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = .3; g.beginPath(); g.moveTo(-4, -.6); g.quadraticCurveTo(0, -1.6, 4.6, -.4); g.stroke(); g.fillStyle = '#d8deef'; for (let i = 0; i < 6; i++) { g.beginPath(); g.arc(-3.4 + i * 1.3, -.9 - Math.sin(i * .5) * .5, .22, 0, TAU); g.fill(); } break;
+            case 'mula': g.save(); g.beginPath(); g.rect(-5, 1.2, 10, 1.4); g.clip(); g.fillStyle = '#ffd23f'; g.fillRect(-5, 1.2, 10, 1.4); g.fillStyle = '#141414'; for (let x = -6; x < 6; x += 1.2) { g.beginPath(); g.moveTo(x, 2.6); g.lineTo(x + .6, 2.6); g.lineTo(x + 1.4, 1.2); g.lineTo(x + .8, 1.2); g.closePath(); g.fill(); } g.restore(); break;
+            case 'chispa': for (let i = 0; i < 9; i++) for (let j = 0; j < 2; j++) { g.fillStyle = (i + j) % 2 ? '#ffffff' : '#141414'; g.fillRect(-4.5 + i * 1, -.9 + j * .8, 1, .8); } break;
+            case 'cuna': g.strokeStyle = G; g.lineWidth = .45; for (let i = 0; i < 3; i++) { const x = -3.4 + i * 1.3; g.beginPath(); g.moveTo(x, -1.8); g.lineTo(x + .9, -.6); g.lineTo(x, .6); g.stroke(); } break;
+            case 'prisma': { const sw = g.createLinearGradient(-4, -3, 4, 3); for (let i = 0; i <= 4; i++) sw.addColorStop(i / 4, 'hsla(' + ((t * 70 + i * 70) % 360) + ',95%,62%,.55)'); g.fillStyle = sw; g.beginPath(); g.moveTo(-4.6, .4); g.quadraticCurveTo(0, -3.4, 4.8, -1.6); g.lineTo(4.8, -.4); g.quadraticCurveTo(0, -2, -4.6, 1.6); g.closePath(); g.fill(); break; }
+            default: g.fillStyle = G; g.beginPath(); g.moveTo(-4.6, .6); g.quadraticCurveTo(0, -1.4, 4.6, -2.6); g.lineTo(4.6, -1.7); g.quadraticCurveTo(0, -.4, -4.6, 1.6); g.closePath(); g.fill();
+        }
+    }
+    function helmet(g, R, col, ex) {
+        const t = ex.t || 0, open = ex.open || 0, k = R / 4;
+        g.save(); g.scale(k, k);
+        if (ex.hit > .05) g.rotate(Math.sin(t * 70) * ex.hit * .14);      // tiembla con los golpes fuertes
+        // carcasa con volumen: brillo arriba a la izquierda y sombra abajo
+        const hg = g.createRadialGradient(-1.6, -3, .4, 0, 0, 5.4); hg.addColorStop(0, '#ffffff'); hg.addColorStop(.28, col.a); hg.addColorStop(.7, col.b); hg.addColorStop(1, col.c);
+        HSHELL(g); g.fillStyle = hg; g.fill();
+        g.save(); HSHELL(g); g.clip();
+        helmetDesign(g, ex.model, col, t);
+        const sh = g.createLinearGradient(0, 0, 0, 3.8); sh.addColorStop(0, 'rgba(0,0,20,0)'); sh.addColorStop(1, 'rgba(0,0,20,.45)'); g.fillStyle = sh; g.fillRect(-5, 0, 10, 4);
+        g.fillStyle = 'rgba(5,8,22,.6)'; g.fillRect(-5, 2.6, 10, 1.6);      // borde inferior acolchado
+        g.restore();
+        HSHELL(g); g.lineWidth = .45; g.lineJoin = 'round'; g.strokeStyle = 'rgba(5,8,22,.85)'; g.stroke();
+        // alerón trasero, tomas de aire arriba y rejilla de la barbilla
+        poly(g, [[-2.3, -3.8], [-4.4, -3.5], [-4.7, -2.5], [-3.1, -2.9]], col.c); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = .2; g.beginPath(); g.moveTo(-2.4, -3.75); g.lineTo(-4.3, -3.45); g.stroke();
+        g.fillStyle = 'rgba(5,7,15,.8)'; for (let i = 0; i < 3; i++) { g.save(); g.translate(.2 + i * 1.05, -4.55 + i * .22); g.rotate(.2 + i * .12); rrect(g, -.4, -.18, .8, .36, .15); g.fill(); g.restore(); }
+        g.fillStyle = 'rgba(5,7,15,.75)'; for (let i = 0; i < 3; i++) g.fillRect(3.6, 1.45 + i * .42, .75, .22);
+        // dorsal en el lateral
+        if (ex.dorsal) { g.font = '900 1.9px Bungee, Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = .35; g.strokeStyle = 'rgba(5,8,22,.9)'; g.strokeText(String(ex.dorsal).slice(0, 2), -2, 1.2); g.fillStyle = '#ffffff'; g.fillText(String(ex.dorsal).slice(0, 2), -2, 1.2); }
+        // hueco de la cara (se ve al levantar la visera)
+        if (open > .05) { HVISOR(g); g.fillStyle = '#0b0d18'; g.fill(); g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(3.4, -.7, .35, 0, TAU); g.arc(2.4, -.75, .32, 0, TAU); g.fill(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = .25; g.beginPath(); g.arc(2.9, .1, .5, .3, Math.PI - .3); g.stroke(); }
+        // visera: gira hacia arriba sobre su tornillo
+        g.save(); g.translate(.6, -.6); g.rotate(-open * 1.15); g.translate(-.6, .6);
+        const vg = g.createLinearGradient(0, -3, 0, 1.2); vg.addColorStop(0, '#cfe6ff'); vg.addColorStop(.38, '#3a5a9c'); vg.addColorStop(.62, '#101a3c'); vg.addColorStop(1, '#2a1a40');
+        HVISOR(g); g.fillStyle = vg; g.fill();
+        g.save(); HVISOR(g); g.clip();
+        g.globalAlpha = .55; g.fillStyle = iriVisor(g, .4, -2.4, 4.8, 1, t + (ex.look || 0)); g.fillRect(0, -3.4, 5, 5); g.globalAlpha = 1;      // tinte espejo
+        g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(.4, -2.6, 4.6, .55);      // línea del horizonte reflejada
+        const rf = (t * .6) % 1.4; g.strokeStyle = 'rgba(255,255,255,.4)'; g.lineWidth = .5; g.beginPath(); g.moveTo(.2 + rf * 4, 1.2); g.lineTo(1.2 + rf * 4, -2.8); g.stroke();
+        if (ex.ballNear > .05) { g.fillStyle = 'rgba(255,255,255,' + (.85 * ex.ballNear).toFixed(2) + ')'; g.beginPath(); g.arc(3.3 - (ex.look || 0) * .8, -1.2 + (ex.look || 0) * .6, .5, 0, TAU); g.fill(); g.fillStyle = 'rgba(20,20,30,' + (.6 * ex.ballNear).toFixed(2) + ')'; g.fillRect(3.1 - (ex.look || 0) * .8, -1.3 + (ex.look || 0) * .6, .35, .2); }      // el balón reflejado
+        g.restore();
+        HVISOR(g); g.lineWidth = .55; g.strokeStyle = '#06070f'; g.stroke();      // goma del borde
+        if (ex.boost) { HVISOR(g); g.lineWidth = .3; g.strokeStyle = 'rgba(' + col.glow + ',' + (.7 + .3 * Math.sin(t * 30)).toFixed(2) + ')'; g.stroke(); }
+        g.restore();
+        // tornillo de la visera, correa de la barbilla y brillo de laca
+        g.fillStyle = '#c9cfe6'; g.beginPath(); g.arc(.6, -.6, .5, 0, TAU); g.fill(); g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(.25, -.68, .7, .16);
+        g.strokeStyle = 'rgba(5,7,15,.8)'; g.lineWidth = .3; g.beginPath(); g.moveTo(-.6, 3.2); g.quadraticCurveTo(.4, 4.1, 1.6, 3.9); g.stroke();
+        g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = .5; g.beginPath(); g.arc(-.6, -.6, 3.4, Math.PI * 1.1, Math.PI * 1.42); g.stroke();
+        g.restore();
+    }
+    // posición de la visera con un poco de inercia: arriba al celebrar, abajo de golpe en la cuenta atrás
+    function visorOpen(o, M) {
+        const tgt = o.mood === 'win' || o.fin === 'win' ? 1 : 0;
+        if (!M) return tgt;
+        const t = o.t || 0, dt = Math.max(0, Math.min(.05, t - (M.vzT == null ? t : M.vzT))); M.vzT = t;
+        const v = M.vz == null ? tgt : M.vz; M.vz = o.state === 'count' ? Math.max(0, v - dt * 9) : v + (tgt - v) * Math.min(1, dt * 6);
+        return M.vz;
+    }
     // piloto de los coches cerrados: asiento, mono con franja, brazo al volante con luces de cambio y casco con visera espejo; reacciona al juego
     function driver(g, x, y, s, o) {
         o = o || {};
@@ -261,20 +329,7 @@ window.CARS = (() => {
         // casco
         // mira al balón; al subir mira arriba y al caer, abajo; al encajar niega con la cabeza; en la cuenta atrás se mueve al ritmo
         g.save(); g.translate(hx, hy); g.rotate(look * .35 + (lose ? .38 + Math.sin(t * 6) * .16 : 0) - boost * .1 - hit * .3 - (o.air ? vu * .18 : 0) + (ready ? Math.sin(t * 6) * .06 : 0));
-        const R = 3.5, hg = g.createRadialGradient(-1.2, -1.8, .3, 0, 0, R * 1.15);
-        hg.addColorStop(0, '#ffffff'); hg.addColorStop(.3, s.lite); hg.addColorStop(1, s.main);
-        const shell = () => { g.beginPath(); g.moveTo(-R + .2, R * .66); g.quadraticCurveTo(-R - .5, 0, -R * .5, -R * .88); g.quadraticCurveTo(.4, -R - .8, R * .72, -R * .55); g.quadraticCurveTo(R + .7, .2, R + .2, R * .52); g.lineTo(R - .9, R * .74); g.closePath(); };
-        shell(); g.fillStyle = hg; g.fill(); g.strokeStyle = 'rgba(5,8,22,.75)'; g.lineWidth = .4; g.stroke();
-        g.save(); shell(); g.clip();
-        g.fillStyle = 'rgb(' + s.glow + ')'; g.beginPath(); g.moveTo(-R - 1, .6); g.quadraticCurveTo(0, -1.4, R + 1, -2.6); g.lineTo(R + 1, -1.7); g.quadraticCurveTo(0, -.4, -R - 1, 1.6); g.closePath(); g.fill();
-        g.fillStyle = s.dark; g.fillRect(-R - 1, R * .5, R * 2 + 2, 1.2);
-        g.restore();
-        g.fillStyle = iriVisor(g, .2, -1.8, R + 1, .4, t + look);
-        g.beginPath(); g.moveTo(.1, -1.9); g.quadraticCurveTo(2.4, -2.6, R + .8, -1.1); g.lineTo(R + .9, .4); g.quadraticCurveTo(2.2, .2, .1, .3); g.closePath(); g.fill();
-        g.strokeStyle = 'rgba(10,12,24,.85)'; g.lineWidth = .35; g.stroke();
-        const rf = (t * .7) % 1; g.strokeStyle = 'rgba(220,240,255,.55)'; g.lineWidth = .35; g.beginPath(); g.moveTo(.6 + rf * 3, -1.9); g.lineTo(1.2 + rf * 3, .2); g.stroke();
-        g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = .45; g.beginPath(); g.arc(-.4, -.4, R * .78, Math.PI * 1.12, Math.PI * 1.45); g.stroke();      // brillo de laca
-        g.fillStyle = '#0d1126'; g.fillRect(-.6, -R - .2, 1.4, .4);                                       // ventilación
+        helmet(g, 3.5, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t, open: visorOpen(o, M), boost: !!o.boosting, hit, look, ballNear: o.ballD != null ? Math.max(0, 1 - o.ballD / 260) : 0, dorsal: o.dorsal, model: CUR.model });
         g.restore();
         g.restore();
         if (CUR.gl) { g.save(); poly(g, CUR.gl); g.clip(); g.fillStyle = 'rgba(160,210,255,.1)'; g.fillRect(x - 12, y - 12, 26, 24);
@@ -1422,31 +1477,10 @@ window.CARS = (() => {
                 g.stroke();
             }
         }
-        const hg = g.createLinearGradient(head[0] - R6, head[1] - R6, head[0] + R6, head[1] + R6);
-        hg.addColorStop(0, C(0, 68)); hg.addColorStop(.5, C(110, 58)); hg.addColorStop(1, C(220, 50));
         // la cabeza sigue al balón; al encajar niega con la cabeza; al señalar asiente; con los brazos arriba mira al cielo
         g.save(); g.translate(head[0], head[1]); g.rotate(spr('hr', headRot, 220, 28));
-        // carcasa con forma de casco integral de verdad: cúpula, nuca y mentonera adelantada
-        const shellP = () => { g.beginPath(); g.moveTo(-5.6, 4.4); g.quadraticCurveTo(-7.6, -.6, -4.8, -5.4); g.quadraticCurveTo(-.4, -8.6, 4.6, -5.8); g.quadraticCurveTo(7.8, -3.2, 7.9, 1.4); g.lineTo(7.6, 4.6); g.quadraticCurveTo(4.4, 7, .4, 5.8); g.quadraticCurveTo(-2.6, 5.6, -5.6, 4.4); g.closePath(); };
-        { const hg2 = g.createLinearGradient(-R6, -R6, R6, R6); hg2.addColorStop(0, C(0, 72)); hg2.addColorStop(.5, C(110, 58)); hg2.addColorStop(1, C(220, 46));
-          shellP(); g.fillStyle = hg2; g.fill(); g.lineWidth = 1; g.strokeStyle = 'rgba(5,8,22,.9)'; g.stroke();
-          g.save(); shellP(); g.clip(); const sh2 = g.createRadialGradient(-2.6, -4, .4, -1, -2, 7); sh2.addColorStop(0, 'rgba(255,255,255,.55)'); sh2.addColorStop(.4, 'rgba(255,255,255,.08)'); sh2.addColorStop(1, 'rgba(0,0,20,.28)');
-          g.fillStyle = sh2; g.fillRect(-9, -10, 18, 18);
-          g.fillStyle = 'rgba(5,8,22,.55)'; g.fillRect(-9, 4.2, 18, 3); g.restore(); }
-        g.fillStyle = 'rgba(5,7,15,.75)'; for (let i = 0; i < 3; i++) g.fillRect(-4.2 + i * 1.6, -6.2 + i * .25, .8, 2);                                        // ventilaciones
-        g.fillStyle = iriVisor(g, -.8, -3.8, 7.4, 2.4, t + look); g.beginPath(); g.moveTo(-.8, -3.8); g.quadraticCurveTo(7.8, -4.2, 7.4, 1.8); g.lineTo(.2, 2.9); g.closePath(); g.fill();         // visor espejo iridiscente
-        g.strokeStyle = 'rgba(5,7,15,.95)'; g.lineWidth = .6; g.stroke();
-        const vg = hitK > 0 ? 1 : 0;
-        g.fillStyle = vg ? 'rgba(255,255,255,.95)' : 'rgba(' + s.glow + ',' + (.55 + boost * .4) + ')'; g.beginPath(); g.ellipse(4.2, -.7, 3 + boost * .8, 1.2 + boost * .35, -.15, 0, TAU); g.fill();
-        if (boost || win || vg) glowDot(g, 4.4, -.7, 9, vg ? '255,255,255' : s.glow, .8);
-        g.fillStyle = 'rgba(255,255,255,.75)'; g.fillRect(.8, -3, 4.8, .6);
-        g.save(); g.beginPath(); g.moveTo(-.8, -3.8); g.quadraticCurveTo(7.8, -4.2, 7.4, 1.8); g.lineTo(.2, 2.9); g.closePath(); g.clip();       // brillo que recorre el visor
-        { const vx = -2 + ((t * .6) % 1.6) * 7; g.strokeStyle = 'rgba(255,255,255,.4)'; g.lineWidth = 1; g.beginPath(); g.moveTo(vx, 3); g.lineTo(vx + 2.4, -4); g.stroke(); }
-        g.restore();
-        g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 1.2; g.beginPath(); g.arc(0, 0, 5.6, Math.PI * 1.06, Math.PI * 1.46); g.stroke();                  // franja
-        g.fillStyle = '#0d1020'; rrect(g, 2.8, 2.6, 4.4, 2.1, .9); g.fill(); g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = .4; g.beginPath(); g.moveTo(4, 3.1); g.lineTo(6.4, 3.1); g.moveTo(4, 4); g.lineTo(6.4, 4); g.stroke();   // barbilla
-        g.fillStyle = '#0b0d17'; g.beginPath(); g.arc(-1.8, 1, 1.9, 0, TAU); g.fill(); g.strokeStyle = 'rgba(' + s.glow + ',.9)'; g.lineWidth = .6; g.beginPath(); g.arc(-1.8, 1, 1.4, 0, TAU); g.stroke();   // oreja
-        g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.arc(-3, -4, 1.5, 0, TAU); g.fill();
+
+        helmet(g, 6.5, { a: C(0, 72), b: C(110, 58), c: C(220, 42), glow: s.glow }, { t, open: visorOpen(o, M), boost: !!boost, hit: hitK, look, ballNear: Math.max(0, 1 - ballD / 260), dorsal: o.dorsal, model: 'prisma' });      // casco integral cromático
         g.restore();
         if (hitK > 0.05) for (let i = 0; i < 5; i++) { const a = -1 + i * .5; glowDot(g, head[0] + 8 + Math.cos(a) * 5 * (1 - hitK + .3), head[1] + Math.sin(a) * 5 * (1 - hitK + .3), 2.2, '255,240,200', hitK); }   // chispas del golpe
         g.restore();
@@ -1708,25 +1742,7 @@ window.CARS = (() => {
         g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.fillRect(-5.2, -9.2, 7.4, .5);
         g.fillStyle = '#2a2e44'; g.beginPath(); g.moveTo(-5.2, -9.4); g.quadraticCurveTo(-5.6, -12.4, -3.6, -12.6); g.lineTo(-3, -9.4); g.closePath(); g.fill();   // HANS
         const hx = -.3, hy = -11.2, R = 4.7;
-        const hg = g.createRadialGradient(hx - 1.4, hy - 2, .4, hx, hy, R * 1.1); hg.addColorStop(0, '#ffffff'); hg.addColorStop(.3, s.lite); hg.addColorStop(1, s.main);
-        g.fillStyle = hg; g.beginPath(); g.moveTo(hx - R + .2, -8.6); g.quadraticCurveTo(hx - R - .6, hy - 1, hx - R * .5, hy - R * .86);
-        g.quadraticCurveTo(hx + .6, hy - R - 1.1, hx + R * .72, hy - R * .55); g.quadraticCurveTo(hx + R + .9, hy + .4, hx + R + .3, -8.9); g.lineTo(hx + R - 1, -8.3); g.closePath(); g.fill();
-        g.strokeStyle = 'rgba(5,8,22,.75)'; g.lineWidth = .45; g.stroke();
-        g.save(); g.clip();                                                                         // diseño del casco: franjas
-        g.fillStyle = 'rgb(' + s.glow + ')'; g.beginPath(); g.moveTo(hx - R - 1, hy + .6); g.quadraticCurveTo(hx, hy - 1.6, hx + R + 1, hy - 3.4); g.lineTo(hx + R + 1, hy - 2.2); g.quadraticCurveTo(hx, hy - .2, hx - R - 1, hy + 2); g.closePath(); g.fill();
-        g.fillStyle = 'rgba(255,255,255,.95)'; g.beginPath(); g.moveTo(hx - R - 1, hy + 2); g.quadraticCurveTo(hx, hy - .2, hx + R + 1, hy - 2.2); g.lineTo(hx + R + 1, hy - 1.6); g.quadraticCurveTo(hx, hy + .5, hx - R - 1, hy + 2.7); g.closePath(); g.fill();
-        g.fillStyle = s.dark; g.fillRect(hx - R - 1, -9.6, R * 2 + 2, 1.4);
-        g.restore();
-        g.fillStyle = '#0d1126'; g.beginPath(); g.moveTo(hx - 3.2, hy - 4.6); g.lineTo(hx - 1.4, hy - 5.3); g.lineTo(hx - 1.2, hy - 4.4); g.closePath(); g.fill();   // alerón del casco
-        g.fillStyle = '#05070f'; g.fillRect(hx + .2, hy - 5, 1.6, .5);                               // toma de aire superior
-        g.fillStyle = iriVisor(g, hx + 1, hy - 2.6, hx + 4.6, hy + .4, t + lookF); g.beginPath(); g.moveTo(hx + .4, hy - 2.4); g.quadraticCurveTo(hx + 3.2, hy - 3.2, hx + 4.9, hy - 1.4); g.lineTo(hx + 5, hy + .6); g.quadraticCurveTo(hx + 2.6, hy + .2, hx + .3, hy + .3); g.closePath(); g.fill();   // visera tintada
-        const rf = ((o.t || 0) * .7) % 1;
-        g.save(); g.clip(); g.strokeStyle = 'rgba(190,230,255,.6)'; g.lineWidth = .5; g.beginPath(); g.moveTo(hx + rf * 6 - 1, hy - 3); g.lineTo(hx + rf * 6 + .4, hy + .8); g.stroke(); g.restore();
-        g.fillStyle = 'rgba(255,255,255,.75)'; g.fillRect(hx + .2, hy - 2.7, .8, .5);              // tira de las lágrimas (tear-off)
-        sponsor(g, hx - 1.8, hy - 1.2, 'GOL', 1.5, '#0d1126', null);
-        g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = .45; g.beginPath(); g.arc(hx - .6, hy - .6, R * .8, Math.PI * 1.12, Math.PI * 1.42); g.stroke();      // brillo de laca
-        g.strokeStyle = 'rgba(10,12,24,.8)'; g.lineWidth = .35; g.beginPath(); g.moveTo(hx + .4, hy - 2.4); g.quadraticCurveTo(hx + 3.2, hy - 3.2, hx + 4.9, hy - 1.4); g.stroke();   // junta de la visera
-        g.fillStyle = '#c9cfe6'; g.beginPath(); g.arc(hx + .5, hy - 1, .45, 0, TAU); g.fill();      // bisagra
+        g.save(); g.translate(hx, hy); helmet(g, R * .95, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t: o.t || 0, open: visorOpen(o, o.rid), boost: !!o.boosting, hit: o.hitT != null && o.hitT < .3 ? Math.pow(1 - o.hitT / .3, 2) : 0, look: lookF, ballNear: o.ballD != null ? Math.max(0, 1 - o.ballD / 260) : 0, dorsal: o.dorsal, model: 'formula' }); g.restore();
         g.restore();
         // volante con luces de cambio asomando delante del casco
         { const rv = Math.min(1, (o.spin || 0) / 900); g.fillStyle = '#10142a'; rrect(g, 5, -10.2, 2.4, 2, .8); g.fill();
