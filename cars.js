@@ -311,40 +311,121 @@ window.CARS = (() => {
     }
     // polígono encogido hacia su centro (para recortar el piloto un poco por dentro de la ventanilla)
     function insetPoly(pts, d) { let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= pts.length; cy /= pts.length; return pts.map(p => { const dx = p[0] - cx, dy = p[1] - cy, l = Math.hypot(dx, dy) || 1, k = Math.max(0, 1 - d / l); return [cx + dx * k, cy + dy * k]; }); }
-    // piloto de los coches cerrados: asiento, mono con franja, brazo al volante con luces de cambio y casco con visera espejo; reacciona al juego
+    // ---------- Memoria compartida de los pilotos: volante con muelle, volteretas y mareo, cambios de marcha, rato parado ----------
+    function drvMem(o, M) {
+        const t = o.t || 0;
+        if (!M) return { dt: 0, st: Math.max(-1, Math.min(1, (o.lean || 0) * .9)), dizzy: 0, gear: 0, idle: 0, boostT: 0 };
+        if (M.dmT === t) return M.dm;      // dos pilotos en el mismo coche (Chispa): se calcula una sola vez por fotograma
+        const dt = Math.max(0, Math.min(.05, t - (M.dmT == null ? t : M.dmT))); M.dmT = t;
+        const air = !!o.air, vf = o.vf || 0, aw = o.aw || 0;
+        // dirección: en el suelo sigue la aceleración y la frenada; al dar la vuelta, volantazo; en el aire, cómo rota el coche
+        if (M.vfS != null && Math.sign(vf) !== M.vfS && Math.abs(vf) > 150 && !air) { M.turnT = .45; M.turnS = Math.sign(vf); }
+        if (Math.abs(vf) > 150) M.vfS = Math.sign(vf);
+        M.turnT = Math.max(0, (M.turnT || 0) - dt);
+        let tgt = air ? Math.max(-1.2, Math.min(1.2, aw / 6)) : Math.max(-1, Math.min(1, (o.lean || 0) * .9 - (o.brake ? .45 : 0)));
+        if (M.turnT > 0) tgt = M.turnS * 1.15;
+        let st = M.sw || 0, sv = M.swv || 0;
+        if (M.wasAir && !air) sv -= (st || .5) * 14;                                       // contravolante al aterrizar
+        if (o.bumpT != null && o.bumpT < .05) sv += (Math.random() < .5 ? -1 : 1) * 12;     // y al chocar
+        sv += ((tgt - st) * 120 - sv * 14) * dt; st += sv * dt; M.sw = st; M.swv = sv;
+        // volteretas: muchas seguidas marean un rato
+        if (o.flip && !M.wasFlip) { M.fc = (M.fc || 0) + 1; M.fcT = t; }
+        if (M.fc && t - M.fcT > 3) M.fc = 0;
+        if (M.fc >= 3) { M.dizzy = 2.4; M.fc = 0; }
+        M.dizzy = Math.max(0, (M.dizzy || 0) - dt);
+        // marcha: al encender el turbo o al acelerar fuerte da un golpe de palanca
+        if ((o.boosting && !M.wasBoost) || ((o.lean || 0) > .55 && (M.gearCd || 0) <= 0)) { M.gear = .3; M.gearCd = 1.2; }
+        M.gear = Math.max(0, (M.gear || 0) - dt); M.gearCd = Math.max(0, (M.gearCd || 0) - dt);
+        M.boostT = o.boosting ? (M.boostT || 0) + dt : 0;
+        M.didle = !air && Math.abs(o.spin || 0) < 40 && o.state === 'play' && !o.mood ? (M.didle || 0) + dt : 0;
+        M.dcdT = o.state === 'count' ? (M.dcdT || 0) + dt : 0;
+        M.wasAir = air; M.wasFlip = !!o.flip; M.wasBoost = !!o.boosting;
+        M.dm = { dt, st, dizzy: M.dizzy, gear: M.gear, idle: M.didle, boostT: M.boostT, cdT: M.dcdT };
+        return M.dm;
+    }
+    // estrellitas de mareo dando vueltas alrededor del casco
+    function dizzyStars(g, x, y, r, t, k) {
+        for (let i = 0; i < 4; i++) {
+            const a = t * 5 + i * TAU / 4, sx = x + Math.cos(a) * r, sy = y - r * .55 + Math.sin(a) * r * .32, sz = .9 + .3 * Math.sin(t * 9 + i);
+            g.fillStyle = 'rgba(255,224,90,' + (.95 * k).toFixed(2) + ')'; g.beginPath();
+            for (let j = 0; j < 10; j++) { const b = j * Math.PI / 5 - Math.PI / 2, rr = j % 2 ? sz * .45 : sz; j ? g.lineTo(sx + Math.cos(b) * rr, sy + Math.sin(b) * rr) : g.moveTo(sx + Math.cos(b) * rr, sy + Math.sin(b) * rr); }
+            g.closePath(); g.fill();
+        }
+    }
+    // piloto de los coches cerrados: asiento, mono, volante que gira con las dos manos, palanca de cambios y casco; reacciona a todo el partido
     function driver(g, x, y, s, o) {
         o = o || {};
-        const t = o.t || 0, lose = o.mood === 'lose', win = o.mood === 'win', boost = o.boosting ? 1 : 0, look = Math.max(-.6, Math.min(.6, o.look || 0));
-        // la cabeza reacciona con algo de inercia: atrás con el turbo, adelante al frenar, se hunde al aterrizar y da un respingo con los golpes
+        const t = o.t || 0, lose = o.mood === 'lose', win = o.mood === 'win', boost = o.boosting ? 1 : 0, look0 = Math.max(-.6, Math.min(.6, o.look || 0));
         const hit = o.hitT != null && o.hitT < .3 ? Math.pow(1 - o.hitT / .3, 2) : 0, vu = Math.max(-1, Math.min(1, (o.vu || 0) / 900)), ready = o.state === 'count';
-        let tx = -boost * 1.2 + (o.brake ? .9 : 0) - hit * .9 - (o.lean || 0) * .7, ty = (lose ? 1 : 0) + Math.max(0, ((o.susF || 0) + (o.susR || 0)) / 2) * 1.4 + hit * .6 + (o.air ? -vu * .5 : 0);
-        const M = o.rid;
-        if (M) { const dt = Math.max(0, Math.min(.05, t - (M.drT == null ? t : M.drT))), k = Math.min(1, dt * 12); M.drT = t;
-            M.drX = M.drX == null ? tx : M.drX + (tx - M.drX) * k; M.drY = M.drY == null ? ty : M.drY + (ty - M.drY) * k; tx = M.drX; ty = M.drY; }
-        const bob = win ? -Math.abs(Math.sin(t * 9)) * .8 : ready ? -Math.abs(Math.sin(t * 6)) * .35 : 0, hx = x + tx, hy = y + ty + bob;
+        const M = o.rid, D = drvMem(o, M), fin = o.fin || '';
+        const bumpK = o.bumpT != null && o.bumpT < .8 ? 1 - o.bumpT / .8 : 0, dng = Math.max(0, Math.min(1, o.dng || 0)), saveK = o.saveT != null && o.saveT < 1.2 && !win && !lose;
+        const mateK = o.mateT != null && o.mateT < 2.2, dizzy = D.dizzy > 0 ? Math.min(1, D.dizzy) : 0, longB = D.boostT > .8;
+        const idl = (D.idle || 0) % 11, idleOn = D.idle > 3, yawn = idleOn && idl < 2, stretch = idleOn && idl >= 4 && idl < 5.6, watch = idleOn && idl >= 7.5 && idl < 9.5;
+        const cel = win ? Math.floor(t / 1.1) % 3 : -1, sad = lose ? Math.floor(t / 1.3) % 2 : -1;
+        const tap = ready && D.cdT < 1.6, mirror = ready && D.cdT >= 1.6 && D.cdT < 2.4, lookDown = !!o.air && vu < -.3 && (o.jumpT || 0) > .45;
+        // la cabeza: atrás con el turbo, adelante al frenar, se hunde al aterrizar, respingo con los golpes, de lado al chocar, agachada ante un balonazo
+        let tx = -boost * (longB ? 1.8 : 1.2) + (o.brake ? .9 : 0) - hit * .9 - (o.lean || 0) * .7 + bumpK * Math.sin(t * 28) * 1.3 + (lose && sad === 1 ? 2.2 : 0) + (fin === 'win' ? Math.sin(t * 6) * 1.2 : 0);
+        let ty = (lose ? 1 : 0) + Math.max(0, ((o.susF || 0) + (o.susR || 0)) / 2) * 1.8 + hit * .6 + (o.air ? -vu * .5 : 0) + dng * 1.5 + (o.flip ? 1 : 0) + (lose && sad === 1 ? 1.6 : 0) + (fin === 'lose' ? 1.6 : 0);
+        if (M) { const k = Math.min(1, D.dt * 12); M.drX = M.drX == null ? tx : M.drX + (tx - M.drX) * k; M.drY = M.drY == null ? ty : M.drY + (ty - M.drY) * k; tx = M.drX; ty = M.drY; }
+        if (longB) { tx += (Math.random() - .5) * .35; ty += (Math.random() - .5) * .35; }      // turbo largo: aplastado contra el asiento y vibrando
+        const bob = win ? -Math.abs(Math.sin(t * 9)) * .8 : ready ? -Math.abs(Math.sin(t * 6)) * .35 : fin === 'win' ? -Math.abs(Math.sin(t * 6)) * .6 : 0, hx = x + tx, hy = y + ty + bob;
         g.save(); if (CUR.gl) { poly(g, insetPoly(CUR.gl, .8)); g.clip(); }      // el piloto (y su casco) siempre dentro del cristal, sin tocar los marcos
         g.fillStyle = '#0b0e1c'; rrect(g, x - 6.4, y - 3, 2.6, 8, 1.1); g.fill();                         // reposacabezas
         g.fillStyle = s.dark; rrect(g, hx - 4.6, hy + 2.2, 8.6, 7, 2.4); g.fill();                        // mono
         g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.fillRect(hx - 4.2, hy + 3, 7.8, .6);
         g.fillStyle = '#e8ecf6'; rrect(g, hx - 1.4, hy + 2, 2.4, 1.2, .5); g.fill();                     // cuello
-        const swx = hx + 6.8, swy = hy + 2.8;
-        if (!win) { g.strokeStyle = s.dark; g.lineWidth = 1.8; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(hx + 1.2, hy + 3.8); g.lineTo(hx + 4, hy + 5.6); g.lineTo(swx - .6, swy + .6); g.stroke(); }
-        g.save(); g.translate(swx, swy); g.rotate(.25 + (o.lean || 0) * .3 + (o.air ? Math.sin(t * 6) * .1 : 0) + (ready ? Math.sin(t * 9) * .12 : 0) + hit * .3);      // el volante gira con los cambios de velocidad
-        g.fillStyle = '#10142a'; g.beginPath(); g.ellipse(0, 0, 1, 3, 0, 0, TAU); g.fill();
-        const rv = Math.min(1, (o.spin || 0) / 900), LC = ['#3dff6a', '#ffd23f', '#ff3b30'];
-        for (let i = 0; i < 3; i++) { g.fillStyle = rv > i / 3 + .05 ? LC[i] : 'rgba(80,90,120,.6)'; g.fillRect(-.35, -2.3 + i * 1.25, .7, .7); }
+        // volante: gira con la dirección; las dos manos lo agarran por el aro
+        const swx = x + 5.3 + tx * .15, swy = y + 2.8, rot = .25 + D.st * .6 + hit * .3;
+        const onRim = (ang) => [swx + Math.sin(rot + ang) * 2.6 * .4, swy - Math.cos(rot + ang) * 2.6];      // el aro se ve de canto (elipse)
+        const shoulder = [hx + 1.2, hy + 3.6], arm = (to, col, w) => { const el = [(shoulder[0] + to[0]) / 2 - .3, (shoulder[1] + to[1]) / 2 + 1.4]; g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(shoulder[0], shoulder[1]); g.lineTo(el[0], el[1]); g.lineTo(to[0], to[1]); g.stroke(); };
+        const glove = (p, fist) => { g.fillStyle = '#1a1d30'; g.beginPath(); g.arc(p[0], p[1], fist ? 1.15 : .95, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(p[0] - .3, p[1] - .3, .35, 0, TAU); g.fill(); };
+        // mano de atrás: siempre al volante (abajo del aro), salvo volteretas en las que agarra con las dos
+        const hB = onRim(Math.PI * .85);
+        arm(hB, 'rgba(0,0,0,.55)', 1.5); arm(hB, s.dark, 1.2);
+        // palanca de cambios
+        const gx = hx + 4.6, gy = hy + 7.2, gk = D.gear > 0 ? Math.sin((1 - D.gear / .3) * Math.PI) : 0;
+        g.strokeStyle = '#2a2e44'; g.lineWidth = .7; g.beginPath(); g.moveTo(gx, gy + 1.4); g.lineTo(gx + .5 - gk * 1.1, gy - .8); g.stroke(); g.fillStyle = '#c9cfe6'; g.beginPath(); g.arc(gx + .5 - gk * 1.1, gy - .9, .5, 0, TAU); g.fill();
+        // aro del volante y luces de cambio (rojas parpadeando a tope)
+        g.save(); g.translate(swx, swy); g.rotate(rot);
+        g.fillStyle = '#10142a'; g.beginPath(); g.ellipse(0, 0, 1, 3, 0, 0, TAU); g.fill(); g.strokeStyle = 'rgba(160,170,210,.45)'; g.lineWidth = .3; g.stroke();
+        const rv = Math.min(1, (o.spin || 0) / 900), LC = ['#3dff6a', '#ffd23f', '#ff3b30'], top = rv > .95 && Math.sin(t * 30) > 0;
+        for (let i = 0; i < 3; i++) { g.fillStyle = top ? '#ff3b30' : rv > i / 3 + .05 ? LC[i] : 'rgba(80,90,120,.6)'; g.fillRect(-.35, -2.3 + i * 1.25, .7, .7); }
         g.restore();
-        if (!win) { g.fillStyle = '#1a1d30'; g.beginPath(); g.arc(swx - .5, swy + .6, 1, 0, TAU); g.fill(); }
-        else {      // puño en alto al marcar
+        glove(hB);
+        // mano de delante: al volante, o haciendo el gesto que toque
+        let hF = onRim(-Math.PI * .1), fist = false, thumb = false;
+        if (o.flip || dizzy) hF = onRim(-Math.PI * .1);
+        else if (win) {
             const up = Math.abs(Math.sin(t * 9));
-            g.strokeStyle = s.dark; g.lineWidth = 1.7; g.lineCap = 'round'; g.beginPath(); g.moveTo(hx + .6, hy + 3); g.lineTo(hx + 4.4, hy + 1.2); g.lineTo(hx + 6.2, hy - 1.2 - up * .7); g.stroke();
-            g.fillStyle = '#ffffff'; g.beginPath(); g.arc(hx + 6.4, hy - 2 - up * .7, 1.2, 0, TAU); g.fill(); g.strokeStyle = 'rgba(10,12,24,.6)'; g.lineWidth = .3; g.stroke();
-        }
-        // casco
-        // mira al balón; al subir mira arriba y al caer, abajo; al encajar niega con la cabeza; en la cuenta atrás se mueve al ritmo
-        g.save(); g.translate(hx, hy); g.rotate(look * .35 + (lose ? .38 + Math.sin(t * 6) * .16 : 0) - boost * .1 - hit * .3 - (o.air ? vu * .18 : 0) + (ready ? Math.sin(t * 6) * .06 : 0));
-        helmet(g, 2.85, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t, open: visorOpen(o, M), boost: !!o.boosting, hit, look, ballNear: o.ballD != null ? Math.max(0, 1 - o.ballD / 260) : 0, dorsal: o.dorsal, model: CUR.model });
+            if (cel === 0) { hF = [hx + 4.6, hy - 2.2 - up * .8]; fist = true; }                     // puño en alto
+            else if (cel === 1) { hF = [hx + 7.4, hy + 1]; }                                       // señala hacia delante
+            else { hF = [hx + 3.4, hy - 5.2 + up * 1.2]; fist = true; }                              // golpea el techo
+        } else if (lose && sad === 0) { hF = [swx - .2, swy - 1 + Math.abs(Math.sin(t * 10)) * 1.4]; fist = true; }      // golpea el volante
+        else if (mateK) { hF = [hx + 4.6, hy - 1.2]; thumb = true; }                                   // pulgar arriba al compañero
+        else if (bumpK > .2) { hF = [hx + 4.4 + Math.sin(t * 22) * .8, hy - 1.6]; fist = true; }      // agita el puño
+        else if (dng > .3) { hF = [hx + 3.4, hy - .4]; }                                             // se cubre del balonazo
+        else if (saveK) { hF = [hx + 4.4, hy - 2.4]; fist = true; }                                  // puño tras despejar
+        else if (D.gear > 0) { hF = [gx + .5 - gk * 1.1, gy - .9]; }                                 // mete marcha
+        else if (tap) { hF = onRim(-Math.PI * .1); hF[1] += Math.abs(Math.sin(t * 14)) * -.6; }      // tamborilea en el volante
+        else if (fin === 'win') { hF = [hx + 4 + Math.sin(t * 6) * 1.3, hy - 2 - Math.abs(Math.cos(t * 6)) * 1.2]; }      // baile
+        else if (yawn) { hF = [hx + 3.6, hy + .8]; }                                                  // bosteza (mano a la boca)
+        else if (stretch) { hF = [hx + 2.4, hy - 5.6]; }                                              // se estira
+        else if (watch) { hF = [hx + 4.6, hy + 3.4]; }                                                // mira el reloj
+        arm(hF, 'rgba(0,0,0,.55)', 1.9); arm(hF, s.dark, 1.6);
+        glove(hF, fist);
+        if (thumb) { g.fillStyle = '#1a1d30'; rrect(g, hF[0] - .3, hF[1] - 2, .7, 1.6, .3); g.fill(); }
+        if (watch) { g.fillStyle = 'rgba(' + s.glow + ',.95)'; g.fillRect(hF[0] - 1.4, hF[1] - .4, .8, .8); }
+        // casco: mira al balón (o al rival si lo tiene encima, al retrovisor en la cuenta atrás, abajo en los saltos altos)
+        let look = look0;
+        if (o.oppD != null && o.oppD < 150 && (o.ballD || 999) > 260) look = (o.oppDx || 0) < 0 ? -.7 : .35;
+        if (mirror) look = -.65;
+        const headRot = look * .35 + (lose ? (sad === 1 ? .55 : .38 + Math.sin(t * 6) * .16) : 0) - boost * .1 - hit * .3 - (o.air ? vu * .18 : 0) + (ready ? Math.sin(t * 6) * .06 : 0)
+            + (lookDown ? .45 : 0) + dng * .3 + (yawn ? -.35 : 0) + (stretch ? -.2 : 0) + (watch ? .4 : 0) + (fin === 'lose' ? .5 : 0) + (fin === 'win' ? Math.sin(t * 12) * .15 : 0)
+            + (dizzy ? Math.sin(t * 7) * .25 * dizzy : 0);
+        g.save(); g.translate(hx, hy); g.rotate(headRot);
+        helmet(g, 2.85, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t, open: visorOpen(o, M), boost: !!o.boosting, hit: Math.max(hit, longB ? .25 : 0), look, ballNear: o.ballD != null ? Math.max(0, 1 - o.ballD / 260) : 0, dorsal: o.dorsal, model: CUR.model });
         g.restore();
+        if (dizzy) dizzyStars(g, hx + .6, hy - 1.2, 3.6, t, dizzy);
         g.restore();
         if (CUR.gl) { g.save(); poly(g, CUR.gl); g.clip(); g.fillStyle = 'rgba(160,210,255,.1)'; g.fillRect(x - 12, y - 12, 26, 24);
             g.fillStyle = 'rgba(255,255,255,.14)'; g.beginPath(); g.moveTo(x - 3, y + 6); g.lineTo(x + 1, y - 8); g.lineTo(x + 2.6, y - 8); g.lineTo(x - 1.4, y + 6); g.closePath(); g.fill(); g.restore(); }
@@ -1497,7 +1578,7 @@ window.CARS = (() => {
         else if (stretch) bT = [sh[0] + 1, sh[1] - 16];                                                           // se estira
         else if (visor) bT = [head[0] + 6.5, head[1] - .8 + Math.sin(idleT * 7) * .3];
         const back = [spr('bhx', bT[0], 180, 25), spr('bhy', bT[1], 180, 25)];
-        const fT = dance ? [sh[0] + 8, sh[1] - 12 - Math.abs(Math.sin(t * 5 + 1.5)) * 3] : dng > .25 && !win && !lose ? [head[0] + 6, head[1] + 2.2] : savK ? [sh[0] + 6, sh[1] - 15 - Math.abs(Math.sin(t * 9))] : cel === 2 ? [sh[0] + 20, sh[1] - 3] : grp;       // señalar: brazo estirado hacia delante
+        const fT = !win && o.mateT != null && o.mateT < 2.2 ? [sh[0] + 7, sh[1] - 9] : dance ? [sh[0] + 8, sh[1] - 12 - Math.abs(Math.sin(t * 5 + 1.5)) * 3] : dng > .25 && !win && !lose ? [head[0] + 6, head[1] + 2.2] : savK ? [sh[0] + 6, sh[1] - 15 - Math.abs(Math.sin(t * 9))] : cel === 2 ? [sh[0] + 20, sh[1] - 3] : grp;       // señalar: brazo estirado hacia delante
         const front = [spr('fhx', fT[0], 220, 28), spr('fhy', fT[1], 220, 28)];
         arm(back, true, cel === 1); arm(front, false, cel === 0 || cel === 1);
         // casco integral cromático: ventilaciones, oreja, barbilla y visor que reacciona a todo
@@ -1517,6 +1598,7 @@ window.CARS = (() => {
 
         helmet(g, 6.5, { a: C(0, 72), b: C(110, 58), c: C(220, 42), glow: s.glow }, { t, open: visorOpen(o, M), boost: !!boost, hit: hitK, look, ballNear: Math.max(0, 1 - ballD / 260), dorsal: o.dorsal, model: 'prisma' });      // casco integral cromático
         g.restore();
+        { const DP = drvMem(o, M); if (DP.dizzy > 0) dizzyStars(g, head[0], head[1] - 2, 8, t, Math.min(1, DP.dizzy)); }      // mareado tras varias volteretas
         if (hitK > 0.05) for (let i = 0; i < 5; i++) { const a = -1 + i * .5; glowDot(g, head[0] + 8 + Math.cos(a) * 5 * (1 - hitK + .3), head[1] + Math.sin(a) * 5 * (1 - hitK + .3), 2.2, '255,240,200', hitK); }   // chispas del golpe
         g.restore();
         g.restore();   // fin del caballito
@@ -1780,8 +1862,9 @@ window.CARS = (() => {
         g.save(); g.translate(hx, hy); helmet(g, R * .78, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t: o.t || 0, open: visorOpen(o, o.rid), boost: !!o.boosting, hit: o.hitT != null && o.hitT < .3 ? Math.pow(1 - o.hitT / .3, 2) : 0, look: lookF, ballNear: o.ballD != null ? Math.max(0, 1 - o.ballD / 260) : 0, dorsal: o.dorsal, model: 'formula' }); g.restore();
         g.restore();
         // volante con luces de cambio asomando delante del casco
-        { const rv = Math.min(1, (o.spin || 0) / 900); g.fillStyle = '#10142a'; rrect(g, 5, -10.2, 2.4, 2, .8); g.fill();
-          for (let i = 0; i < 4; i++) { g.fillStyle = rv > i / 4 + .05 ? ['#3dff6a', '#3dff6a', '#ffd23f', '#ff3b30'][i] : 'rgba(80,90,120,.6)'; g.fillRect(5.2 + i * .5, -10, .35, .4); } }
+        { const rv = Math.min(1, (o.spin || 0) / 900), DF = drvMem(o, o.rid); g.save(); g.translate(6.2, -9.2); g.rotate(DF.st * .45); g.translate(-6.2, 9.2); g.fillStyle = '#10142a'; rrect(g, 5, -10.2, 2.4, 2, .8); g.fill();      // el volante gira con la dirección
+          for (let i = 0; i < 4; i++) { g.fillStyle = rv > .95 && Math.sin((o.t || 0) * 30) > 0 ? '#ff3b30' : rv > i / 4 + .05 ? ['#3dff6a', '#3dff6a', '#ffd23f', '#ff3b30'][i] : 'rgba(80,90,120,.6)'; g.fillRect(5.2 + i * .5, -10, .35, .4); } g.restore();
+          if (DF.dizzy > 0) dizzyStars(g, -.3, -12.4, 4.4, o.t || 0, Math.min(1, DF.dizzy)); }
         if (o.mood === 'win') {      // puño en alto al marcar
             const up = Math.sin((o.t || 0) * 9) * .8;
             g.strokeStyle = s.dark; g.lineWidth = 2; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(2.2, -9); g.lineTo(5, -13.6 + up); g.lineTo(5.2, -18 + up); g.stroke();

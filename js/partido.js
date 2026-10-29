@@ -444,6 +444,7 @@ function renderTrain() {
 function goal(scorer) {
     if (S.tuto && scorer === 0) tutoDo('goal');
     S.score[scorer]++;
+    for (const cc of S.world.cars) if (cc.team === scorer && S.lastTouchPid >= 0 && cc.pid !== S.lastTouchPid) cc.mateGoalAt = performance.now();      // 2 contra 2: el compañero del que marca lo celebra
     if (S.mode === 'match') {
         const st = wallet.st, w0 = S.world;
         const mine = !S.v2 || S.lastTouchPid === 0;      // en 2 contra 2 solo cuentan tus goles, no los de tu compañero
