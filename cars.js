@@ -342,6 +342,99 @@ window.CARS = (() => {
         const q = (c - .5) / .5;
         return { x: stride * (-.25 + q * .5), lift: Math.sin(q * Math.PI) * stride * .17, fa: .36 * (1 - q) - .3 * Math.sin(q * Math.PI * .9) * q, c };      // en el aire: punta abajo y luego arriba para pisar con el talón
     }
+    // ---------- Piloto con mono de carreras: piezas compartidas por los pilotos de pie y el del patín ----------
+    // C: { m principal, d oscuro, st color de las franjas }. w escala los grosores. near: lado de la cámara (más detalle)
+    function suitLeg(g, hip, kn, an, w, C, near) {
+        const tdx = kn[0] - hip[0], tdy = kn[1] - hip[1], tl = Math.hypot(tdx, tdy) || 1, nx = tdy / tl, ny = -tdx / tl;      // n: hacia delante de la pierna
+        const sdx = an[0] - kn[0], sdy = an[1] - kn[1], sl = Math.hypot(sdx, sdy) || 1, mx = sdy / sl, my = -sdx / sl;
+        const tm = [hip[0] + tdx * .45 + nx * .4 * w, hip[1] + tdy * .45 + ny * .4 * w], cm = [kn[0] + sdx * .35 - mx * .5 * w, kn[1] + sdy * .35 - my * .5 * w];
+        flesh(g, hip[0], hip[1], tm[0], tm[1], kn[0], kn[1], 4.6 * w, 4.9 * w, 3 * w, C.m);      // muslo (cuádriceps delante)
+        flesh(g, kn[0], kn[1], cm[0], cm[1], an[0], an[1], 3 * w, 3.4 * w, 2.1 * w, C.m);        // pantorrilla (gemelo detrás)
+        flesh(g, hip[0] + nx * 1.3 * w, hip[1] + ny * 1.3 * w, tm[0] + nx * 1.2 * w, tm[1] + ny * 1.2 * w, kn[0] + nx * .8 * w, kn[1] + ny * .8 * w, 1.3 * w, 1.5 * w, .7 * w, 'rgba(255,255,255,.16)');
+        flesh(g, hip[0] - nx * 1.6 * w, hip[1] - ny * 1.6 * w, tm[0] - nx * 1.6 * w, tm[1] - ny * 1.6 * w, kn[0] - nx * 1 * w, kn[1] - ny * 1 * w, 1.3 * w, 1.4 * w, .8 * w, 'rgba(0,0,14,.24)');
+        flesh(g, kn[0] - mx * .9 * w, kn[1] - my * .9 * w, cm[0] - mx * 1.3 * w, cm[1] - my * 1.3 * w, an[0] - mx * .6 * w, an[1] - my * .6 * w, 1 * w, 1.3 * w, .6 * w, 'rgba(0,0,14,.24)');
+        g.lineCap = 'round'; g.strokeStyle = C.st; g.lineWidth = .5 * w;      // franja lateral del mono
+        g.beginPath(); g.moveTo(hip[0] - nx * .2 * w, hip[1] - ny * .2 * w); g.quadraticCurveTo(tm[0] - nx * .3 * w, tm[1] - ny * .3 * w, kn[0] - nx * .2 * w, kn[1] - ny * .2 * w); g.quadraticCurveTo(cm[0], cm[1], an[0], an[1]); g.stroke();
+        if (SHADE > 0) { flesh(g, hip[0], hip[1], tm[0], tm[1], kn[0], kn[1], 4.6 * w, 4.9 * w, 3 * w, shadeFill()); flesh(g, kn[0], kn[1], cm[0], cm[1], an[0], an[1], 3 * w, 3.4 * w, 2.1 * w, shadeFill()); }
+        if (!near) return;
+        const bend = Math.abs(Math.atan2(tdx * sdy - tdy * sdx, tdx * sdx + tdy * sdy));
+        g.strokeStyle = 'rgba(0,0,14,.45)'; g.lineWidth = .28 * w;      // costura de la rodilla y pliegues por detrás al doblarla
+        g.beginPath(); g.moveTo(kn[0] + nx * 1.4 * w, kn[1] + ny * 1.4 * w); g.quadraticCurveTo(kn[0] + nx * .2 * w + tdx / tl * .5 * w, kn[1] + ny * .2 * w + tdy / tl * .5 * w, kn[0] - nx * 1.2 * w, kn[1] - ny * 1.2 * w); g.stroke();
+        if (bend > .5) for (let i = 0; i < 2; i++) { const px = kn[0] - nx * 1 * w + tdx / tl * (i - .5) * 1.1 * w, py = kn[1] - ny * 1 * w + tdy / tl * (i - .5) * 1.1 * w; g.beginPath(); g.moveTo(px, py); g.lineTo(px + nx * .9 * w, py + ny * .9 * w); g.stroke(); }
+    }
+    // bota de carreras a juego con el mono: caña al tobillo, puntera y talón reforzados, franja, velcro y suela fina
+    function suitBoot(g, an, fa, w, C, near) {
+        g.save(); g.translate(an[0], an[1]); g.rotate(fa || 0); g.scale(w, w);
+        const shape = () => { g.beginPath(); g.moveTo(-1.2, -1.9); g.lineTo(-1.35, -.4); g.quadraticCurveTo(-1.9, .2, -1.6, 1.15); g.lineTo(3.4, 1.15); g.quadraticCurveTo(4.3, 1.1, 4.2, .25); g.quadraticCurveTo(3.9, -.6, 2.2, -.8); g.quadraticCurveTo(1.3, -.95, 1.1, -1.9); g.closePath(); };
+        shape(); g.fillStyle = C.m; g.fill();
+        g.save(); shape(); g.clip();
+        g.fillStyle = C.d; g.beginPath(); g.moveTo(2.1, -1); g.quadraticCurveTo(3.4, -.9, 4.4, .3); g.lineTo(4.4, 1.3); g.lineTo(1.8, 1.3); g.quadraticCurveTo(2.4, .2, 2.1, -1); g.fill();      // puntera
+        g.beginPath(); g.moveTo(-2, -.7); g.quadraticCurveTo(-.5, -.5, -.3, 1.3); g.lineTo(-2, 1.3); g.closePath(); g.fill();      // talón
+        g.strokeStyle = C.st; g.lineWidth = .38; g.beginPath(); g.moveTo(-1.3, .1); g.quadraticCurveTo(.4, .2, 1.9, .55); g.stroke();      // franja
+        if (near) { g.fillStyle = C.d; g.fillRect(.1, -1.5, .75, 1.7); g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(.1, -1.5, .75, .2); g.fillStyle = 'rgba(255,255,255,.28)'; g.beginPath(); g.moveTo(1.2, -1.05); g.quadraticCurveTo(2.6, -.85, 3.8, -.1); g.lineTo(3.7, .05); g.quadraticCurveTo(2.5, -.65, 1.2, -.85); g.fill(); }      // velcro y brillo
+        if (SHADE > 0) { shape(); g.fillStyle = shadeFill(); g.fill(); }
+        g.restore();
+        g.fillStyle = '#0b0c14'; g.fillRect(-1.65, 1.02, 5.95, .46); g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(-1.6, 1.02, 5.8, .12);      // suela fina de goma
+        g.restore();
+    }
+    // brazo con hombro, bíceps y antebrazo; guante de carreras con puño largo, velcro, nudillos reforzados y dedos que agarran
+    function suitArm(g, s0, el, hn, w, C, near, grip) {
+        const udx = el[0] - s0[0], udy = el[1] - s0[1], ul = Math.hypot(udx, udy) || 1, nx = udy / ul, ny = -udx / ul;
+        const fdx = hn[0] - el[0], fdy = hn[1] - el[1], fl = Math.hypot(fdx, fdy) || 1, mx = fdy / fl, my = -fdx / fl;
+        const um = [s0[0] + udx * .5 + nx * .25 * w, s0[1] + udy * .5 + ny * .25 * w], wr = [el[0] + fdx * .7, el[1] + fdy * .7];
+        flesh(g, s0[0], s0[1], um[0], um[1], el[0], el[1], 2.9 * w, 3.1 * w, 2.2 * w, C.m);
+        flesh(g, el[0], el[1], el[0] + fdx * .3 + mx * .2 * w, el[1] + fdy * .3 + my * .2 * w, wr[0], wr[1], 2.2 * w, 2.5 * w, 1.8 * w, C.m);
+        flesh(g, s0[0] + nx * .8 * w, s0[1] + ny * .8 * w, um[0] + nx * .8 * w, um[1] + ny * .8 * w, el[0] + nx * .5 * w, el[1] + ny * .5 * w, 1 * w, 1.1 * w, .6 * w, 'rgba(255,255,255,.15)');
+        flesh(g, el[0] - mx * .7 * w, el[1] - my * .7 * w, el[0] + fdx * .35 - mx * .8 * w, el[1] + fdy * .35 - my * .8 * w, wr[0] - mx * .5 * w, wr[1] - my * .5 * w, .8 * w, .9 * w, .5 * w, 'rgba(0,0,14,.22)');
+        g.lineCap = 'round'; g.strokeStyle = C.st; g.lineWidth = .4 * w;      // franja del hombro al puño
+        g.beginPath(); g.moveTo(s0[0] - nx * .9 * w, s0[1] - ny * .9 * w); g.lineTo(el[0] - nx * .8 * w, el[1] - ny * .8 * w); g.lineTo(wr[0] - mx * .7 * w, wr[1] - my * .7 * w); g.stroke();
+        // guante: puño largo sobre la manga
+        const GC = '#191c2b';
+        flesh(g, wr[0] - fdx / fl * .5 * w, wr[1] - fdy / fl * .5 * w, (wr[0] + hn[0]) / 2, (wr[1] + hn[1]) / 2, hn[0], hn[1], 2.35 * w, 2.5 * w, 2.1 * w, GC);
+        g.strokeStyle = C.st; g.lineWidth = .32 * w; g.beginPath(); g.moveTo(wr[0] + mx * 1.1 * w, wr[1] + my * 1.1 * w); g.lineTo(wr[0] - mx * 1.1 * w, wr[1] - my * 1.1 * w); g.stroke();      // velcro del puño
+        g.save(); g.translate(hn[0], hn[1]); g.rotate(Math.atan2(fdy, fdx)); g.scale(w, w);
+        g.fillStyle = GC; g.beginPath(); g.ellipse(.7, 0, 1.2, .95, 0, 0, TAU); g.fill();      // palma
+        if (grip) { g.beginPath(); g.ellipse(1.6, .3, .85, .8, 0, 0, TAU); g.fill(); g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = .14; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(1.3 + i * .32, -.35); g.lineTo(1.5 + i * .32, .95); g.stroke(); } }      // dedos cerrados
+        else { g.save(); g.translate(1.3, .1); g.rotate(.3); rrect(g, 0, -.55, 1.8, 1.1, .5); g.fill(); g.strokeStyle = 'rgba(255,255,255,.16)'; g.lineWidth = .12; for (let i = 0; i < 2; i++) { g.beginPath(); g.moveTo(.3, -.2 + i * .4); g.lineTo(1.6, -.2 + i * .4); g.stroke(); } g.restore(); }      // dedos relajados
+        g.fillStyle = GC; g.beginPath(); g.ellipse(1.05, -.78, .7, .34, -.5, 0, TAU); g.fill();      // pulgar
+        g.fillStyle = C.m; rrect(g, .2, -1, 1.4, .5, .22); g.fill();      // nudillos reforzados
+        if (near) { g.fillStyle = 'rgba(255,255,255,.22)'; g.beginPath(); g.ellipse(.5, -.45, .45, .2, 0, 0, TAU); g.fill(); }
+        g.restore();
+        if (SHADE > 0) { const sf = shadeFill(); flesh(g, s0[0], s0[1], um[0], um[1], el[0], el[1], 2.9 * w, 3.1 * w, 2.2 * w, sf); flesh(g, el[0], el[1], (el[0] + hn[0]) / 2, (el[1] + hn[1]) / 2, hn[0], hn[1], 2.3 * w, 2.5 * w, 2.1 * w, sf); g.fillStyle = sf; g.beginPath(); g.arc(hn[0] + fdx / fl * 1 * w, hn[1] + fdy / fl * 1 * w, 1.5 * w, 0, TAU); g.fill(); }
+        if (near) {      // hombro redondo encima, con su luz
+            g.fillStyle = C.m; g.beginPath(); g.ellipse(s0[0], s0[1] + .2 * w, 1.75 * w, 1.95 * w, Math.atan2(udy, udx) - Math.PI / 2, 0, TAU); g.fill();
+            g.fillStyle = 'rgba(255,255,255,.14)'; g.beginPath(); g.ellipse(s0[0] + .3 * w, s0[1] - .5 * w, .9 * w, .7 * w, 0, 0, TAU); g.fill();
+            const bend = Math.abs(Math.atan2(udx * fdy - udy * fdx, udx * fdx + udy * fdy));
+            if (bend > .7) { g.strokeStyle = 'rgba(0,0,14,.4)'; g.lineWidth = .25 * w; for (let i = 0; i < 2; i++) { const px = el[0] + nx * .7 * w + udx / ul * (i * .8 - .9) * w, py = el[1] + ny * .7 * w + udy / ul * (i * .8 - .9) * w; g.beginPath(); g.moveTo(px, py); g.lineTo(px - nx * .9 * w, py - ny * .9 * w); g.stroke(); } }      // pliegues del codo
+        }
+    }
+    // tronco con forma: glúteo, lumbares, omóplato, pecho y vientre. Mono con paneles laterales, franja, cintura, cremallera, cuello alto y parches
+    // (dibujado de la cadera al hombro: L largo del tronco, w ancho)
+    function suitTorso(g, hip, a, L, w, C) {
+        g.save(); g.translate(hip[0], hip[1]); g.rotate(a); g.scale(w, L / 9);
+        const T = () => { g.beginPath(); g.moveTo(-2.5, 1.6); g.quadraticCurveTo(-3.4, .2, -2.9, -1.3); g.quadraticCurveTo(-2.1, -3.4, -2.5, -5.6); g.quadraticCurveTo(-3.2, -7.7, -2.3, -9.6); g.lineTo(1.1, -9.9); g.quadraticCurveTo(3.3, -8.6, 3.05, -6.6); g.quadraticCurveTo(2.95, -5.1, 2.3, -4.4); g.quadraticCurveTo(2.15, -1.5, 2.45, .6); g.quadraticCurveTo(1.4, 2.2, -.4, 2.2); g.closePath(); };
+        T(); g.fillStyle = C.m; g.fill();
+        g.save(); T(); g.clip();
+        g.fillStyle = C.d; g.fillRect(-4, -10.5, 2.9, 13);      // panel lateral oscuro
+        g.fillStyle = C.st; g.fillRect(-1.25, -9.4, .45, 11);   // franja
+        g.fillStyle = 'rgba(255,255,255,.13)'; g.beginPath(); g.ellipse(1.8, -7.4, 1.4, 2.2, .2, 0, TAU); g.fill();      // luz en el pecho
+        const sg = g.createLinearGradient(0, -3, 0, 2.4); sg.addColorStop(0, 'rgba(0,0,14,0)'); sg.addColorStop(1, 'rgba(0,0,14,.3)'); g.fillStyle = sg; g.fillRect(-4, -3, 8, 6);
+        g.fillStyle = C.d; g.fillRect(-4, -1.7, 8, 1.15); g.fillStyle = C.st; g.fillRect(-4, -1.7, 8, .22);      // cintura elástica
+        g.strokeStyle = 'rgba(0,0,14,.6)'; g.lineWidth = .3; g.beginPath(); g.moveTo(1.5, -9.8); g.quadraticCurveTo(2.5, -6.2, 1.95, -1.7); g.stroke();      // cremallera
+        g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = .12; g.beginPath(); g.moveTo(1.7, -9.7); g.quadraticCurveTo(2.7, -6.2, 2.15, -1.8); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,.92)'; rrect(g, -.6, -8.4, 1.7, .9, .2); g.fill(); g.fillStyle = C.st; g.fillRect(-.4, -8.2, .5, .5); g.fillStyle = C.d; g.fillRect(.25, -8.15, .7, .15); g.fillRect(.25, -7.85, .55, .15);      // parche
+        g.fillStyle = 'rgba(255,255,255,.85)'; rrect(g, -.4, -3.9, 1.6, .65, .2); g.fill(); g.fillStyle = C.d; g.fillRect(-.2, -3.7, 1.2, .2);
+        if (a > .3) { g.strokeStyle = 'rgba(0,0,14,.35)'; g.lineWidth = .25; for (let i = 0; i < 2; i++) { g.beginPath(); g.moveTo(2.4, -4.4 + i * 1.3); g.quadraticCurveTo(1.6, -3.9 + i * 1.3, .9, -4.3 + i * 1.3); g.stroke(); } }      // pliegues al doblarse
+        if (SHADE > 0) { g.fillStyle = shadeFill(); g.fillRect(-4, -11, 8, 14); }
+        g.restore();
+        T(); g.lineJoin = 'round'; g.strokeStyle = 'rgba(4,6,16,.55)'; g.lineWidth = .25; g.stroke();
+        g.fillStyle = C.d; rrect(g, -1.6, -10.9, 3.1, 1.5, .6); g.fill(); g.fillStyle = C.st; g.fillRect(-1.5, -10.9, 2.9, .28);      // cuello alto
+        g.restore();
+    }
+    // lo de detrás (brazo y pierna del otro lado), en sombra
+    let SHADE = 0;      // sombra que se pinta encima de las piezas (las del otro lado y lo que ya está dentro del coche)
+    function dimmed(g, fn) { SHADE += .4; fn(); SHADE -= .4; }
+    const shadeFill = () => 'rgba(0,0,14,' + Math.min(.7, SHADE).toFixed(2) + ')';
     // piloto de cuerpo entero visto de lado (mira hacia +x). P: cadera, ángulo del tronco a, cabeza hd, tobillos fN/fF (cerca/lejos de la cámara), manos hN/hF.
     // cF, cB, cN: cuánto está ya dentro del coche la pierna de lejos, el cuerpo y la pierna de cerca (dentro solo se ve por el hueco que marca clip)
     function fig(g, P, s, o, k, clip) {
@@ -351,47 +444,29 @@ window.CARS = (() => {
         const path = (cont) => { if (!cont) g.beginPath(); clip.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); };
         const part = (c, fn) => {
             if (!clip || !(c > 0)) { fn(); return; }
-            g.save(); path(); g.clip(); g.filter = 'brightness(.8)'; fn(); g.restore();      // dentro del coche, a la sombra
+            g.save(); path(); g.clip(); SHADE += .2; fn(); SHADE -= .2; g.restore();      // dentro del coche, a la sombra
             if (c < 1) { g.save(); g.beginPath(); g.rect(-300, -300, 600, 600); path(true); g.clip('evenodd'); g.globalAlpha *= 1 - c; fn(); g.restore(); }      // lo que asoma fuera se va borrando
         };
-        const SUIT = s.dark, PANT = '#161b32', PANTD = '#0b0e1c';
-        const leg = (an, fa, col, near) => {
-            const j = ik2(hip[0], hip[1], an[0], an[1], BL.th * k, BL.sh * k, -1), ft = [j[2], j[3]];
-            const tdx = j[0] - hip[0], tdy = j[1] - hip[1], sdx = ft[0] - j[0], sdy = ft[1] - j[1], sl = Math.hypot(sdx, sdy) || 1;
-            flesh(g, hip[0], hip[1], hip[0] + tdx * .5 + tdy * .06, hip[1] + tdy * .5 - tdx * .06, j[0], j[1], 3.8 * k, 4.1 * k, 3 * k, col);
-            flesh(g, j[0], j[1], j[0] + sdx * .4 - sdy / sl * .5 * k, j[1] + sdy * .4 + sdx / sl * .5 * k, ft[0], ft[1], 3 * k, 3.3 * k, 2.2 * k, col);      // gemelo
-            if (near) { g.strokeStyle = 'rgba(' + s.glow + ',.55)'; g.lineWidth = .45 * k; g.beginPath(); g.moveTo(hip[0] + 1.2 * k, hip[1]); g.lineTo(j[0] + 1.1 * k, j[1]); g.lineTo(ft[0] + .9 * k, ft[1]); g.stroke(); }
-            g.save(); g.translate(ft[0], ft[1]); g.rotate(fa || 0); g.scale(k, k);      // bota: gira sobre el tobillo
-            g.fillStyle = near ? '#0a0c18' : '#05060d'; rrect(g, -1.7, -1, 5, 2.3, .9); g.fill();
-            g.fillStyle = near ? '#1d2238' : '#11131c'; rrect(g, 1.2, -.9, 1.9, 2, .8); g.fill();
-            g.fillStyle = near ? '#dfe4fb' : '#6a7090'; g.fillRect(-1.7, 1, 5, .42);      // suela
-            if (near) { g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.fillRect(-1.5, -.6, .9, .9); }
-            g.restore();
+        const C = { m: s.main, d: s.dark, st: 'rgba(255,255,255,.85)' };
+        const leg = (an, fa, near) => {
+            const j = ik2(hip[0], hip[1], an[0], an[1], BL.th * k, BL.sh * k, -1);
+            suitBoot(g, [j[2], j[3]], fa, k, C, near); suitLeg(g, hip, [j[0], j[1]], [j[2], j[3]], k, C, near);
         };
-        const arm = (hand, col, near) => {
-            const s0 = [sh[0] + (near ? .5 : -.5) * k, sh[1] + .6 * k], j = ik2(s0[0], s0[1], hand[0], hand[1], BL.ua * k, BL.fa * k, 1), hn = [j[2], j[3]];
-            flesh(g, s0[0], s0[1], (s0[0] + j[0]) / 2, (s0[1] + j[1]) / 2, j[0], j[1], 2.7 * k, 2.9 * k, 2.2 * k, col);
-            flesh(g, j[0], j[1], (j[0] + hn[0]) / 2, (j[1] + hn[1]) / 2, hn[0], hn[1], 2.2 * k, 2.4 * k, 1.8 * k, col);
-            if (near) { g.strokeStyle = 'rgba(' + s.glow + ',.6)'; g.lineWidth = .4 * k; g.beginPath(); g.moveTo(s0[0], s0[1] - .9 * k); g.lineTo(j[0], j[1] - .9 * k); g.stroke(); }
-            g.fillStyle = near ? '#1a1d30' : '#0d0f1a'; g.beginPath(); g.arc(hn[0], hn[1], 1.1 * k, 0, TAU); g.fill();      // guante
-            if (near) { g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(hn[0] - .3 * k, hn[1] - .35 * k, .4 * k, 0, TAU); g.fill(); }
+        const arm = (hand, near, grip) => {
+            const s0 = [sh[0] + (near ? .4 : -.5) * k, sh[1] + .9 * k], j = ik2(s0[0], s0[1], hand[0], hand[1], BL.ua * k, BL.fa * k, 1);
+            suitArm(g, s0, [j[0], j[1]], [j[2], j[3]], k, C, near, grip);
         };
-        part(P.cB, () => arm(P.hF, PANTD, false));
-        part(P.cF, () => leg(P.fF, P.fFa, PANTD, false));
-        part(P.cB, () => {      // mono con cinturón y banda del color del equipo; casco con la visera subida
-            flesh(g, hip[0], hip[1] + .6 * k, (hip[0] + sh[0]) / 2 + .7 * k * Math.cos(a), (hip[1] + sh[1]) / 2 + .7 * k * Math.sin(a), sh[0], sh[1], 5 * k, 6.2 * k, 5.6 * k, SUIT);
-            g.save(); g.translate((hip[0] + sh[0]) / 2, (hip[1] + sh[1]) / 2); g.rotate(a);
-            g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.fillRect(-.3 * k, -4.2 * k, .6 * k, 7.4 * k);
-            g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(.9 * k, -3.6 * k, 1.1 * k, 6 * k);
-            g.fillStyle = '#0b0e1c'; g.fillRect(-2.7 * k, 3.6 * k, 5.4 * k, 1 * k);      // cinturón
-            g.restore();
-            g.fillStyle = '#e8ecf6'; g.save(); g.translate(sh[0], sh[1]); g.rotate(ha); rrect(g, -.9 * k, -1.9 * k, 2 * k, 1.8 * k, .6 * k); g.fill(); g.restore();      // cuello
+        part(P.cB, () => dimmed(g, () => arm(P.hF, false, P.gF !== false)));
+        part(P.cF, () => dimmed(g, () => leg(P.fF, P.fFa, false)));
+        part(P.cB, () => {      // tronco con el mono; cuello con el sotocasco y casco con la visera subida
+            g.fillStyle = '#dfe3ee'; g.save(); g.translate(sh[0], sh[1]); g.rotate(ha); rrect(g, -1 * k, -2.2 * k, 2.1 * k, 2.4 * k, .7 * k); g.fill(); g.restore();
+            suitTorso(g, hip, a, BL.tor * k, k, C);
             g.save(); g.translate(head[0], head[1]); g.rotate(ha * .6 + (P.hr || 0));
             helmet(g, 2.85 * k, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t, open: P.visor == null ? .85 : P.visor, look: 0, dorsal: o.dorsal, model: CUR.model });
             g.restore();
         });
-        part(P.cN, () => leg(P.fN, P.fNa, PANT, true));
-        part(P.cB, () => arm(P.hN, SUIT, true));
+        part(P.cN, () => leg(P.fN, P.fNa, true));
+        part(P.cB, () => arm(P.hN, true, P.gN !== false));
         return { sh, head };
     }
     // sombra del piloto en el suelo (más pequeña y suave cuanto más alto está)
@@ -464,12 +539,12 @@ window.CARS = (() => {
             if (u >= 1) {      // recoloca el pie de atrás al lado del otro
                 const q = sstep((b - bw) / (K[0].b - bw)), f0 = x + gF.x, h0 = [X + 1.8 * k, fy - 14.6 * k], h1 = K[0].hN === 'H' ? d.h : K[0].hN;
                 return { hip: [X + q * 1.5, fy - (15.8 - .3 * (1 - q)) * k], a: .06, fN: [X + gN.x, fy - 1.2 * k], fF: [f0 + (X + 1.2 - f0) * q, fy - 1.2 * k - Math.sin(q * Math.PI) * 2.5], fFa: 0, fNa: 0,
-                    hN: [h0[0] + (h1[0] - h0[0]) * q, h0[1] + (h1[1] - h0[1]) * q], hF: [X + .5, fy - 14.8 * k], cF: 0, cB: 0, cN: 0, hr: 0 };
+                    hN: [h0[0] + (h1[0] - h0[0]) * q, h0[1] + (h1[1] - h0[1]) * q], hF: [X + .5, fy - 14.8 * k], cF: 0, cB: 0, cN: 0, hr: 0, gN: q > .6, gF: false };
             }
             const hy = fy - 15.9 * k + .5 * Math.cos(gN.c * TAU * 2) * sp, sw = gN.x / (stride * .25);
             const sx = x + Math.sin(.08) * 9 * k, sy = hy - 9 * k, ar = (ph) => [sx + (Math.sin(ph) * 8.6 + 1) * k, sy + Math.cos(ph) * 9.2 * k];
             return { hip: [x, hy], a: .08 + .04 * sp, hd: -.04, fN: [x + gN.x, fy - 1.2 * k - gN.lift], fF: [x + gF.x, fy - 1.2 * k - gF.lift], fNa: gN.fa, fFa: gF.fa,
-                hN: ar(-.5 * sw * sp + .1), hF: ar(.5 * sw * sp + .1), cF: 0, cB: 0, cN: 0, hr: Math.sin(gN.c * TAU * 2) * .03 };
+                hN: ar(-.5 * sw * sp + .1), hF: ar(.5 * sw * sp + .1), cF: 0, cB: 0, cN: 0, gN: false, gF: false, hr: Math.sin(gN.c * TAU * 2) * .03 };
         }
         let i = 0; while (i < K.length - 2 && b >= K[i + 1].b) i++;
         const A = K[i], B = K[Math.min(K.length - 1, i + 1)], uu = B.b > A.b ? cl01((b - A.b) / (B.b - A.b)) : 1, u = sstep(uu);
@@ -1757,36 +1832,17 @@ window.CARS = (() => {
         const heel = K(spd * .14 + boost * .14 + strike * .08, 0, .25);
         let footB = [-12.6 - lean * .8 - brake * .8 - pushK * 8, 3.4 - hop - heel * 1.2 + pushK * 9 - (sad === 2 ? Math.abs(Math.sin(t * 7)) * 3 : 0)], footF = [4 + lean * .6 + brake * 1.2, 3.4 - hop - (tap ? Math.abs(Math.sin(t * 9)) * 1.4 : 0)], footBa = heel, footFa = brake ? -.1 : 0;
         if (BPr) { const m = BPr.mix; footB = mixP(BPr.fB, footB, m); footF = mixP(BPr.fF, footF, m); footBa = BPr.faB * (1 - m) + footBa * m; footFa = BPr.faF * (1 - m) + footFa * m; }
+        const PC = { m: tm, d: '#0d1226', st: OR };      // mono de carreras de una pieza con franjas naranjas; botas y guantes a juego
         const leg = (foot, dark, fa) => {
             // rodilla siempre hacia delante (dir -1), como una pierna de verdad
-            const ax = foot[0] - Math.sin(fa || 0) * 1.6, ay = foot[1] - Math.cos(fa || 0) * 1.6, j = ik2(hx, hy, ax, ay, 11.4, 11.4, -1), col = dark ? PANTD : PANT;
-            // muslo con músculo y gemelo marcado por detrás (la curva sale hacia atrás de la pierna)
-            const tdx = j[0] - hx, tdy = j[1] - hy, sdx2 = ax - j[0], sdy2 = ay - j[1], sl = Math.hypot(sdx2, sdy2) || 1;
-            flesh(g, hx, hy, hx + tdx * .5 + tdy * .06, hy + tdy * .5 - tdx * .06, j[0], j[1], 6.6, 7.3, 5.1, col);
-            flesh(g, j[0], j[1], j[0] + sdx2 * .4 - sdy2 / sl * 1.1, j[1] + sdy2 * .4 + sdx2 / sl * 1.1, ax, ay, 5.1, 5.9, 3.5, col);
-            if (!dark) { flesh(g, hx + .5, hy - 1, hx + tdx * .5 + .5, hy + tdy * .5 - 1.2, j[0] + .4, j[1] - 1, 2.2, 2.6, 1.6, 'rgba(255,255,255,.07)'); }      // volumen: luz encima del muslo
-            // borde de luz del color del equipo para que las piernas se lean sobre fondos oscuros
-            g.strokeStyle = 'rgba(' + s.glow + ',' + (dark ? .22 : .35) + ')'; g.lineWidth = .7; g.beginPath(); g.moveTo(hx + 2.4, hy + .4); g.lineTo(j[0] + 2.2, j[1]); g.lineTo(ax + 2, ay); g.stroke();
+            const ax = foot[0] - Math.sin(fa || 0) * 1.6, ay = foot[1] - Math.cos(fa || 0) * 1.6, j = ik2(hx, hy, ax, ay, 11.4, 11.4, -1);
+            const body = () => { suitBoot(g, [ax, ay + .95], fa || 0, 1.75, PC, !dark); suitLeg(g, [hx, hy], [j[0], j[1]], [ax, ay], 1.5, PC, !dark); };
+            if (dark) dimmed(g, body); else body();
             if (!dark) {
-                g.strokeStyle = 'rgba(255,255,255,.14)'; g.lineWidth = 1; g.beginPath(); g.moveTo(hx + .6, hy - 1.7); g.lineTo(j[0] + .5, j[1] - 1.7); g.lineTo(ax + .4, ay - 1.4); g.stroke();
-                g.strokeStyle = ORA('.75'); g.lineWidth = .5; g.beginPath(); g.moveTo(hx - .8, hy + 1.4); g.lineTo(j[0] - .8, j[1] + 1.2); g.stroke();       // costura naranja
-                g.fillStyle = '#0b0d17'; g.beginPath(); g.arc(j[0] + .9, j[1] - .2, 2.7, 0, TAU); g.fill();                                          // rodillera
-                g.fillStyle = tm; g.beginPath(); g.arc(j[0] + .9, j[1] - .2, 2.2, 0, TAU); g.fill();
+                g.fillStyle = '#0b0d17'; g.beginPath(); g.ellipse(j[0] + 1.2, j[1] - .2, 2, 2.5, 0, 0, TAU); g.fill(); g.strokeStyle = ORD; g.lineWidth = .6; g.stroke();      // rodillera
+                g.fillStyle = '#1b2036'; g.beginPath(); g.ellipse(j[0] + 1.3, j[1] - .3, 1.2, 1.6, 0, 0, TAU); g.fill();
                 g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = .5; g.beginPath(); g.arc(j[0] + .9, j[1] - .2, 1.5, Math.PI * 1.1, Math.PI * 1.6); g.stroke();
-                const sa = Math.atan2(ay - j[1], ax - j[0]);
-                g.save(); g.translate(j[0] + (ax - j[0]) * .55, j[1] + (ay - j[1]) * .55); g.rotate(sa); g.fillStyle = ORA('.9'); g.fillRect(-2.6, -1.9, 5.2, .8); g.restore();   // espinillera
             }
-            g.save(); g.translate(ax, ay); g.rotate(fa || 0); g.translate(-foot[0], -foot[1] + 1.6);      // la bota gira sobre el tobillo (puntillas)
-            g.fillStyle = dark ? '#05060d' : '#0a0c18'; rrect(g, foot[0] - 5.2, foot[1] - 2.5, 10.4, 4.3, 1.7); g.fill();
-            g.fillStyle = dark ? '#1a1d2c' : '#1d2238'; rrect(g, foot[0] + 1.6, foot[1] - 2.3, 3.8, 3.7, 1.5); g.fill();                              // puntera
-            g.fillStyle = dark ? '#8a90aa' : '#dfe4fb'; g.fillRect(foot[0] - 5.2, foot[1] + 1.2, 10.4, .9);                                              // suela
-            g.fillStyle = dark ? '#3a3f55' : '#6a7090'; for (let i = 0; i < 6; i++) g.fillRect(foot[0] - 4.9 + i * 1.75, foot[1] + 2, .9, .45);           // tacos de la suela
-            g.fillStyle = dark ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.3)'; g.beginPath(); g.ellipse(foot[0] + 3.6, foot[1] - 1.6, 1.4, .5, -.2, 0, TAU); g.fill();      // brillo de la puntera
-            g.fillStyle = OR; g.fillRect(foot[0] - 4.8, foot[1] - 1.2, 1.8, 1.6);
-            g.fillStyle = dark ? '#1a1d2c' : '#2b3150'; g.fillRect(foot[0] - 1.4, foot[1] - 2.5, 1.3, 3.4); g.fillRect(foot[0] + .2, foot[1] - 2.5, 1.1, 3.4); g.fillStyle = dark ? '#6a708c' : '#cfd5ee'; g.fillRect(foot[0] - 1.2, foot[1] - 1.3, .9, .7);      // correas y hebilla
-            g.strokeStyle = dark ? 'rgba(255,255,255,.15)' : 'rgba(255,255,255,.4)'; g.lineWidth = .4;
-            for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(foot[0] - 2 + i * 1.3, foot[1] - 2.2); g.lineTo(foot[0] - 1.2 + i * 1.3, foot[1] - .8); g.stroke(); }
-            g.restore();
         };
         // sombra del piloto sobre la plataforma (desaparece en el aire)
         if (BPr && BPr.hy > -12) { const sx = (footB[0] + footF[0]) / 2, sy = 3.4 + (16.5 - DT - 1.6) / 1.05 + 2.4, sg = g.createRadialGradient(sx, sy, 1, sx, sy, 12); sg.addColorStop(0, 'rgba(0,0,0,.35)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sg; g.beginPath(); g.ellipse(sx, sy, 12, 1.6, 0, 0, TAU); g.fill(); }      // sombra en el suelo mientras llega
@@ -1799,85 +1855,20 @@ window.CARS = (() => {
         poly(g, [[-3.6, -13], [-4.8, -10.8], [-3.9, -10.8], [-4.6, -8.8], [-2.9, -11.4], [-3.8, -11.4]], OR);      // rayo
         g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(-6.2, -13.9, 4.4, .5); g.fillStyle = '#05060d'; g.fillRect(-5.6, -12.2, .8, 1.4);
         g.restore();
-        {   // faldón de la chaqueta: ondea con la velocidad y el turbo
-            const fl = Math.sin(t * (8 + boost * 10)) * (.5 + spd + boost * .8), L = 3 + spd * 3 + boost * 3;
-            g.fillStyle = tm; g.beginPath(); g.moveTo(hx - 3.2, hy - 3.4); g.quadraticCurveTo(hx - 4 - L * .6, hy - 2.6 + fl * .6, hx - 3.6 - L, hy + .4 + fl); g.lineTo(hx - 2.4, hy + .8); g.closePath(); g.fill();
-            g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.moveTo(hx - 3, hy - .6); g.quadraticCurveTo(hx - 3.6 - L * .5, hy + .2 + fl * .5, hx - 3.6 - L, hy + .4 + fl); g.lineTo(hx - 2.4, hy + .8); g.closePath(); g.fill();
-        }
-        // torso: chaqueta con volumen, hombrera, capucha, cremallera, bolsillo y banda reflectante
-        // espalda curva: se encorva al agacharse y se endereza al celebrar
-        const sdx = sh[0] - hx, sdy = sh[1] - hy, sL = Math.hypot(sdx, sdy) || 1, nbx = sdy / sL, nby = -sdx / sL;
-        const spine = (ox, oy, ox2, oy2, w, col) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(hx + ox, hy + oy); g.quadraticCurveTo((hx + sh[0]) / 2 + nbx * curl + (ox + ox2) / 2, (hy + sh[1]) / 2 + nby * curl + (oy + oy2) / 2, sh[0] + ox2, sh[1] + oy2); g.stroke(); };
-        {   // tronco con forma: más estrecho en la cintura y ancho de pecho y hombros
-            const mx = (hx + sh[0]) / 2 + nbx * curl, my = (hy + sh[1]) / 2 + nby * curl;
-            flesh(g, hx, hy, mx, my, sh[0], sh[1], 8.2, 10.2, 9.6, '#0d1226');
-            flesh(g, hx + .2, hy - .6, mx + .1, my - .3, sh[0], sh[1], 7.4, 9.4, 8.8, tm);
-            flesh(g, hx + 1.6, hy - 1.4, mx + nbx * -.2 + 1.2, my - 1, sh[0] + 1.2, sh[1] + .8, 2.4, 3.4, 2.8, 'rgba(255,255,255,.12)');      // luz en el pecho
-        } spine(-2.2, -.6, -2.2, 0, 2.2, tmD); spine(1.8, -1.6, 1.4, 1.2, 1.1, 'rgba(255,255,255,.5)');
-        const ta = Math.atan2(sh[1] - hy, sh[0] - hx);
-        g.save(); g.translate(hx, hy); g.rotate(ta);
-        g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = .8; g.beginPath(); g.moveTo(5.4, -3.4); g.lineTo(5.4, 3.4); g.stroke();                        // banda reflectante
-        g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(5.2, -3.4, .5, 6.8);
-        g.strokeStyle = 'rgba(8,10,28,.7)'; g.lineWidth = .5; g.beginPath(); g.moveTo(1, 3.2); g.lineTo(12, 3.2); g.stroke();                                   // cremallera
-        g.setLineDash([.5, .5]); g.strokeStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.moveTo(1, 3.2); g.lineTo(12, 3.2); g.stroke(); g.setLineDash([]);
-        g.strokeStyle = 'rgba(8,10,28,.55)'; g.lineWidth = .5; g.beginPath(); g.moveTo(2.6, -2.4); g.lineTo(5, -2.4); g.lineTo(5, -.4); g.stroke();       // bolsillo
-        g.restore();
-        g.fillStyle = '#0d1226'; g.fillRect(hx - 3.6, hy - 2.2, 7.2, 1.8); g.fillStyle = OR; g.fillRect(hx - 3.6, hy - 2.2, 7.2, .5); g.fillStyle = '#d8dcf0'; g.fillRect(hx - .6, hy - 2, 1.4, 1.3); g.fillStyle = '#0d1226'; g.fillRect(hx - .2, hy - 1.7, .6, .7);
-        g.strokeStyle = 'rgba(5,8,22,.45)'; g.lineWidth = .5; for (let i = 0; i < 3; i++) { const u = .22 + i * .2, wx = hx + (sh[0] - hx) * u, wy2 = hy + (sh[1] - hy) * u, wd = 1.6 + crouch * 1.2; g.beginPath(); g.moveTo(wx - 3.2, wy2 + i * .2); g.quadraticCurveTo(wx - 1, wy2 + wd, wx + 2.2, wy2 + .4); g.stroke(); }       // arrugas de la chaqueta
-        g.fillStyle = tm; g.beginPath(); g.arc(sh[0], sh[1], 3.9, 0, TAU); g.fill(); g.strokeStyle = 'rgba(8,10,28,.55)'; g.lineWidth = .6; g.stroke();   // hombro
-        g.fillStyle = tmD; g.beginPath(); g.arc(sh[0] - 3, sh[1] - 1.4, 3.1, 0, TAU); g.fill();                                                                  // capucha
-        g.fillStyle = tm; g.beginPath(); g.arc(sh[0] - 3.2, sh[1] - 1.8, 2.6, 0, TAU); g.fill();
-        {   // la capucha ondea detrás con el viento
-            const fl = Math.sin(t * (7 + boost * 9) + 1) * (.4 + spd + boost), L = 2 + spd * 2.6 + boost * 2.4;
-            g.fillStyle = tmD; g.beginPath(); g.moveTo(sh[0] - 5.4, sh[1] - 2.8); g.quadraticCurveTo(sh[0] - 6 - L * .6, sh[1] - 2.2 + fl * .5, sh[0] - 5.6 - L, sh[1] + fl); g.lineTo(sh[0] - 4.6, sh[1] + .4); g.closePath(); g.fill();
-        }
+        // tronco con el mono de carreras de una pieza: cuello alto, cremallera, franjas naranjas y parches
+        suitTorso(g, [hx, hy], Math.atan2(sh[0] - hx, hy - sh[1]), Math.hypot(sh[0] - hx, sh[1] - hy), 1.6, PC);
         // correa de la mochila cruzando el pecho con hebilla
         g.strokeStyle = '#05060d'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(sh[0] - 1.6, sh[1] + 1.2); g.quadraticCurveTo(sh[0] + 1.6, (sh[1] + hy) / 2, hx + 2.6, hy - 4.4); g.stroke();
         g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = .35; g.stroke();
         { const bx = sh[0] + (hx - sh[0]) * .5 + 1.6, by = (sh[1] + hy) / 2 - .6; g.fillStyle = '#c9cfe6'; rrect(g, bx - .9, by - .7, 1.8, 1.4, .4); g.fill(); }
-        // bufanda: sigue al viento relativo, ondea más con el turbo
-        {
-            const wl = Math.hypot(vf, vu) || 1, dxw = air || spd > .05 ? -vf / Math.max(.6, wl) * .95 : -.9, dyw = air || spd > .05 ? -vu / Math.max(.6, wl) * .7 + .12 : .15;
-            const L = 8 + spd * 10 + boost * 7 + (win ? 3 : 0), amp = 1.1 + spd * 1.4 + boost * 1.6, nl = Math.hypot(dxw, dyw) || 1, ex = dxw / nl, ey = dyw / nl;
-            const bx = sh[0] + 1.4, by = sh[1] - 1.8;
-            g.fillStyle = 'rgba(' + s.glow + ',.95)';
-            for (let k = 0; k < 2; k++) {
-                const off = k ? 1.7 : 0; g.beginPath(); g.moveTo(bx - ex * .5, by + off);
-                for (let i = 1; i <= 8; i++) { const u = i / 8, w = Math.sin(t * (9 + boost * 8) - u * 6 + k) * amp * u; g.lineTo(bx + ex * L * u - ey * w, by + off + ey * L * u + ex * w); }
-                for (let i = 8; i >= 1; i--) { const u = i / 8, w = Math.sin(t * (9 + boost * 8) - u * 6 + k) * amp * u; g.lineTo(bx + ex * L * u - ey * w, by + 2.4 + off * .6 + ey * L * u + ex * w - .5 * (1 - u)); }
-                g.closePath(); g.fill();
-            }
-            g.strokeStyle = 'rgba(255,255,255,.4)'; g.lineWidth = .5; for (let i = 1; i < 4; i++) { const u = i / 4.5; g.beginPath(); g.moveTo(bx + ex * L * u, by + 1 + ey * L * u); g.lineTo(bx + ex * L * u, by + 2.2 + ey * L * u); g.stroke(); }
-            g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(sh[0] - .6, sh[1] - 2.6, 4, .8);
-        }
         // brazos con guantes; con gol, un puño en alto bien separado de la cabeza
         const grp = [18.1 - boost * .4, -37.5 + Math.max(0, sF) * .6 + hitK * .8];
         const arm = (hand, dark, up) => {
             const s0 = [sh[0] + (dark ? -.8 : .4), sh[1] + (dark ? -.2 : 0)], ph = dark ? 1.4 : 0;
             // codo hacia abajo (dir 1): el brazo cuelga del hombro y sube hacia el manillar
             const j = up ? [s0[0] + 8 - (dark ? 3 : 0), s0[1] - 1 - (dark ? 3 : 0)] : ik2(s0[0], s0[1], hand[0], hand[1], 10.6, 11, 1), hnd = up ? [s0[0] + 14 - (dark ? 6 : 0) + Math.sin(t * 6 + ph) * 1.6, s0[1] - 12 - (dark ? 4 : 0) - Math.abs(Math.cos(t * 6 + ph)) * 1.2] : [j[2], j[3]];
-            {   // brazo con bíceps y antebrazo más ancho junto al codo
-                const ac = dark ? '#0b0d1a' : tm, ux = j[0] - s0[0], uy = j[1] - s0[1], fx = hnd[0] - j[0], fy = hnd[1] - j[1];
-                flesh(g, s0[0], s0[1], s0[0] + ux * .5 + uy * .08, s0[1] + uy * .5 - ux * .08, j[0], j[1], 4.8, 5.2, 3.8, ac);
-                flesh(g, j[0], j[1], j[0] + fx * .35, j[1] + fy * .35, hnd[0], hnd[1], 3.8, 4.3, 2.9, ac);
-            }
-            if (!dark) {
-                g.strokeStyle = tmD; g.lineWidth = 1.2; g.beginPath(); g.moveTo(s0[0] - .6, s0[1] + 1.4); g.lineTo(j[0] - .6, j[1] + 1.2); g.stroke();
-                g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = .7; g.beginPath(); g.moveTo(s0[0] + .6, s0[1] - 1.2); g.lineTo(j[0] + .5, j[1] - 1.2); g.stroke();
-                g.fillStyle = '#0b0d17'; g.beginPath(); g.arc(j[0], j[1], 2.3, 0, TAU); g.fill(); g.fillStyle = tm; g.beginPath(); g.arc(j[0], j[1], 1.8, 0, TAU); g.fill();         // codo
-            }
-            g.fillStyle = dark ? '#05060d' : '#0a0c18'; g.beginPath(); g.arc(hnd[0], hnd[1], 2.5, 0, TAU); g.fill();
-            {   // guante con dedos: rodean el puño del manillar o se cierran en puño
-                const onBar = Math.hypot(hnd[0] - grp[0], hnd[1] - grp[1]) < 2.4, fc = dark ? '#11131c' : '#1d2133';
-                g.fillStyle = fc;
-                for (let i = 0; i < 4; i++) { const a = (onBar ? .1 : -1.5) + i * .5; g.beginPath(); g.arc(hnd[0] + Math.cos(a) * 2.3, hnd[1] + Math.sin(a) * 2.3, .95, 0, TAU); g.fill(); }
-                g.beginPath(); g.ellipse(hnd[0] - 1.5, hnd[1] - 1.6, 1.15, .7, -.7, 0, TAU); g.fill();      // pulgar
-                if (!dark) { g.fillStyle = 'rgba(255,255,255,.22)'; for (let i = 0; i < 4; i++) { const a = (onBar ? .1 : -1.5) + i * .5; g.fillRect(hnd[0] + Math.cos(a) * 2.3 - .3, hnd[1] + Math.sin(a) * 2.3 - .6, .6, .3); } }
-            }
-            if (!dark) {
-                g.fillStyle = OR; g.fillRect(hnd[0] - 2.4, hnd[1] - 2.3, 2, .9);
-                g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = .4; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(hnd[0] + .2 + i * .6, hnd[1] - 1.8); g.lineTo(hnd[0] + .2 + i * .6, hnd[1] + .2); g.stroke(); }
-            }
+            const body = () => suitArm(g, s0, [j[0], j[1]], hnd, 1.75, PC, !dark, !(BPr && pb < .31));      // mono y guante de carreras (mano abierta solo al andar)
+            if (dark) dimmed(g, body); else body();
         };
         // brazo de atrás: agarrado al manillar (también en el aire); al encajar cuelga o se lleva la mano al casco,
         // y parado de vez en cuando se ajusta el visor
@@ -1899,16 +1890,7 @@ window.CARS = (() => {
         arm(back, true, cel === 1); arm(front, false, cel === 0 || cel === 1);
         // casco integral cromático: ventilaciones, oreja, barbilla y visor que reacciona a todo
         const R6 = 6.5;
-        g.strokeStyle = '#0d1226'; g.lineWidth = 4; g.beginPath(); g.moveTo(sh[0], sh[1]); g.lineTo(head[0], head[1] + 2); g.stroke();                       // cuello
-        {   // cola de pelo que ondea con el viento
-            const wl = Math.hypot(vf, vu) || 1, dxw = air || spd > .05 ? -vf / Math.max(.6, wl) : -1, dyw = air || spd > .05 ? -vu / Math.max(.6, wl) * .6 + .15 : .25;
-            const Lh = 5 + spd * 8 + boost * 5, nn = Math.hypot(dxw, dyw) || 1, ex = dxw / nn, ey = dyw / nn, bx = head[0] - 5, by = head[1] - 1.5;
-            for (let k = 0; k < 2; k++) {
-                g.strokeStyle = k ? ORA(.95) : '#0b0d17'; g.lineWidth = k ? 1 : 2.4; g.beginPath(); g.moveTo(bx, by);
-                for (let q = 1; q <= 6; q++) { const u = q / 6, w = Math.sin(t * (10 + boost * 8) - u * 5) * (.7 + spd + boost) * u; g.lineTo(bx + ex * Lh * u - ey * w, by + ey * Lh * u + ex * w + u * u * 1.5); }
-                g.stroke();
-            }
-        }
+        g.strokeStyle = '#dfe3ee'; g.lineWidth = 3.8; g.beginPath(); g.moveTo(sh[0], sh[1]); g.lineTo(head[0], head[1] + 2); g.stroke();                       // cuello con el sotocasco
         // la cabeza sigue al balón; al encajar niega con la cabeza; al señalar asiente; con los brazos arriba mira al cielo
         g.save(); g.translate(head[0], head[1]); g.rotate(spr('hr', headRot, 220, 28));
 
