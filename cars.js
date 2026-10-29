@@ -107,6 +107,8 @@ window.CARS = (() => {
         if (f === 'chrome') return [[0, '#ffffff'], [.22, s.lite], [.4, s.dark], [.55, '#ffffff'], [.78, s.main], [1, s.dark]];
         return [[0, s.lite], [.28, s.main], [1, s.dark]];
     }
+    // color del cielo y del suelo de cada estadio (para el reflejo de la pintura)
+    const ENV_REF = { neon: ['150,190,255', '20,24,70'], snow: ['235,245,255', '120,140,170'], desierto: ['255,215,160', '120,70,30'], ciudad: ['190,200,255', '30,32,50'], volcan: ['255,150,90', '40,14,8'], retro: ['255,120,230', '40,10,70'] };
     // Carrocería con pintura brillante: degradado, reflejo de barniz, sombra inferior y destello que recorre la chapa
     function paintBody(g, build, stops, o, top) {
         const y0 = top || -20;       // altura del techo: los coches altos (furgoneta) reparten el degradado en toda la carrocería
@@ -134,6 +136,13 @@ window.CARS = (() => {
         } else if (fin === 'chrome') {
             const cb = g.createLinearGradient(0, -20, 0, 11); cb.addColorStop(.28, 'rgba(255,255,255,.0)'); cb.addColorStop(.34, 'rgba(255,255,255,.75)'); cb.addColorStop(.45, 'rgba(20,30,70,.35)'); cb.addColorStop(.6, 'rgba(255,255,255,.4)'); cb.addColorStop(1, 'rgba(20,30,70,.25)');
             g.fillStyle = cb; g.fillRect(-62, -24, 128, 40);
+        }
+        {   // reflejo del estadio en el barniz: el cielo y los focos arriba, el suelo oscuro bajo la línea del horizonte
+            const E = ENV_REF[CUR.env] || ENV_REF.neon, kr = fin === 'matte' ? .35 : fin === 'chrome' ? 1.4 : 1, hy0 = y0 + (11 - y0) * .42;
+            const rg = g.createLinearGradient(0, y0, 0, 11);
+            rg.addColorStop(0, 'rgba(' + E[0] + ',0)'); rg.addColorStop(.3, 'rgba(' + E[0] + ',' + (.2 * kr).toFixed(3) + ')'); rg.addColorStop(.41, 'rgba(' + E[0] + ',' + (.3 * kr).toFixed(3) + ')');
+            rg.addColorStop(.43, 'rgba(' + E[1] + ',' + (.26 * kr).toFixed(3) + ')'); rg.addColorStop(.75, 'rgba(' + E[1] + ',' + (.1 * kr).toFixed(3) + ')'); rg.addColorStop(1, 'rgba(' + E[1] + ',0)');
+            g.fillStyle = rg; g.fillRect(-62, y0 - 4, 128, 16 - y0); g.fillStyle = 'rgba(255,255,255,' + (.18 * kr).toFixed(3) + ')'; g.fillRect(-62, hy0 - .3, 128, .45);
         }
         if (CUR.over) paintFx(g, fin, o);
         const lo = g.createLinearGradient(0, -1, 0, 11);
@@ -222,6 +231,9 @@ window.CARS = (() => {
         g.fillStyle = 'rgba(255,255,255,.4)';
         g.beginPath(); g.moveTo(pts[0][0] + 3, pts[0][1]); g.lineTo(pts[0][0] + 11, pts[0][1] - 14); g.lineTo(pts[0][0] + 15, pts[0][1] - 14); g.lineTo(pts[0][0] + 7, pts[0][1]); g.closePath(); g.fill();
         g.restore();
+        // marco de goma y tinte oscuro abajo
+        g.save(); poly(g, pts); g.clip(); const tg2 = g.createLinearGradient(0, -6, 0, 2); tg2.addColorStop(0, 'rgba(5,10,30,0)'); tg2.addColorStop(1, 'rgba(5,10,30,.35)'); g.fillStyle = tg2; g.fillRect(-60, -30, 120, 40); g.restore();
+        g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.lineJoin = 'round'; g.strokeStyle = 'rgba(4,6,16,.9)'; g.lineWidth = .9; g.stroke(); g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = .3; g.stroke();
     }
     // visera con efecto espejo iridiscente (cambia de tono con el tiempo y el movimiento)
     function iriVisor(g, x0, y0, x1, y1, t) {
@@ -351,6 +363,8 @@ window.CARS = (() => {
         g.fillStyle = tg; g.fillRect(x, y, w, h);
         g.fillStyle = o.brake ? 'rgba(255,235,215,.9)' : 'rgba(255,150,130,.7)'; g.fillRect(x, y + h * .16, w, Math.max(.6, h * .12));
         g.fillStyle = 'rgba(0,0,0,.3)'; for (let i = 1; i < 3; i++) g.fillRect(x, y + h * i / 3 - .2, w, .4);
+        g.fillStyle = o.brake ? 'rgba(255,255,255,.85)' : 'rgba(255,190,170,.55)'; for (let i = 0; i < 3; i++) g.fillRect(x + w * (.2 + i * .3) - .15, y + h * .3, .3, h * .55);      // tiras LED
+        g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = .25; g.strokeRect(x + .2, y + .2, w - .4, h - .4);
         glowDot(g, x, y + h / 2, o.brake ? 17 : 9, '255,50,40', o.brake ? .9 : .4);
     }
     // ---------- Detalles compartidos ----------
@@ -387,6 +401,7 @@ window.CARS = (() => {
         g.fillStyle = lg; rrect(g, x, y, w, h, h * .45); g.fill();
         g.fillStyle = 'rgba(70,90,150,.55)'; g.beginPath(); g.arc(x + w * .6, y + h * .5, Math.min(w, h) * .32, 0, TAU); g.fill();
         g.fillStyle = '#fff'; g.beginPath(); g.arc(x + w * .6 + .5, y + h * .5 - .4, Math.min(w, h) * .12, 0, TAU); g.fill();
+        g.fillStyle = 'rgba(' + (CUR.rgb || '200,230,255') + ',.95)'; rrect(g, x + .3, y - .5, w - .6, .5, .25); g.fill(); glowDot(g, x + w / 2, y - .3, 3.5, CUR.rgb || '200,230,255', .5);      // luz de día LED
     }
     function carbon(g, pts) {
         g.save(); poly(g, pts, '#0b0e1c'); g.clip();
@@ -401,6 +416,11 @@ window.CARS = (() => {
         g.fillStyle = gr; g.beginPath(); g.ellipse(0, 14, w, 9, 0, 0, TAU); g.fill();
     }
     function flame(g, x, y, len, wid, boost, t, hot) {
+        if (CUR.model !== 'prisma') {      // punta del escape cromada con hollín
+            const eg = g.createLinearGradient(0, y - 1.6, 0, y + 1.6); eg.addColorStop(0, '#f4f6ff'); eg.addColorStop(.5, '#8a90aa'); eg.addColorStop(1, '#3a3f55');
+            g.fillStyle = eg; rrect(g, x - 1.2, y - 1.5, 4, 3, 1.2); g.fill(); g.fillStyle = '#0a0b12'; g.beginPath(); g.ellipse(x - .9, y, .6, 1.05, 0, 0, TAU); g.fill();
+            g.fillStyle = 'rgba(20,20,26,.35)'; g.beginPath(); g.ellipse(x + 2.2, y - .2, 2, 1.6, 0, 0, TAU); g.fill();
+        }
         if (!boost) {      // sin turbo: bocanadas de humo del escape (más al acelerar); el patín eléctrico no echa humo
             const k = CUR.puff || 0; if (k <= .02 || CUR.model === 'prisma') return;
             for (let i = 0; i < 4; i++) {
@@ -465,6 +485,7 @@ window.CARS = (() => {
         g.save(); g.rotate(o.wheel);                                        // dibujo del neumático: tacos en el borde (los slicks del F1 no tienen)
         g.strokeStyle = 'rgba(70,78,120,.8)'; g.lineWidth = .9;
         if (!CUR.noArch) for (let i = 0; i < 24; i++) { const a = i * TAU / 24; g.beginPath(); g.moveTo(Math.cos(a) * (r - 1.8), Math.sin(a) * (r - 1.8)); g.lineTo(Math.cos(a) * (r - .3), Math.sin(a) * (r - .3)); g.stroke(); }
+        if (!CUR.noArch && r > 8) { g.fillStyle = 'rgba(235,240,255,.55)'; g.font = '800 ' + (r * .16).toFixed(2) + 'px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; const L = 'TURBO GOL'; for (let k = 0; k < 2; k++) for (let i = 0; i < L.length; i++) { g.save(); g.rotate(k * Math.PI + (i - L.length / 2) * .17); g.translate(0, -(r - 3.05)); g.fillText(L[i], 0, 0); g.restore(); } }      // letras en el flanco del neumático
         g.restore();
         g.strokeStyle = 'rgba(160,170,220,.4)'; g.lineWidth = .7; g.beginPath(); g.arc(0, 0, r - 2.3, 0, TAU); g.stroke();
         g.strokeStyle = 'rgba(255,255,255,.16)'; g.lineWidth = 1; g.beginPath(); g.arc(0, 0, r - .9, Math.PI * 1.15, Math.PI * 1.7); g.stroke();
@@ -565,9 +586,21 @@ window.CARS = (() => {
             ag.addColorStop(0, 'rgba(0,0,10,.42)'); ag.addColorStop(1, 'rgba(0,0,10,0)');
             g.fillStyle = ag; g.fillRect(w[0] - w[1] - 11, -10, (w[1] + 11) * 2, 22);
         }
+        if (CUR.dirt > .02) {      // suciedad del estadio en los bajos (va apareciendo durante el partido)
+            const D = { snow: '235,242,255', desierto: '196,150,98', volcan: '90,86,88', ciudad: '70,66,60', neon: '60,70,110', retro: '120,60,150' }[CUR.env] || '80,76,70', k = CUR.dirt;
+            const dg = g.createLinearGradient(0, c.ry - 7, 0, c.ry + 4); dg.addColorStop(0, 'rgba(' + D + ',0)'); dg.addColorStop(1, 'rgba(' + D + ',' + (.7 * k).toFixed(3) + ')');
+            g.fillStyle = dg; g.fillRect(c.x0, c.ry - 7, c.x1 - c.x0, 12);
+            for (let i = 0; i < 18; i++) { const x = c.x0 + ((i * 37.7) % (c.x1 - c.x0)), y = c.ry - 1 - ((i * 13.3) % 7); g.fillStyle = 'rgba(' + D + ',' + (.55 * k * (.5 + (i % 3) * .25)).toFixed(3) + ')'; g.beginPath(); g.ellipse(x, y, 1 + (i % 4) * .6, .6 + (i % 3) * .4, 0, 0, TAU); g.fill(); }
+            for (const w of c.arches) { g.fillStyle = 'rgba(' + D + ',' + (.6 * k).toFixed(3) + ')'; for (let i = 0; i < 7; i++) { const a = Math.PI * (1.1 + i * .13); g.beginPath(); g.arc(w[0] + Math.cos(a) * (w[1] + 4.6), 6 + Math.sin(a) * (w[1] + 4.6), 1.1 + (i % 2) * .5, 0, TAU); g.fill(); } }
+        }
         g.restore();
         g.strokeStyle = 'rgba(255,255,255,.28)'; g.lineWidth = .6;
         for (const w of c.arches) { g.beginPath(); g.arc(w[0], 6, w[1] + 3.7, Math.PI * 1.02, Math.PI * 1.98); g.stroke(); }
+        // tornillos de las aletas
+        for (const w of c.arches) for (let i = 0; i < 4; i++) { const a = Math.PI * (1.18 + i * .21), bx = w[0] + Math.cos(a) * (w[1] + 3.7), by = 6 + Math.sin(a) * (w[1] + 3.7); g.fillStyle = '#1a1d2c'; g.beginPath(); g.arc(bx, by, .75, 0, TAU); g.fill(); g.fillStyle = 'rgba(220,226,245,.85)'; g.beginPath(); g.arc(bx - .15, by - .15, .45, 0, TAU); g.fill(); }
+        // pegatina del patrocinador de cada coche (marcas inventadas)
+        const SP = { chispa: 'ZAP!', bisonte: 'BULL', mula: 'CARGO', cuna: 'SLICE', kaze: 'KAZE', titan: 'MEGA', fenix: 'SOL' }[CUR.model];
+        if (SP) { const ax = c.arches.length >= 2 ? (c.arches[0][0] + c.arches[1][0]) / 2 + 4 : (c.x0 + c.x1) / 2; sponsor(g, ax, c.ry - 2.2, SP, 2.4, '#ffffff', 'rgba(8,10,28,.85)'); }      // entre las dos ruedas
     }
     function fuelCap(g, x, y) { g.fillStyle = 'rgba(215,222,245,.95)'; g.beginPath(); g.arc(x, y, 1.15, 0, TAU); g.fill(); g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = .35; g.stroke(); g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(x - .5, y - .15, 1, .3); }
     function marker(g, x, y) { g.fillStyle = 'rgba(255,170,40,.95)'; rrect(g, x, y, 2.6, 1, .5); g.fill(); glowDot(g, x + 1.3, y + .5, 3, '255,170,40', .4); }
@@ -1860,7 +1893,7 @@ window.CARS = (() => {
             else { CUR.flame = tr.flame; CUR.glowRGB = tr.glow; }
         }
         if (model === 'prisma') o = Object.assign({}, o, { pal: o.paint && o.paint !== 'team' ? PAINT_BY[o.paint] : null });
-        CUR.model = model; CUR.rgb = sk.glow; CUR.puff = o.air ? 0 : .35 + Math.max(0, Math.min(1, (o.lean || 0) * 1.6)) * .65;      // humo del escape: al ralentí poco, acelerando mucho
+        CUR.model = model; CUR.rgb = sk.glow; CUR.env = o.env || 'neon'; CUR.dirt = Math.max(0, Math.min(1, o.dirt || 0)); CUR.puff = o.air ? 0 : .35 + Math.max(0, Math.min(1, (o.lean || 0) * 1.6)) * .65;      // humo del escape: al ralentí poco, acelerando mucho
         const SUSK = { chispa: 2.6, bisonte: 3.4, cuna: 2.4, kaze: 1.7, fenix: 2.4, mula: 3, titan: 4.6, formula: 1.1 }[model];
         if (SUSK && model !== 'prisma') {
             const cl = v => Math.max(-1.2, Math.min(1.2, v || 0));
