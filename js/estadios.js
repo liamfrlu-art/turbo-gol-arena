@@ -785,7 +785,7 @@ function drawJumbo(t) {
         const sx = x + JW - ((t * 90) % (JW + 520));
         ctx.textAlign = 'left'; jumboText('TURBO GOL ARENA  ·  ¡A JUGAR!', sx, y + JH / 2, 30, '#ffd23f', true);
     } else if (S.state === 'count') {
-        const n = Math.max(1, Math.ceil(S.cd)), f = S.cd % 1;
+        const n = Math.min(3, Math.max(1, Math.ceil(S.cd))), f = S.cd > 3 ? 0 : S.cd % 1;
         ctx.fillStyle = n === 3 ? 'rgba(61,184,255,.18)' : n === 2 ? 'rgba(255,138,43,.18)' : 'rgba(255,210,63,.18)'; ctx.fillRect(x, y, JW, JH);
         jumboText(String(n), x + JW / 2, y + JH / 2 + 3, 64 + f * 26, n === 3 ? blue : n === 2 ? orange : '#ffd23f', true);
     } else if (m) {

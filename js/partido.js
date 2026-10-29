@@ -61,7 +61,7 @@ function startMatch(mode, cup, v2) {
     if (mode === 'free') { S.world.cars[1].x = W * 0.9; S.world.cars[1].ghost = true; }      // entrenamiento libre (y tutorial): sin rival, ni se ve ni toca el balón
     { const on = Object.keys(MUT_N).filter(k => T.MUT[k]); if (on.length) setTimeout(() => say('Mutadores activos: ' + on.map(k => MUT_N[k]).join(', ') + '.', 1, 1.05, 1.1), 1800); }
     parts.length = 0; trail.length = 0; rings.length = 0; timers.length = 0; bolts.length = 0;
-    setState('count'); S.cd = 3.0; lastCd = 4; S.firstKO = mode === 'match';      // primer saque: los pilotos se suben a los coches durante la cuenta atrás
+    S.firstKO = mode === 'match'; setState('count'); countEl.classList.remove('show', 'pulse', 'ya'); S.cd = S.firstKO ? 5 : 3; lastCd = 4;      // primer saque: los pilotos se suben a los coches durante la cuenta atrás
     app.classList.remove('wipe'); void app.offsetWidth; app.classList.add('wipe');      // barrido de luz al empezar
     hideBanner(); updateHud(true); requestWake();
 }
@@ -686,9 +686,10 @@ function update(dt) {
     } else if (st === 'count') {
         pInp.jump = false;
         S.cd -= dt;
+        if (S.firstKO) { const b = 1 - S.cd / 5, b0 = b - dt / 5; if (b0 < .31 && b >= .31) sfx('latch'); if (b0 < .8 && b >= .8) sfx('door'); }      // primer saque: abre y cierra la puerta
         const n = Math.ceil(S.cd);
         if (S.cd > 0) {
-            if (n !== lastCd) { lastCd = n; countEl.textContent = n; countEl.style.color = CDC[n] || '#ffd23f'; countEl.classList.remove('show', 'pulse'); void countEl.offsetWidth; countEl.classList.add('show', 'pulse'); sfx('cd', n); ring(W / 2, H * .38, n === 3 ? 'blue' : n === 2 ? 'orange' : 'gold', 520, .5, 6); burst(W / 2, H * .38, 10, 260, n === 3 ? 'blue' : n === 2 ? 'orange' : 'gold', 4, .6); shake = Math.max(shake, 3 + (4 - n)); }
+            if (n !== lastCd && n <= 3) { lastCd = n; countEl.textContent = n; countEl.style.color = CDC[n] || '#ffd23f'; countEl.classList.remove('show', 'pulse'); void countEl.offsetWidth; countEl.classList.add('show', 'pulse'); sfx('cd', n); ring(W / 2, H * .38, n === 3 ? 'blue' : n === 2 ? 'orange' : 'gold', 520, .5, 6); burst(W / 2, H * .38, 10, 260, n === 3 ? 'blue' : n === 2 ? 'orange' : 'gold', 4, .6); shake = Math.max(shake, 3 + (4 - n)); }
         } else {
             countEl.textContent = '¡YA!'; countEl.style.color = '#3dffb0'; countEl.classList.remove('pulse'); void countEl.offsetWidth; countEl.classList.add('show', 'pulse', 'ya'); ring(W / 2, H * .38, 'green', 1100, .7, 10); ring(W / 2, H * .38, 'white', 700, .5, 5); burst(W / 2, H * .38, 34, 620, 'green', 5, .8); burst(W / 2, H * .38, 18, 500, 'white', 4, .6); S.flash = Math.max(S.flash, .45); shake = Math.max(shake, 9); sfx('go'); setState('play'); S.goHold = 0.7; hideBanner();
         }

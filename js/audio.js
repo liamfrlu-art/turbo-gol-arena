@@ -82,6 +82,8 @@ function sfx(name, v) {
             if (k > .35) { tone(95, .3, 'sine', .3 * k, -40); tone(1200, .09, 'triangle', .05 * k, -700); }
             break;
         case 'wall': tone(85, .16, 'sine', Math.min(.2, (v || 0) / 6000 + .03), -35); noise(.1, 'lowpass', 900, .7, Math.min(.12, (v || 0) / 9000), 220); break;
+        case 'door': tone(68, .16, 'sine', .17, -24); noise(.09, 'lowpass', 650, .7, .11, 180); tone(1400, .03, 'square', .025, 0, .02); break;      // portazo con el clic del cierre
+        case 'latch': tone(1250, .03, 'square', .03); tone(700, .05, 'triangle', .03, -200, .03); break;      // tirador de la puerta
         case 'land': tone(70, .12, 'sine', .12, -25); noise(.08, 'lowpass', 600, .7, .07, 180); break;
         case 'pad': [880, 1175, 1568].forEach((f, i) => tone(f, .16, 'sine', .07, 0, i * .05)); tone(440, .25, 'triangle', .05, 440); break;
         case 'ignite': noise(.45, 'bandpass', 400, 1, .17, 3200, 0, .03); tone(110, .35, 'sawtooth', .07, 260); tone(60, .4, 'sine', .12, -25); noise(.2, 'highpass', 3000, .7, .06, 800, .05, .01); break;

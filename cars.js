@@ -303,63 +303,284 @@ window.CARS = (() => {
     }
     // posición de la visera con un poco de inercia: arriba al celebrar, abajo de golpe en la cuenta atrás
     function visorOpen(o, M) {
-        const tgt = o.mood === 'win' || o.fin === 'win' ? 1 : 0;
+        const hold = CUR.board >= 0 && CUR.board < .9, tgt = o.mood === 'win' || o.fin === 'win' || hold ? 1 : 0;      // al subirse lleva la visera levantada
         if (!M) return tgt;
         const t = o.t || 0, dt = Math.max(0, Math.min(.05, t - (M.vzT == null ? t : M.vzT))); M.vzT = t;
-        const v = M.vz == null ? tgt : M.vz; M.vz = o.state === 'count' ? Math.max(0, v - dt * 9) : v + (tgt - v) * Math.min(1, dt * 6);
+        const v = M.vz == null ? tgt : M.vz; M.vz = o.state === 'count' && !hold ? Math.max(0, v - dt * 9) : v + (tgt - v) * Math.min(1, dt * 6);
         return M.vz;
     }
     // polígono encogido hacia su centro (para recortar el piloto un poco por dentro de la ventanilla)
     function insetPoly(pts, d) { let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= pts.length; cy /= pts.length; return pts.map(p => { const dx = p[0] - cx, dy = p[1] - cy, l = Math.hypot(dx, dy) || 1, k = Math.max(0, 1 - d / l); return [cx + dx * k, cy + dy * k]; }); }
-    // ---------- Primer saque: el piloto se sube al coche durante la cuenta atrás (CUR.board va de 0 a 1) ----------
-    // puerta de cada coche (x0, arriba, x1, abajo) y altura del suelo
-    const DOORS = { chispa: [-5, -6.2, 15, 5.4], bisonte: [-18, -5.6, 7, 5.4], mula: [15, -12, 33, 5.4], cuna: [-12, -2.2, 10, 5.4], kaze: [-21, -6.8, 4, 5], titan: [-3, -6.4, 15, 3.6], fenix: [-18, -6.6, 6, 5.4] };
-    const GROUND = { titan: 24 };
-    // piloto de pie, de cuerpo entero (mira hacia +x). p: { walk (fase), wave, crouch, alpha, k (tamaño) }
-    function standPilot(g, x, fy, s, o, p) {
-        const t = o.t || 0, k = p.k || 1, cr = p.crouch || 0;
-        g.save(); g.globalAlpha *= p.alpha == null ? 1 : p.alpha; g.translate(x, fy); g.scale(k, k);
-        const sw = p.walk != null ? Math.sin(p.walk * TAU) : 0, hip = [0, -11 + cr * 2.5], sh = [1 + cr * 1.6, hip[1] - 9 + cr * 1.2], head = [sh[0] + 1, sh[1] - 4.4];
-        const leg = (ph, col) => { const fx = ph * 3.2, kn = [hip[0] + fx * .5 + 1.4 + cr * 2, hip[1] + 5.6 - cr]; flesh(g, hip[0], hip[1], (hip[0] + kn[0]) / 2, (hip[1] + kn[1]) / 2, kn[0], kn[1], 3.4, 3.8, 2.8, col); flesh(g, kn[0], kn[1], kn[0] + fx * .2, kn[1] + 2.6, fx, 0, 2.8, 3, 2.2, col); g.fillStyle = '#0a0c18'; rrect(g, fx - 1.4, -1.4, 4.4, 1.8, .7); g.fill(); g.fillStyle = 'rgba(255,255,255,.6)'; g.fillRect(fx - 1.4, .1, 4.4, .3); };
-        const armTo = (to, col) => { const el = [(sh[0] + to[0]) / 2 - .6, (sh[1] + to[1]) / 2 + 1.2]; flesh(g, sh[0], sh[1], el[0], el[1], el[0], el[1], 2.6, 2.8, 2.2, col); flesh(g, el[0], el[1], (el[0] + to[0]) / 2, (el[1] + to[1]) / 2, to[0], to[1], 2.2, 2.4, 1.8, col); g.fillStyle = '#1a1d30'; g.beginPath(); g.arc(to[0], to[1], 1.05, 0, TAU); g.fill(); };
-        leg(-sw, '#0b0e1c'); armTo([sh[0] - 2 - sw * 2.4, sh[1] + 7.5], '#0b0e1c');
-        flesh(g, hip[0], hip[1], (hip[0] + sh[0]) / 2 + .6, (hip[1] + sh[1]) / 2, sh[0], sh[1], 4.8, 6, 5.4, s.dark);      // mono
-        g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.save(); g.translate((hip[0] + sh[0]) / 2, (hip[1] + sh[1]) / 2); g.rotate(Math.atan2(sh[1] - hip[1], sh[0] - hip[0]) + Math.PI / 2); g.fillRect(-2.4, -.3, 4.8, .6); g.restore();
-        leg(sw, '#161b32');
-        const wave = p.wave ? [sh[0] + 3 + Math.sin(t * 10) * 1.4, sh[1] - 6.5] : [sh[0] + 2 + sw * 2.4, sh[1] + 7.5];
-        armTo(wave, s.dark);
-        g.fillStyle = '#e8ecf6'; rrect(g, sh[0] - .4, sh[1] - 2, 2, 1.6, .6); g.fill();      // cuello
-        g.save(); g.translate(head[0], head[1]); g.rotate(p.wave ? -.15 : .05);
-        helmet(g, 3.3, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t, open: p.visor == null ? .8 : p.visor, look: 0, dorsal: o.dorsal, model: CUR.model });
-        g.restore(); g.restore();
+    // ---------- Primer saque: el piloto llega andando, abre la puerta y se sube durante la cuenta atrás (CUR.board va de 0 a 1 en 5 s) ----------
+    // Puertas cortadas por las líneas de cada coche (coordenadas del modelo; la bisagra es el borde delantero):
+    // p contorno con su ventanilla, seat cabeza del piloto ya sentado, belt línea de la ventanilla, h tirador, e borde de la puerta
+    // y r marco del techo (donde se agarra), up 'step' estribo / 'ladder' escalera, floor suelo de la cabina, co copiloto, dl retraso
+    const BDOORS = {
+        chispa: [{ p: [[-8, -16.2], [4.2, -16.2], [11.8, -10.4], [16.6, -6.8], [14.2, -6.2], [14.2, 4.6], [-8, 4.6]], seat: [4, -11.4], belt: -7, h: [-1, -2.5], e: [-6.6, -14.8], r: [-2, -15.4] },
+                 { p: [[-27.4, -16.2], [-8.4, -16.2], [-8.4, 4.6], [-14.6, 4.6], [-16.4, -.4], [-20.6, -4.4], [-28.6, -6.6]], seat: [-15, -11.4], belt: -7, h: [-19, -2.6], e: [-25.6, -14.8], r: [-21, -15.4], co: true, dl: .05, walk: 30 }],
+        bisonte: [{ p: [[-24.4, -5.4], [-14.3, -15.6], [-2.4, -15.6], [-2.4, -6.2], [3, -6.2], [2.8, 5.6], [-16, 5.6], [-17.6, 0], [-21, -3.6]], seat: [-10, -10.6], belt: -6, h: [-9, -2.6], e: [-15.2, -14.2], r: [-11, -14.8] }],
+        cuna: [{ p: [[-19, -7.4], [-13, -10.7], [4, -11.2], [14, -6.6], [15, -3.4], [15, 5.6], [-16, 5.6], [-17.4, -.6], [-19, -3.4]], seat: [-3, -6.4], belt: -3.6, h: [-12, -.6], e: [-13.6, -9.4], r: [-9, -10.2] }],
+        kaze: [{ p: [[-21, -14.7], [-3, -14.7], [3.6, -12.4], [13, -7.8], [13.4, -6.4], [13, 4], [-15, 4.6], [-18, -1], [-21, -4.4]], seat: [-12, -11], belt: -7.2, h: [-3, -3.8], e: [-19.6, -13.4], r: [-15, -13.8] }],
+        fenix: [{ p: [[-22.4, -9.6], [-14.2, -16], [6.4, -16], [18.8, -7.6], [15.4, -6.4], [15.4, 4.6], [-16, 4.6], [-18, 0], [-22, -4]], seat: [-9, -11], belt: -6.8, h: [-12, -3.4], e: [-14.6, -14.6], r: [-10, -15] }],
+        mula: [{ p: [[15.4, -28.4], [22.9, -28.4], [35.3, -13.6], [36.8, -11.2], [36.6, -6.6], [24.4, -5.6], [21, -1], [19.6, 5.4], [15.4, 5.4]], seat: [24, -19], belt: -14, h: [18.6, -11.6], e: [16.8, -26.4], r: [20, -27.2], up: 'step', floor: -5.5, stepY: 6.6 }],
+        titan: [{ p: [[3, -32.9], [6.6, -32.9], [16.9, -21.8], [19.4, -21.6], [20, -8], [3, -8]], seat: [6, -26.6], belt: -21, h: [5, -17.4], e: [4.4, -31.2], r: [8, -31.8], up: 'ladder', floor: -8.6, fy: 24 }]
+    };
+    const BSEAT = .8, DOORA = 1.19;      // desde BSEAT ya va sentado con la puerta cerrada (lo dibuja driver); apertura máxima de la puerta (68°)
+    const cl01 = u => u < 0 ? 0 : u > 1 ? 1 : u, sstep = u => { u = cl01(u); return u * u * (3 - 2 * u); };
+    const BL = { th: 7.6, sh: 7.4, ua: 5.8, fa: 5.6, tor: 9, nk: 4.4 };      // medidas del piloto (con k = 1 lleva el casco de los coches cerrados)
+    function doorInfo(d) {      // medidas que salen del contorno (se calculan una vez)
+        if (d.kf) return d;
+        let xr = 1e9, xf = -1e9, sill = -1e9, top = 1e9;
+        for (const q of d.p) { xr = Math.min(xr, q[0]); xf = Math.max(xf, q[0]); sill = Math.max(sill, q[1]); top = Math.min(top, q[1]); }
+        Object.assign(d, { xr, xf, w: xf - xr, sill, top, fy: d.fy || 16 }); d.X = xr + (d.up === 'ladder' ? 2.5 : 3.5);
+        d.kf = boardKeys(d); return d;
     }
-    function boarding(g, model, s, o) {
-        const b = CUR.board; if (b == null || b < 0 || b >= 1) return;
-        const fy = GROUND[model] || 16;
-        if (model === 'formula') {      // monoplaza: salta por encima del borde y se deja caer en el hueco
-            if (b < .35) standPilot(g, -17, fy, s, o, { wave: b < .28 });
-            else if (b < .6) { const u = (b - .35) / .25; standPilot(g, -17 + u * 16, fy - Math.sin(u * Math.PI) * 14 - u * 8, s, o, { crouch: .6, alpha: u > .8 ? (1 - u) * 5 : 1, k: 1 - u * .2 }); }
+    // paso de andar sin patinar: con la distancia recorrida, cada pie va pegado al suelo media zancada y avanza la otra media por el aire
+    function gait(dist, stride, ph) {
+        const c = ((dist / stride + ph) % 1 + 1) % 1;
+        if (c < .5) return { x: stride * (.25 - c), lift: 0, fa: c > .38 ? (c - .38) * 3 : 0, c };      // apoyado (al final levanta el talón)
+        const q = (c - .5) / .5;
+        return { x: stride * (-.25 + q * .5), lift: Math.sin(q * Math.PI) * stride * .17, fa: .36 * (1 - q) - .3 * Math.sin(q * Math.PI * .9) * q, c };      // en el aire: punta abajo y luego arriba para pisar con el talón
+    }
+    // piloto de cuerpo entero visto de lado (mira hacia +x). P: cadera, ángulo del tronco a, cabeza hd, tobillos fN/fF (cerca/lejos de la cámara), manos hN/hF.
+    // cF, cB, cN: cuánto está ya dentro del coche la pierna de lejos, el cuerpo y la pierna de cerca (dentro solo se ve por el hueco que marca clip)
+    function fig(g, P, s, o, k, clip) {
+        const t = o.t || 0, hip = P.hip, a = P.a || 0;
+        const sh = [hip[0] + Math.sin(a) * BL.tor * k, hip[1] - Math.cos(a) * BL.tor * k];
+        const ha = a * .55 + (P.hd || 0), head = [sh[0] + Math.sin(ha) * BL.nk * k, sh[1] - Math.cos(ha) * BL.nk * k];
+        const path = (cont) => { if (!cont) g.beginPath(); clip.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); };
+        const part = (c, fn) => {
+            if (!clip || !(c > 0)) { fn(); return; }
+            g.save(); path(); g.clip(); g.filter = 'brightness(.8)'; fn(); g.restore();      // dentro del coche, a la sombra
+            if (c < 1) { g.save(); g.beginPath(); g.rect(-300, -300, 600, 600); path(true); g.clip('evenodd'); g.globalAlpha *= 1 - c; fn(); g.restore(); }      // lo que asoma fuera se va borrando
+        };
+        const SUIT = s.dark, PANT = '#161b32', PANTD = '#0b0e1c';
+        const leg = (an, fa, col, near) => {
+            const j = ik2(hip[0], hip[1], an[0], an[1], BL.th * k, BL.sh * k, -1), ft = [j[2], j[3]];
+            const tdx = j[0] - hip[0], tdy = j[1] - hip[1], sdx = ft[0] - j[0], sdy = ft[1] - j[1], sl = Math.hypot(sdx, sdy) || 1;
+            flesh(g, hip[0], hip[1], hip[0] + tdx * .5 + tdy * .06, hip[1] + tdy * .5 - tdx * .06, j[0], j[1], 3.8 * k, 4.1 * k, 3 * k, col);
+            flesh(g, j[0], j[1], j[0] + sdx * .4 - sdy / sl * .5 * k, j[1] + sdy * .4 + sdx / sl * .5 * k, ft[0], ft[1], 3 * k, 3.3 * k, 2.2 * k, col);      // gemelo
+            if (near) { g.strokeStyle = 'rgba(' + s.glow + ',.55)'; g.lineWidth = .45 * k; g.beginPath(); g.moveTo(hip[0] + 1.2 * k, hip[1]); g.lineTo(j[0] + 1.1 * k, j[1]); g.lineTo(ft[0] + .9 * k, ft[1]); g.stroke(); }
+            g.save(); g.translate(ft[0], ft[1]); g.rotate(fa || 0); g.scale(k, k);      // bota: gira sobre el tobillo
+            g.fillStyle = near ? '#0a0c18' : '#05060d'; rrect(g, -1.7, -1, 5, 2.3, .9); g.fill();
+            g.fillStyle = near ? '#1d2238' : '#11131c'; rrect(g, 1.2, -.9, 1.9, 2, .8); g.fill();
+            g.fillStyle = near ? '#dfe4fb' : '#6a7090'; g.fillRect(-1.7, 1, 5, .42);      // suela
+            if (near) { g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.fillRect(-1.5, -.6, .9, .9); }
+            g.restore();
+        };
+        const arm = (hand, col, near) => {
+            const s0 = [sh[0] + (near ? .5 : -.5) * k, sh[1] + .6 * k], j = ik2(s0[0], s0[1], hand[0], hand[1], BL.ua * k, BL.fa * k, 1), hn = [j[2], j[3]];
+            flesh(g, s0[0], s0[1], (s0[0] + j[0]) / 2, (s0[1] + j[1]) / 2, j[0], j[1], 2.7 * k, 2.9 * k, 2.2 * k, col);
+            flesh(g, j[0], j[1], (j[0] + hn[0]) / 2, (j[1] + hn[1]) / 2, hn[0], hn[1], 2.2 * k, 2.4 * k, 1.8 * k, col);
+            if (near) { g.strokeStyle = 'rgba(' + s.glow + ',.6)'; g.lineWidth = .4 * k; g.beginPath(); g.moveTo(s0[0], s0[1] - .9 * k); g.lineTo(j[0], j[1] - .9 * k); g.stroke(); }
+            g.fillStyle = near ? '#1a1d30' : '#0d0f1a'; g.beginPath(); g.arc(hn[0], hn[1], 1.1 * k, 0, TAU); g.fill();      // guante
+            if (near) { g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(hn[0] - .3 * k, hn[1] - .35 * k, .4 * k, 0, TAU); g.fill(); }
+        };
+        part(P.cB, () => arm(P.hF, PANTD, false));
+        part(P.cF, () => leg(P.fF, P.fFa, PANTD, false));
+        part(P.cB, () => {      // mono con cinturón y banda del color del equipo; casco con la visera subida
+            flesh(g, hip[0], hip[1] + .6 * k, (hip[0] + sh[0]) / 2 + .7 * k * Math.cos(a), (hip[1] + sh[1]) / 2 + .7 * k * Math.sin(a), sh[0], sh[1], 5 * k, 6.2 * k, 5.6 * k, SUIT);
+            g.save(); g.translate((hip[0] + sh[0]) / 2, (hip[1] + sh[1]) / 2); g.rotate(a);
+            g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.fillRect(-.3 * k, -4.2 * k, .6 * k, 7.4 * k);
+            g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(.9 * k, -3.6 * k, 1.1 * k, 6 * k);
+            g.fillStyle = '#0b0e1c'; g.fillRect(-2.7 * k, 3.6 * k, 5.4 * k, 1 * k);      // cinturón
+            g.restore();
+            g.fillStyle = '#e8ecf6'; g.save(); g.translate(sh[0], sh[1]); g.rotate(ha); rrect(g, -.9 * k, -1.9 * k, 2 * k, 1.8 * k, .6 * k); g.fill(); g.restore();      // cuello
+            g.save(); g.translate(head[0], head[1]); g.rotate(ha * .6 + (P.hr || 0));
+            helmet(g, 2.85 * k, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t, open: P.visor == null ? .85 : P.visor, look: 0, dorsal: o.dorsal, model: CUR.model });
+            g.restore();
+        });
+        part(P.cN, () => leg(P.fN, P.fNa, PANT, true));
+        part(P.cB, () => arm(P.hN, SUIT, true));
+        return { sh, head };
+    }
+    // sombra del piloto en el suelo (más pequeña y suave cuanto más alto está)
+    function figShadow(g, x, fy, k, up) {
+        const a = .32 * Math.max(0, 1 - up / 30); if (a <= .01) return;
+        const sg = g.createRadialGradient(x, fy, .5, x, fy, 8 * k); sg.addColorStop(0, 'rgba(0,0,0,' + a.toFixed(2) + ')'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = sg; g.beginPath(); g.ellipse(x, fy, 8 * k, 1.5 * k, 0, 0, TAU); g.fill();
+    }
+    // cada fotograma clave hereda la postura del anterior y cambia solo lo que se indica
+    const keyAdd = (K) => (b, q) => { const p = K.length ? Object.assign({}, K[K.length - 1], { arcN: 0, arcF: 0, swN: .5, swF: .5, swB: .5 }) : {}; K.push(Object.assign(p, q, { b })); };
+    // fotogramas clave de la subida. Valores especiales en las manos: 'H' tirador, 'E' borde de la puerta (los dos se mueven con ella),
+    // 'I' tirador de dentro, 'R' marco del techo, 'W'/'V' arriba y abajo del volante
+    function boardKeys(d) {
+        const X = d.X, G = d.fy - 1.2, Hy = d.fy - 15.8, S = d.seat, sit = [S[0] - 2, S[1] + 13.2], well = [S[0] + 11, S[1] + 25];
+        const rest = (x, y) => [x + 1, y + 1];
+        const K = [], add = keyAdd(K);
+        const wN = d.co ? [S[0] + 4, S[1] + 9] : 'V', wF = d.co ? [S[0] + 2, S[1] + 8.4] : 'W';
+        if (d.up === 'ladder') {      // camión: abre con el mando, despliega la escalera y sube peldaño a peldaño
+            const L = X + 3.6, r1 = d.fy - 7.4, r2 = d.fy - 14.8, r3 = d.fy - 22.2;
+            add(.27, { hip: [X + 1, Hy], a: .05, fN: [X + 4, G], fF: [X + 1, G], arcF: 2.5, hN: rest(X + 1, Hy), hF: rest(X, Hy), cF: 0, cB: 0, cN: 0 });
+            add(.3, { hN: [X + 9, Hy - 12], a: .02 });                                                                          // apunta con el mando
+            add(.33, { hN: rest(X + 1.4, Hy) });
+            add(.38, { hN: [L + 4, r3 - 6], hF: [L + 1, r3 - 2], a: .12 });                                                       // manos en la escalera
+            add(.43, { fF: [L, r1 - 1.2], arcF: 3, hip: [X + 1.4, r1 - 1.2 - 14.2], a: .2, hF: [L + 1, r3 - 9] });
+            add(.48, { fN: [L + .6, r2 - 1.2], arcN: 3, hip: [X + 1.6, r2 - 1.2 - 14.2], hN: [d.e[0] + 1, d.e[1] + 8] });
+            add(.53, { fF: [L, r3 - 1.2], arcF: 3, hip: [X + 1.6, r3 - 1.2 - 14.2], hF: [d.r[0], d.r[1] + 1.2], a: .14 });
+            add(.58, { fN: [X + 7, d.floor - 1.2], arcN: 4, cN: 1, swN: .3, hip: [X + 2.4, d.floor - 11.8], a: .6, hd: .25, hN: 'E' });      // pisa la cabina
+            add(.62, { hip: [X + 2, d.floor - 11], a: .85, hd: .35, cB: 1, swB: .7 });                                         // se agacha
+            add(.66, { hip: sit, a: .1, hd: .05, fN: well, hF: wF });                                                            // se sienta
+            add(.7, { fF: well, arcF: 5, cF: 1, swF: .3, hN: wN });                                                             // mete la otra pierna
+        } else if (d.up === 'step') {      // furgoneta: pisa el estribo, se agarra y tira hacia arriba
+            const st = [X + 2.6, d.stepY - 1.2];
+            add(.3, { hip: [X + 1.5, Hy], a: .06, fN: [X + 4.25, G], fF: [X + 1.2, G], arcF: 2.5, hN: 'H', hF: rest(X + .5, Hy), cF: 0, cB: 0, cN: 0 });
+            add(.37, { hip: [X + .4, Hy], a: -.02 });
+            add(.42, { hN: [d.xr + 1.6, d.belt - 2], hF: [d.xr + 4, d.belt - 8], hip: [X + 1.2, Hy], a: .1 });              // asa del pilar y marco
+            add(.48, { fF: st, arcF: 4, hip: [X + 1.2, Hy + 1.2], a: .28 });                                                 // pie en el estribo
+            add(.55, { hip: [X + 2.4, st[1] - 14.4], a: .18, fN: [X + 6, d.floor - 1.2], arcN: 8, cN: 1, swN: .45, hN: [d.xr + 1.6, d.belt - 7], hF: [d.r[0], d.r[1] + 1.5] });      // tira hacia arriba
+            add(.6, { hip: [X + 3.4, st[1] - 12.4], a: .8, hd: .35, cB: 1, swB: .7, hN: 'E' });
+            add(.66, { hip: sit, a: .1, hd: .05, fN: well, hF: wF });
+            add(.71, { fF: well, arcF: 6, cF: 1, swF: .3, hN: wN });
+        } else {      // turismo: tirador, se agarra al marco, mete una pierna, se agacha, se sienta y mete la otra
+            add(.31, { hip: [X + 1.5, Hy], a: .06, fN: [X + 4.25, G], fF: [X + 1.2, G], arcF: 2.5, hN: 'H', hF: rest(X + .5, Hy), cF: 0, cB: 0, cN: 0 });
+            add(.38, { hip: [X + .4, Hy], a: -.02 });                                                                          // tira de la puerta
+            add(.43, { hN: 'E', hF: 'R', hip: [X + 1.4, Hy], a: .12 });                                                       // mano en la puerta y en el marco
+            add(.5, { fF: [S[0] + 7, d.sill - 1.6], arcF: 7, cF: 1, swF: .38, hip: [X + 2.2, Hy + 1], a: .22, hd: .15 });     // mete la pierna de dentro
+            let a4 = .45, dy4 = 1.4; while (Hy + dy4 - Math.cos(a4) * 9 - Math.cos(a4 * .55 + .3) * 4.4 < d.r[1] + 4.2 && a4 < 1.15) { a4 += .05; dy4 += .45; }      // en los coches bajos se agacha más
+            add(.56, { hip: [X + 2.8, Hy + dy4], a: a4, hd: .3, cB: 1, swB: .6 });                                           // agacha la cabeza bajo el marco
+            add(.64, { hip: sit, a: .1, hd: .05, fF: well, hF: wF });                                                            // se deja caer en el asiento
+            add(.7, { fN: well, arcN: 6, cN: 1, swN: .3, hN: wN });                                                              // mete la otra pierna
+        }
+        add(.735, { hN: 'I' });      // alarga la mano hasta la puerta
+        add(BSEAT, { hN: 'I' });     // y tira de ella hasta cerrarla
+        return K;
+    }
+    // ángulo de la puerta según la subida
+    function doorAng(d, b) {
+        if (d.f1) return 0;
+        const o0 = d.up === 'ladder' ? .28 : .31, o1 = o0 + .07;
+        if (b < o0) return 0;
+        if (b < o1) { const u = (b - o0) / (o1 - o0); return DOORA * (1 - (1 - u) * (1 - u)); }
+        if (b < .735) return DOORA;
+        if (b < BSEAT) { const u = (b - .735) / (BSEAT - .735); return DOORA * (1 - u * u); }      // cada vez más rápido: portazo
+        return 0;
+    }
+    function boardPose(d, b) {
+        const K = d.kf, X = d.X, fy = d.fy, k = d.k || 1;
+        if (b < K[0].b) {      // andando hasta la puerta: cada pie se apoya sin resbalar, rodillas, braceo y bote
+            const bw = K[0].b - (d.up === 'ladder' ? .03 : .03), D = d.walk || 34, u = cl01(b / bw), e = 1 - (1 - u) * (1 - u), dist = D * e, stride = D / 2;
+            const x = X - D + dist, gN = gait(dist, stride, 0), gF = gait(dist, stride, .5), sp = 1 - u * .7;
+            if (u >= 1) {      // recoloca el pie de atrás al lado del otro
+                const q = sstep((b - bw) / (K[0].b - bw)), f0 = x + gF.x, h0 = [X + 1.8 * k, fy - 14.6 * k], h1 = K[0].hN === 'H' ? d.h : K[0].hN;
+                return { hip: [X + q * 1.5, fy - (15.8 - .3 * (1 - q)) * k], a: .06, fN: [X + gN.x, fy - 1.2 * k], fF: [f0 + (X + 1.2 - f0) * q, fy - 1.2 * k - Math.sin(q * Math.PI) * 2.5], fFa: 0, fNa: 0,
+                    hN: [h0[0] + (h1[0] - h0[0]) * q, h0[1] + (h1[1] - h0[1]) * q], hF: [X + .5, fy - 14.8 * k], cF: 0, cB: 0, cN: 0, hr: 0 };
+            }
+            const hy = fy - 15.9 * k + .5 * Math.cos(gN.c * TAU * 2) * sp, sw = gN.x / (stride * .25);
+            const sx = x + Math.sin(.08) * 9 * k, sy = hy - 9 * k, ar = (ph) => [sx + (Math.sin(ph) * 8.6 + 1) * k, sy + Math.cos(ph) * 9.2 * k];
+            return { hip: [x, hy], a: .08 + .04 * sp, hd: -.04, fN: [x + gN.x, fy - 1.2 * k - gN.lift], fF: [x + gF.x, fy - 1.2 * k - gF.lift], fNa: gN.fa, fFa: gF.fa,
+                hN: ar(-.5 * sw * sp + .1), hF: ar(.5 * sw * sp + .1), cF: 0, cB: 0, cN: 0, hr: Math.sin(gN.c * TAU * 2) * .03 };
+        }
+        let i = 0; while (i < K.length - 2 && b >= K[i + 1].b) i++;
+        const A = K[i], B = K[Math.min(K.length - 1, i + 1)], uu = B.b > A.b ? cl01((b - A.b) / (B.b - A.b)) : 1, u = sstep(uu);
+        const th = doorAng(d, b), c = Math.cos(th), pj = (q) => [d.xf - (d.xf - q[0]) * c, q[1]];
+        const S = d.seat, spot = (v) => v === 'H' ? pj(d.h) : v === 'E' ? pj([d.xr + 1.5, d.belt + 1.2]) : v === 'I' ? pj([d.xr + d.w * .42, d.belt + 3.4]) : v === 'R' ? d.r : v === 'W' ? [S[0] + 5.6, S[1] + .4] : v === 'V' ? [S[0] + 5.9, S[1] + 5.4] : v;
+        const L = (p, q, arc) => { p = spot(p); q = spot(q); return [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u - (arc || 0) * Math.sin(uu * Math.PI)]; };
+        const cv = (k) => { const sw = B['sw' + k] == null ? .5 : B['sw' + k], v0 = A['c' + k] || 0, v1 = B['c' + k] || 0; return v0 + (v1 - v0) * cl01((uu - sw) / .14); };
+        const n = (k) => (A[k] || 0) + ((B[k] || 0) - (A[k] || 0)) * u;
+        return { hip: L(A.hip, B.hip), a: n('a'), hd: n('hd'), fN: L(A.fN, B.fN, B.arcN), fF: L(A.fF, B.fF, B.arcF), fNa: -.25 * Math.sin(uu * Math.PI) * (B.arcN ? 1 : 0), fFa: -.25 * Math.sin(uu * Math.PI) * (B.arcF ? 1 : 0),
+            hN: L(A.hN, B.hN, 0), hF: L(A.hF, B.hF, 0), cF: cv('F'), cB: cv('B'), cN: cv('N'), hr: n('hr') };
+    }
+    // interior que se ve por el hueco de la puerta: lado de enfrente, salpicadero, volante, asiento y cinturón colgando
+    function cabin(g, d, s, o) {
+        const S = d.seat, x0 = d.xr - 2, x1 = d.xf + 2;
+        g.save(); poly(g, d.p); g.clip();
+        const gw = g.createLinearGradient(0, d.top, 0, d.belt); gw.addColorStop(0, '#a9cdee'); gw.addColorStop(1, '#40618c');
+        g.fillStyle = gw; g.fillRect(x0, d.top - 4, x1 - x0, d.belt - d.top + 4);      // ventanilla del otro lado
+        const gp = g.createLinearGradient(0, d.belt, 0, d.sill); gp.addColorStop(0, '#262b40'); gp.addColorStop(1, '#0a0c15');
+        g.fillStyle = gp; g.fillRect(x0, d.belt, x1 - x0, d.sill - d.belt + 2);      // panel de la puerta de enfrente
+        g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(x0, d.belt, x1 - x0, .5);
+        g.fillStyle = '#151827'; g.fillRect(x0, d.belt + 3.4, x1 - x0, 1.6); g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(x0, d.belt + 3.4, x1 - x0, .4);      // reposabrazos
+        if (!d.co) {      // salpicadero con su visera y el volante
+            g.fillStyle = '#0e111d'; poly(g, [[S[0] + 7.2, d.belt - 1], [x1, d.belt - 2.6], [x1, d.belt + 7], [S[0] + 9.6, d.belt + 6]]); g.fill();
+            g.fillStyle = 'rgba(' + s.glow + ',.7)'; g.fillRect(S[0] + 9, d.belt + 1, 2.6, .7);
+            g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = .4; g.beginPath(); g.moveTo(S[0] + 7.2, d.belt - 1); g.lineTo(x1, d.belt - 2.6); g.stroke();
+            g.strokeStyle = '#2a2f45'; g.lineWidth = 1; g.beginPath(); g.moveTo(S[0] + 5.6, S[1] + 3); g.lineTo(S[0] + 10, S[1] + 6.4); g.stroke();      // columna
+            g.save(); g.translate(S[0] + 5.6, S[1] + 2.9); g.rotate(.25); g.strokeStyle = '#05060c'; g.lineWidth = 1.1; g.beginPath(); g.ellipse(0, 0, 1, 3, 0, 0, TAU); g.stroke(); g.restore();
+        }
+        // asiento: respaldo con reposacabezas, banqueta y costura de color
+        g.fillStyle = '#1c2136'; poly(g, [[S[0] - 7.6, S[1] - 1.6], [S[0] - 4, S[1] - 1.6], [S[0] - 2.4, S[1] + 14.6], [S[0] - 6.6, S[1] + 15]]); g.fill();
+        g.strokeStyle = 'rgba(' + s.glow + ',.55)'; g.lineWidth = .4; g.beginPath(); g.moveTo(S[0] - 5.6, S[1] - .8); g.lineTo(S[0] - 4.2, S[1] + 13.8); g.stroke();
+        g.fillStyle = '#141828'; rrect(g, S[0] - 7.4, S[1] - 5.6, 3.6, 3.8, 1.2); g.fill();
+        g.fillStyle = '#1c2136'; rrect(g, S[0] - 7, S[1] + 13.8, 12, 3, 1.2); g.fill(); g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(S[0] - 6.4, S[1] + 13.9, 10.8, .5);
+        if (o.board < BSEAT - .07) {      // cinturón colgando del pilar
+            g.strokeStyle = '#3a3f55'; g.lineWidth = .9; g.beginPath(); g.moveTo(S[0] - 7.4, S[1] + .6); g.quadraticCurveTo(S[0] - 8.2, S[1] + 7, S[0] - 7.4, S[1] + 12); g.stroke();
+            g.fillStyle = '#c9cfe6'; rrect(g, S[0] - 8, S[1] + 11.6, 1.3, 1.8, .3); g.fill();
+        }
+        g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x0, d.sill - 3, x1 - x0, 3);      // suelo
+        g.restore();
+        // umbral con su embellecedor y la goma alrededor del hueco
+        g.save(); poly(g, d.p); g.clip();
+        g.strokeStyle = '#05060c'; g.lineWidth = 1.6; poly(g, d.p); g.stroke();
+        g.fillStyle = s.main; g.fillRect(x0, d.sill - 1.5, x1 - x0, 1.5); g.fillStyle = 'rgba(210,218,240,.75)'; g.fillRect(x0, d.sill - 1.5, x1 - x0, .45);
+        g.restore();
+    }
+    // la puerta abierta: el propio coche recortado por la puerta y girado sobre la bisagra, con su canto, más oscura al girar y su sombra
+    function doorPanel(g, model, s, o, d, th) {
+        const c = Math.cos(th), sn = Math.sin(th), xf = d.xf, tf = [c, 0, 0, 1, xf * (1 - c), 0];
+        { const cx = xf - d.w * c / 2 - sn * 1.2, sg = g.createRadialGradient(cx, d.fy - .3, .5, cx, d.fy - .3, d.w * c / 2 + 4); sg.addColorStop(0, 'rgba(0,0,0,' + (.34 * sn).toFixed(2) + ')'); sg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sg; g.beginPath(); g.ellipse(cx, d.fy - .3, d.w * c / 2 + 4, 1.6, 0, 0, TAU); g.fill(); }
+        g.save(); g.translate(-2.3 * sn, 0); g.transform(...tf);      // canto de la puerta: tapizado y goma
+        poly(g, d.p, '#1a1e2e'); g.strokeStyle = '#06070d'; g.lineWidth = .8; g.stroke(); g.restore();
+        const keep = CUR.gl;
+        for (const glassPart of [false, true]) {      // la chapa opaca y la ventanilla algo transparente (se ve lo que hay detrás)
+            g.save(); g.transform(...tf); poly(g, d.p); g.clip();
+            g.beginPath(); if (glassPart) g.rect(-80, -80, 160, d.belt + 80); else g.rect(-80, d.belt, 160, 80); g.clip();
+            if (glassPart) g.globalAlpha *= .6;
+            (DRAW[model] || chispa)(g, s, o); if (o.decal) decalDraw(g, model, o.decal); if (o.dorsal) dorsalBadge(g, model, o.dorsal);
+            g.fillStyle = 'rgba(0,0,12,' + (.32 * sn).toFixed(2) + ')'; g.fillRect(-80, -80, 160, 160);
+            g.restore();
+        }
+        CUR.gl = keep;
+        g.save(); g.transform(...tf); g.strokeStyle = 'rgba(5,7,16,.9)'; g.lineWidth = .7; poly(g, d.p); g.stroke(); g.restore();      // junta de la puerta
+    }
+    // estribo eléctrico (furgoneta) y escalera telescópica (camión): salen al abrir y se recogen al cerrar
+    function boardAid(g, d, b) {
+        const out = d.up === 'ladder' ? (b < .32 ? 0 : b < .38 ? (b - .32) / .06 : b < .82 ? 1 : b < .88 ? 1 - (b - .82) / .06 : 0) : (b < .33 ? 0 : b < .38 ? (b - .33) / .05 : b < .82 ? 1 : b < .87 ? 1 - (b - .82) / .05 : 0);
+        if (out <= 0) return;
+        if (d.up === 'step') {
+            const x0 = d.xr + .4, y = d.stepY;
+            g.fillStyle = '#1a1d2c'; rrect(g, x0, y - 1.6 * out, 7, 1.6 * out + 1, .4); g.fill();
+            g.fillStyle = 'rgba(200,208,235,.7)'; for (let i = 0; i < 4; i++) g.fillRect(x0 + .8 + i * 1.6, y - 1.6 * out + .2, .8, .3 * out);
             return;
         }
-        const D = DOORS[model]; if (!D) return;
-        const [x0, y0, x1, y1] = D, w = x1 - x0, h = y1 - y0;
-        const op = b < .74 ? 1 : b < .84 ? 1 - (b - .74) / .1 : 0;      // la puerta se cierra de golpe
-        if (op > 0) {
-            g.fillStyle = 'rgba(8,10,22,' + (.92 * op).toFixed(2) + ')'; rrect(g, x0 + .6, y0 + .4, w - 1.2, h - .8, 1.4); g.fill();      // hueco con el asiento
-            g.fillStyle = 'rgba(40,44,70,' + (.8 * op).toFixed(2) + ')'; rrect(g, x0 + w * .12, y0 + h * .3, w * .42, h * .5, 1); g.fill();
-            // la puerta abierta mira hacia nosotros: se ve más estrecha y salida hacia delante
-            const pw = w * (1 - .55 * op), px = x1 - pw + op * w * .32;
-            const dg = g.createLinearGradient(px, 0, px + pw, 0); dg.addColorStop(0, s.dark); dg.addColorStop(.55, s.main); dg.addColorStop(1, s.lite);
-            g.fillStyle = dg; rrect(g, px, y0 - .4, pw, h + .4, 1.2); g.fill(); g.strokeStyle = 'rgba(5,8,22,.85)'; g.lineWidth = .6; g.stroke();
-            g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(px + .6, y0 + .2, pw - 1.2, .4);
-            g.fillStyle = '#1a1d2c'; rrect(g, px + pw * .62, y0 + h * .3, pw * .24, .8, .4); g.fill();      // manilla
+        const L0 = d.X + 2.6, L1 = d.X + 9.6, top = d.sill, bot = d.sill + (d.fy - d.sill) * sstep(out);
+        g.strokeStyle = '#8a92b8'; g.lineWidth = 1; g.beginPath(); g.moveTo(L0, top); g.lineTo(L0, bot); g.moveTo(L1, top); g.lineTo(L1, bot); g.stroke();
+        g.strokeStyle = '#c9d0ee'; g.lineWidth = .9; for (let y = d.fy - 7.4; y > top + 2; y -= 7.4) if (y < bot) { g.beginPath(); g.moveTo(L0, y); g.lineTo(L1, y); g.stroke(); }
+        g.fillStyle = '#20253f'; g.fillRect(L0 - 1, top - .6, L1 - L0 + 2, 1.4);      // gancho en el umbral
+    }
+    function boarding(g, model, s, o) {
+        const b0 = CUR.board; if (b0 == null || b0 < 0 || b0 >= BSEAT + .05) return;
+        const list = BDOORS[model]; if (!list) return;
+        for (const d0 of list) {
+            const d = doorInfo(d0), b = Math.max(0, b0 - (d.dl || 0)), th = doorAng(d, b); if (b >= BSEAT) continue;
+            const P = boardPose(d, b), seated = b >= d.kf[d.kf.length - 4].b;
+            if (th > 0) cabin(g, d, s, o);
+            if (d.up) boardAid(g, d, b);
+            figShadow(g, (P.fN[0] + P.fF[0]) / 2, d.fy, 1, d.fy - 1.2 - Math.max(P.fN[1], P.fF[1]));
+            if (th > 0 && !seated) doorPanel(g, model, s, o, d, th);
+            fig(g, P, s, o, 1, d.p);
+            if (th > 0 && seated) doorPanel(g, model, s, o, d, th);
         }
-        if (b < .72) {      // el piloto: espera saludando, camina hasta la puerta y entra
-            const xs = x0 - 8, xm = (x0 + x1) / 2 - 3;
-            if (b < .35) standPilot(g, xs, fy, s, o, { wave: true });
-            else if (b < .55) { const u = (b - .35) / .2; standPilot(g, xs + (xm - xs) * u, fy, s, o, { walk: u * 1.6 }); }
-            else { const u = (b - .55) / .17; standPilot(g, xm + u * 2, fy - u * 5, s, o, { crouch: u, alpha: 1 - u, k: 1 - u * .25 }); }
+    }
+    // Rayo F1: sin puertas. Apoya las manos en el borde del habitáculo, salta metiendo las piernas y se desliza hasta el asiento;
+    // por dentro solo se ve lo que asoma por encima del borde (clip). Después encaja el volante (lo dibuja el monoplaza).
+    const F1SEAT = .64, F1D = { f1: true, k: 1.288, fy: 16, X: -4, walk: 34, xr: 0, xf: 0, w: 0, h: [0, 0], belt: 0, seat: [0, 0],
+        clip: [[-5.2, -8.4], [14, -8.4], [14, -60], [-16, -60], [-16, -16.8], [-5.2, -16.8]] };
+    function boardF1(g, s, o, b) {
+        const d = F1D, k = d.k;
+        if (!d.kf) {
+            const X = d.X, G = d.fy - 1.2 * k, Hy = d.fy - 15.8 * k, K = [], add = keyAdd(K);
+            add(.31, { hip: [X + 1.5, Hy], a: .06, fN: [X + 4.25, G], fF: [X + 1.2, G], arcF: 2.5, hN: [X + 2.4, Hy + 1.3 * k], hF: [X + .6, Hy + 1.3 * k], cF: 0, cB: 0, cN: 0 });
+            add(.37, { hN: [4, -9.2], hF: [9, -9.2], a: .45, hip: [X + 2, Hy + 1.4] });                   // manos en el borde del habitáculo
+            add(.42, { hip: [X + 2.8, Hy + 4.4], a: .62, hd: .15 });                                       // se agacha para coger impulso
+            add(.48, { hip: [3, -16], a: .12, hd: 0, fN: [9, -13], arcN: 5, fF: [11, -13.6], arcF: 5, cF: 1, cN: 1, swF: .75, swN: .75 });      // salta apoyado en los brazos
+            add(.53, { hip: [1.5, -14.5], fN: [15, -9], fF: [16, -9.6], a: .1, cB: 1, swB: .15 });      // mete las piernas
+            add(F1SEAT, { hip: [2, 5.7], a: -.35, hd: .5, hr: -.19, fN: [24, 2], fF: [25, 1.6], hN: [4.4, -9.2], hF: [7.4, -9.2] });      // se desliza hasta el asiento
+            d.kf = K;
         }
+        const P = boardPose(d, b);
+        figShadow(g, (P.fN[0] + P.fF[0]) / 2, d.fy, k, d.fy - 1.2 * k - Math.max(P.fN[1], P.fF[1]));
+        fig(g, P, s, o, k, d.clip);
     }
     // ---------- Memoria compartida de los pilotos: volante con muelle, volteretas y mareo, cambios de marcha, rato parado ----------
     function drvMem(o, M) {
@@ -405,7 +626,7 @@ window.CARS = (() => {
     // piloto de los coches cerrados: asiento, mono, volante que gira con las dos manos, palanca de cambios y casco; reacciona a todo el partido
     function driver(g, x, y, s, o) {
         o = o || {};
-        const bd = CUR.board == null ? -1 : CUR.board; if (bd >= 0 && bd < .62) return;      // primer saque: todavía no ha subido (asiento vacío)
+        const bd = CUR.board == null || CUR.board < 0 ? -1 : Math.max(0, CUR.board - (CUR.model === 'chispa' && x < -10 ? .05 : 0)); if (bd >= 0 && bd < BSEAT) return;      // (el copiloto del Chispa va un poco después)      // primer saque: todavía se está subiendo (lo dibuja boarding)
         const t = o.t || 0, lose = o.mood === 'lose', win = o.mood === 'win', boost = o.boosting ? 1 : 0, look0 = Math.max(-.6, Math.min(.6, o.look || 0));
         const hit = o.hitT != null && o.hitT < .3 ? Math.pow(1 - o.hitT / .3, 2) : 0, vu = Math.max(-1, Math.min(1, (o.vu || 0) / 900)), ready = o.state === 'count';
         const M = o.rid, D = drvMem(o, M), fin = o.fin || '';
@@ -416,7 +637,7 @@ window.CARS = (() => {
         const tap = ready && D.cdT < 1.6, mirror = ready && D.cdT >= 1.6 && D.cdT < 2.4, lookDown = !!o.air && vu < -.3 && (o.jumpT || 0) > .45;
         // la cabeza: atrás con el turbo, adelante al frenar, se hunde al aterrizar, respingo con los golpes, de lado al chocar, agachada ante un balonazo
         let tx = -boost * (longB ? 1.8 : 1.2) + (o.brake ? .9 : 0) - hit * .9 - (o.lean || 0) * .7 + bumpK * Math.sin(t * 28) * 1.3 + (lose && sad === 1 ? 2.2 : 0) + (fin === 'win' ? Math.sin(t * 6) * 1.2 : 0);
-        let ty = (bd >= .62 && bd < .8 ? (1 - (bd - .62) / .18) * 5 : 0) + (lose ? 1 : 0) + Math.max(0, ((o.susF || 0) + (o.susR || 0)) / 2) * 1.8 + hit * .6 + (o.air ? -vu * .5 : 0) + dng * 1.5 + (o.flip ? 1 : 0) + (lose && sad === 1 ? 1.6 : 0) + (fin === 'lose' ? 1.6 : 0);
+        let ty = (bd >= BSEAT && bd < BSEAT + .08 ? Math.sin((bd - BSEAT) / .08 * Math.PI) * 1.1 : 0) + (lose ? 1 : 0) + Math.max(0, ((o.susF || 0) + (o.susR || 0)) / 2) * 1.8 + hit * .6 + (o.air ? -vu * .5 : 0) + dng * 1.5 + (o.flip ? 1 : 0) + (lose && sad === 1 ? 1.6 : 0) + (fin === 'lose' ? 1.6 : 0);
         if (M) { const k = Math.min(1, D.dt * 12); M.drX = M.drX == null ? tx : M.drX + (tx - M.drX) * k; M.drY = M.drY == null ? ty : M.drY + (ty - M.drY) * k; tx = M.drX; ty = M.drY; }
         if (longB) { tx += (Math.random() - .5) * .35; ty += (Math.random() - .5) * .35; }      // turbo largo: aplastado contra el asiento y vibrando
         const bob = win ? -Math.abs(Math.sin(t * 9)) * .8 : ready ? -Math.abs(Math.sin(t * 6)) * .35 : fin === 'win' ? -Math.abs(Math.sin(t * 6)) * .6 : 0, hx = x + tx, hy = y + ty + bob;
@@ -462,6 +683,9 @@ window.CARS = (() => {
         else if (yawn) { hF = [hx + 3.6, hy + .8]; }                                                  // bosteza (mano a la boca)
         else if (stretch) { hF = [hx + 2.4, hy - 5.6]; }                                              // se estira
         else if (watch) { hF = [hx + 4.6, hy + 3.4]; }                                                // mira el reloj
+        if (bd >= BSEAT + .02 && bd < .88) { const u = sstep((bd - BSEAT - .02) / (.86 - BSEAT)); hF = [hx - 3 + u * 4.6 + Math.sin(u * Math.PI) * 1.6, hy + 2.4 + u * 6]; fist = true; }      // primer saque: se abrocha el cinturón
+        else if (bd >= .88 && bd < .94) hF = [hx + 3.6, hy - 1.8 + sstep((bd - .88) / .06) * 2.4];      // y se baja la visera
+        if (bd < 0 || bd >= BSEAT + .02) { const e = bd >= 0 && bd < .88 ? hF : [hx + 1.6, hy + 8.4]; g.strokeStyle = '#2a2e44'; g.lineWidth = .9; g.beginPath(); g.moveTo(hx - 3.4, hy + 2.4); g.lineTo(e[0], e[1]); g.stroke(); g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = .25; g.stroke(); }      // cinturón
         arm(hF, 'rgba(0,0,0,.55)', 1.9); arm(hF, s.dark, 1.6);
         glove(hF, fist);
         if (thumb) { g.fillStyle = '#1a1d30'; rrect(g, hF[0] - .3, hF[1] - 2, .7, 1.6, .3); g.fill(); }
@@ -1244,7 +1468,8 @@ window.CARS = (() => {
         const whA = smooth('wh', !air && mood === 'win' ? .26 + Math.sin(t * 6) * .04 : 0, 7);
         g.save(); if (whA > .002) { g.translate(rx, wy + R); g.rotate(-whA); g.translate(-rx, -(wy + R)); }
         // pata de cabra: bajada al estar parado (y en el garaje), recogida al arrancar
-        const kd = smooth('kd', !air && spd < .03 && !boost && mood !== 'win' && (!M0 || (M0.idle || 0) > .8) && o.state !== 'count' || (CUR.board >= 0 && CUR.board < .8) ? 1 : 0, 6);      // en el primer saque la pata sigue puesta hasta que se sube
+        let kd = smooth('kd', !air && spd < .03 && !boost && mood !== 'win' && (!M0 || (M0.idle || 0) > .8) && o.state !== 'count' || (CUR.board >= 0 && CUR.board < .58) ? 1 : 0, 6);      // en el primer saque la pata sigue puesta hasta que se sube
+        if (CUR.board >= .58 && CUR.board < .7) kd = CUR.board < .64 ? 1 - sstep((CUR.board - .58) / .06) : 0;      // el talón la recoge
         // ---- rueda: neumático negro con tacos, llanta plateada y disco de freno grande ----
         const wheelS = (x, rear) => {
             g.save(); g.translate(x, wy);
@@ -1416,7 +1641,41 @@ window.CARS = (() => {
         // ---------- piloto reactivo ----------
         const pb = CUR.board == null ? -1 : CUR.board;      // primer saque: espera de pie junto al patín y se sube de un paso
         g.save(); g.transform(1, kS, 0, 1, 0, d0);
-        if (pb >= 0 && pb < .75) { const u = pb < .4 ? 0 : (pb - .4) / .35; g.translate(-54 * (1 - u), (16.5 - DT) * (1 - u) - Math.sin(u * Math.PI) * 7); }
+        // primer saque: llega andando, pone un pie en la plataforma, se impulsa, sube el otro, recoge la pata de cabra con el talón y coge el manillar
+        // (coordenadas del piloto: la plataforma está en y = 3.4 y el suelo en gy)
+        function prBoard(b) {
+            const gy = 3.4 + (16.5 - DT - 1.6) / 1.05, SX = 3, R = (x, y) => [(x + 4) / 1.05 - 4, (y - DT) / 1.05 + 5];
+            const kick = (k) => { const a = Math.PI - .08 - k * (Math.PI / 2 - .3), p = R(-3 + Math.cos(a) * 7.5, DB - .4 + Math.sin(a) * 7.5); return [p[0] + 5.2, p[1] - 2.2]; };
+            const hang = (P, ph) => { const sx = P.hx + Math.sin(P.ang) * 18, sy = P.hy - Math.cos(P.ang) * 18; return [sx + Math.sin(ph || 0) * 17 + 1.5, sy + Math.cos(ph || 0) * 17]; };
+            const D = 58, stride = D / 3, bw = .28;
+            if (b < .31) {      // andando: cada pie apoyado sin resbalar, rodillas y braceo
+                const u = cl01(b / bw), e = 1 - (1 - u) * (1 - u), dist = D * e, x = SX - D + dist, gF = gait(dist, stride, 0), gB = gait(dist, stride, .5);
+                if (u >= 1) { const q = sstep((b - bw) / .03), f0 = x + gB.x, P = { hx: x, hy: gy - 20 + .4 * (1 - q), ang: .1 }; return Object.assign(P, { fF: [x + gF.x, gy], fB: [f0 + (SX - 4 - f0) * q, gy - Math.sin(q * Math.PI) * 3], faF: 0, faB: 0, hF: hang(P), hB: hang(P, -.05), kd: 1, mix: 0 }); }
+                const sw = gF.x / (stride * .25), P = { hx: x, hy: gy - 20.4 + .7 * Math.cos(gF.c * TAU * 2), ang: .14 };
+                return Object.assign(P, { fF: [x + gF.x, gy - gF.lift], fB: [x + gB.x, gy - gB.lift], faF: gF.fa, faB: gB.fa, hF: hang(P, -.45 * sw), hB: hang(P, .45 * sw), kd: 1, mix: 0 });
+            }
+            const stem = [23, -17.6], g0 = [18.1, -37.5];
+            const K = [[.31, { hx: SX, hy: gy - 20, ang: .1, fF: [SX + stride * .25, gy], fB: [SX - 4, gy], hF: null, hB: null }],
+                [.36, { hF: stem, ang: .16 }],                                        // la mano de delante a la barra
+                [.44, { fF: [4, 3.4], aF: 4, ang: .3, hy: gy - 19, hx: SX - .5 }],     // un pie en la plataforma
+                [.52, { hx: -2, hy: -15.6, ang: .28, fB: [-6, 12], aB: 2 }],           // se impulsa y sube
+                [.58, { fB: kick(1) }],                                                // busca la pata de cabra con el talón
+                [.64, { fB: 'K' }],                                                    // y la recoge hacia atrás
+                [.7, { fB: [-12.6, 3.4], aB: 4, hx: -5.8, hy: -15.4, ang: .36 }],     // el otro pie a la plataforma
+                [.76, { hF: g0, hB: [g0[0] - .6, g0[1] + .6] }],                       // las dos manos al manillar
+                [.8, {}]];
+            for (let i = 1; i < K.length; i++) K[i][1] = Object.assign({}, K[i - 1][1], { aF: 0, aB: 0 }, K[i][1]);
+            let i = 0; while (i < K.length - 2 && b >= K[i + 1][0]) i++;
+            const A = K[i][1], B = K[i + 1][1], uu = cl01((b - K[i][0]) / (K[i + 1][0] - K[i][0])), u = sstep(uu), n = (k) => A[k] + (B[k] - A[k]) * u;
+            const L = (p, q, arc) => [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u - (arc || 0) * Math.sin(uu * Math.PI)];
+            const P = { hx: n('hx'), hy: n('hy'), ang: n('ang') }, fb = (v) => v === 'K' ? kick(0) : v;
+            P.fF = L(A.fF, B.fF, B.aF); P.fB = B.fB === 'K' ? kick(1 - u) : L(fb(A.fB), fb(B.fB), B.aB);
+            P.faF = B.aF ? -.25 * Math.sin(uu * Math.PI) : 0; P.faB = B.aB ? -.25 * Math.sin(uu * Math.PI) : B.fB === 'K' ? -.2 : 0;
+            P.hF = L(A.hF || hang(A), B.hF || hang(B)); P.hB = L(A.hB || hang(A, -.05), B.hB || hang(B, -.05));
+            P.kd = b < .58 ? 1 : B.fB === 'K' ? 1 - u : 0; P.mix = b > .74 ? sstep((b - .74) / .06) : 0;
+            return P;
+        }
+        const BPr = pb >= 0 && pb < .8 ? prBoard(pb) : null, mixP = (p, q, m) => [p[0] + (q[0] - p[0]) * m, p[1] + (q[1] - p[1]) * m];
         g.translate(-4, DT); g.scale(1.05, 1.05); g.translate(4, -5);      // el G2 es alto: el piloto va sobre la plataforma y a mayor escala para llegar al manillar
         const hitA = o.hitT == null ? 9 : o.hitT, hitK = hitA < .3 ? Math.pow(1 - hitA / .3, 2) : 0, flip = !!o.flip, lose = mood === 'lose', win = mood === 'win';
         // ----- memoria del piloto: cada parte del cuerpo es un muelle amortiguado, así los cambios tienen inercia y rebote -----
@@ -1476,12 +1735,13 @@ window.CARS = (() => {
         let aT = .22 + spd * .1 + boost * .22 + lean * .26 - brake * .26 - hitK * .18 + strike * .16 + (ready ? .1 : 0) - airK * .12 + (flip ? .26 : 0);
         if (win) aT = cel === 1 ? .04 : .12; if (lose) aT = .42;
         aT += -dng * .2 + (leanBar ? .3 : 0) + (cdPh === 2 ? .15 : 0) + (down ? .35 : 0) + (dance ? Math.sin(t * 5) * .12 : 0);
-        const ang = spr('an', aT, 160, 23) + crouch * .3 + bmpK * Math.sin(bumpT * 26) * .22 * ((M && M.bmpS) || 1);      // tambaleo al chocar
+        let ang = spr('an', aT, 160, 23) + crouch * .3 + bmpK * Math.sin(bumpT * 26) * .22 * ((M && M.bmpS) || 1);      // tambaleo al chocar
         const bob = air ? 0 : Math.sin(t * 2.4) * .25 * (1 - spd) + (idleT > 0 ? Math.sin(t * 1.3) * .25 : 0);         // respiración al estar parado
         const hop = (!air && win && cel === 1 ? Math.abs(Math.sin(t * 7)) * 1.8 : 0) + (dance && !air ? Math.abs(Math.sin(t * 5)) * 1.4 : 0);
         // la cadera se echa atrás al agacharse (como al sentarse) para no pasar de las puntas de los pies
-        const hx = spr('hx', -5.6 - crouch * 2.6 + lean * 2.4 + boost * 1.2 - brake * 2.2 + strike * 1 - (lose ? 1 : 0) + (idleT > 0 ? Math.sin(t * .9) * .6 : 0) + (dance ? Math.sin(t * 5) * 1.6 : 0) + bmpK * Math.sin(bumpT * 26) * 1.4 + (leanBar ? 1.6 : 0), 150, 22);
-        const hy = -16.6 + crouch * 7.6 + bob - hop + (lose ? 1.2 : 0);
+        let hx = spr('hx', -5.6 - crouch * 2.6 + lean * 2.4 + boost * 1.2 - brake * 2.2 + strike * 1 - (lose ? 1 : 0) + (idleT > 0 ? Math.sin(t * .9) * .6 : 0) + (dance ? Math.sin(t * 5) * 1.6 : 0) + bmpK * Math.sin(bumpT * 26) * 1.4 + (leanBar ? 1.6 : 0), 150, 22);
+        let hy = -16.6 + crouch * 7.6 + bob - hop + (lose ? 1.2 : 0);
+        if (BPr) { const m = BPr.mix; hx = BPr.hx + (hx - BPr.hx) * m; hy = BPr.hy + (hy - BPr.hy) * m; ang = BPr.ang + (ang - BPr.ang) * m; }      // subiéndose
         const curl = .6 + crouch * 1.8 + (lose ? 1.2 : 0) - (win ? .4 : 0);                         // espalda algo más curvada cuanto más agachado
         const TL = 18, sh = [hx + Math.sin(ang) * TL, hy - Math.cos(ang) * TL + (lose ? 1.6 : 0)];
         // cabeza: va con un poco de retraso respecto al cuerpo, mira al balón y, parado, mira a su alrededor
@@ -1495,7 +1755,8 @@ window.CARS = (() => {
         const tmD = 'rgba(0,0,0,.34)', PANT = '#161b32', PANTD = '#0b0d1a';
         // piernas: los dos pies siempre sobre la plataforma; el de atrás sube un poco el talón con velocidad y turbo
         const heel = K(spd * .14 + boost * .14 + strike * .08, 0, .25);
-        const footB = [-12.6 - lean * .8 - brake * .8 - pushK * 8, 3.4 - hop - heel * 1.2 + pushK * 9 - (sad === 2 ? Math.abs(Math.sin(t * 7)) * 3 : 0)], footF = [4 + lean * .6 + brake * 1.2, 3.4 - hop - (tap ? Math.abs(Math.sin(t * 9)) * 1.4 : 0)], footBa = heel, footFa = brake ? -.1 : 0;
+        let footB = [-12.6 - lean * .8 - brake * .8 - pushK * 8, 3.4 - hop - heel * 1.2 + pushK * 9 - (sad === 2 ? Math.abs(Math.sin(t * 7)) * 3 : 0)], footF = [4 + lean * .6 + brake * 1.2, 3.4 - hop - (tap ? Math.abs(Math.sin(t * 9)) * 1.4 : 0)], footBa = heel, footFa = brake ? -.1 : 0;
+        if (BPr) { const m = BPr.mix; footB = mixP(BPr.fB, footB, m); footF = mixP(BPr.fF, footF, m); footBa = BPr.faB * (1 - m) + footBa * m; footFa = BPr.faF * (1 - m) + footFa * m; }
         const leg = (foot, dark, fa) => {
             // rodilla siempre hacia delante (dir -1), como una pierna de verdad
             const ax = foot[0] - Math.sin(fa || 0) * 1.6, ay = foot[1] - Math.cos(fa || 0) * 1.6, j = ik2(hx, hy, ax, ay, 11.4, 11.4, -1), col = dark ? PANTD : PANT;
@@ -1528,7 +1789,8 @@ window.CARS = (() => {
             g.restore();
         };
         // sombra del piloto sobre la plataforma (desaparece en el aire)
-        if (!air) { const sg = g.createRadialGradient((footB[0] + footF[0]) / 2, 5, 1, (footB[0] + footF[0]) / 2, 5, 12); sg.addColorStop(0, 'rgba(0,0,0,.4)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sg; g.beginPath(); g.ellipse((footB[0] + footF[0]) / 2, 5, 12, 1.4, 0, 0, TAU); g.fill(); }
+        if (BPr && BPr.hy > -12) { const sx = (footB[0] + footF[0]) / 2, sy = 3.4 + (16.5 - DT - 1.6) / 1.05 + 2.4, sg = g.createRadialGradient(sx, sy, 1, sx, sy, 12); sg.addColorStop(0, 'rgba(0,0,0,.35)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sg; g.beginPath(); g.ellipse(sx, sy, 12, 1.6, 0, 0, TAU); g.fill(); }      // sombra en el suelo mientras llega
+        else if (!air) { const sg = g.createRadialGradient((footB[0] + footF[0]) / 2, 5, 1, (footB[0] + footF[0]) / 2, 5, 12); sg.addColorStop(0, 'rgba(0,0,0,.4)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sg; g.beginPath(); g.ellipse((footB[0] + footF[0]) / 2, 5, 12, 1.4, 0, 0, TAU); g.fill(); }
         leg(footB, true, footBa); leg(footF, false, footFa);
         // mochila con forma: bolsillo, cremallera, rayo naranja y correa reflectante
         g.save(); g.translate(hx - 1.2, hy - 1.4); g.rotate(ang);
@@ -1631,10 +1893,9 @@ window.CARS = (() => {
         else if (cdPh === 1) bT = [head[0] + 5, head[1] - 2.6];                                                   // se ajusta el casco antes del saque
         else if (stretch) bT = [sh[0] + 1, sh[1] - 16];                                                           // se estira
         else if (visor) bT = [head[0] + 6.5, head[1] - .8 + Math.sin(idleT * 7) * .3];
-        if (pb >= 0 && pb < .75) bT = [sh[0] - 1.5, sh[1] + 15];      // todavía sin agarrar el manillar
-        const back = [spr('bhx', bT[0], 180, 25), spr('bhy', bT[1], 180, 25)];
-        const fT = pb >= 0 && pb < .42 ? [sh[0] + 3 + Math.sin(t * 10) * 1.4, sh[1] - 13] : pb >= .42 && pb < .75 ? [sh[0] + 4, sh[1] + 12] : !win && o.mateT != null && o.mateT < 2.2 ? [sh[0] + 7, sh[1] - 9] : dance ? [sh[0] + 8, sh[1] - 12 - Math.abs(Math.sin(t * 5 + 1.5)) * 3] : dng > .25 && !win && !lose ? [head[0] + 6, head[1] + 2.2] : savK ? [sh[0] + 6, sh[1] - 15 - Math.abs(Math.sin(t * 9))] : cel === 2 ? [sh[0] + 20, sh[1] - 3] : grp;       // señalar: brazo estirado hacia delante
-        const front = [spr('fhx', fT[0], 220, 28), spr('fhy', fT[1], 220, 28)];
+        let back = [spr('bhx', bT[0], 180, 25), spr('bhy', bT[1], 180, 25)]; if (BPr) back = mixP(BPr.hB, back, BPr.mix);
+        const fT = !win && o.mateT != null && o.mateT < 2.2 ? [sh[0] + 7, sh[1] - 9] : dance ? [sh[0] + 8, sh[1] - 12 - Math.abs(Math.sin(t * 5 + 1.5)) * 3] : dng > .25 && !win && !lose ? [head[0] + 6, head[1] + 2.2] : savK ? [sh[0] + 6, sh[1] - 15 - Math.abs(Math.sin(t * 9))] : cel === 2 ? [sh[0] + 20, sh[1] - 3] : grp;       // señalar: brazo estirado hacia delante
+        let front = [spr('fhx', fT[0], 220, 28), spr('fhy', fT[1], 220, 28)]; if (BPr) front = mixP(BPr.hF, front, BPr.mix);
         arm(back, true, cel === 1); arm(front, false, cel === 0 || cel === 1);
         // casco integral cromático: ventilaciones, oreja, barbilla y visor que reacciona a todo
         const R6 = 6.5;
@@ -1907,7 +2168,8 @@ window.CARS = (() => {
         g.fillStyle = sp; g.beginPath(); g.moveTo(19, -6.4); g.quadraticCurveTo(6, -9.4, -10, -7.6); g.quadraticCurveTo(-22, -5.6, -30, -1.6); g.lineTo(-30, 0); g.quadraticCurveTo(-12, -4.4, 19, -4); g.closePath(); g.fill();
         // bargeboard y deflectores tras la rueda delantera
         g.fillStyle = 'rgba(10,12,22,.55)'; g.beginPath(); g.moveTo(29, 4.4); g.quadraticCurveTo(26.6, 1.4, 27.4, -1.2); g.lineTo(28.4, -1.2); g.quadraticCurveTo(28, 1.6, 30.4, 4.4); g.closePath(); g.fill();
-        g.save(); { const fb = CUR.board == null ? -1 : CUR.board; if (fb >= 0 && fb < .6) g.globalAlpha = 0; else if (fb >= .6 && fb < .8) g.translate(0, -(1 - (fb - .6) / .2) * 6); }      // primer saque: todavía fuera / se deja caer en el hueco
+        const fb = CUR.board == null ? -1 : CUR.board; if (fb >= .46 && fb < F1SEAT) boardF1(g, s, o, fb);      // primer saque: se sube de un salto (ya dentro: detrás del halo)
+        g.save(); if (fb >= 0 && fb < F1SEAT) g.globalAlpha = 0;
         // ----- piloto: mono, HANS y casco moderno con visera tintada; se inclina con el coche y celebra los goles -----
         const lookF = Math.max(-.6, Math.min(.6, o.look || 0)), tilt = Math.max(-.3, Math.min(.45, (o.lean || 0) * .14 + (o.air ? -.06 : 0) + (o.brake ? .06 : 0) - (o.boosting ? .08 : 0) + lookF * .3 + (o.mood === 'lose' ? .4 : 0)));
         g.save(); g.translate(-.4, -8.2); g.rotate(tilt); g.translate(.4, 8.2);
@@ -1919,9 +2181,17 @@ window.CARS = (() => {
         g.restore();
         g.restore();      // fin del piloto del monoplaza
         // volante con luces de cambio asomando delante del casco
+        const wSet = fb >= F1SEAT && fb < F1SEAT + .12 ? 1 - sstep((fb - F1SEAT) / .1) : 0;      // coloca el volante: baja de las manos hasta su sitio
+        if (fb >= 0 && fb < F1SEAT) { g.save(); g.globalAlpha = 0; }
+        g.save(); g.translate(0, -wSet * 5);
         { const rv = Math.min(1, (o.spin || 0) / 900), DF = drvMem(o, o.rid); g.save(); g.translate(6.2, -9.2); g.rotate(DF.st * .45); g.translate(-6.2, 9.2); g.fillStyle = '#10142a'; rrect(g, 5, -10.2, 2.4, 2, .8); g.fill();      // el volante gira con la dirección
           for (let i = 0; i < 4; i++) { g.fillStyle = rv > .95 && Math.sin((o.t || 0) * 30) > 0 ? '#ff3b30' : rv > i / 4 + .05 ? ['#3dff6a', '#3dff6a', '#ffd23f', '#ff3b30'][i] : 'rgba(80,90,120,.6)'; g.fillRect(5.2 + i * .5, -10, .35, .4); } g.restore();
           if (DF.dizzy > 0) dizzyStars(g, -.3, -12.4, 4.4, o.t || 0, Math.min(1, DF.dizzy)); }
+        g.restore(); if (fb >= 0 && fb < F1SEAT) g.restore();
+        if (wSet > 0 || (fb >= .88 && fb < .94)) {      // manos: encajan el volante y luego bajan la visera
+            const hs = [[1.6, -8.6], [-.8, -8.8]], tg = fb >= .88 ? [[2.6, -12.8 + sstep((fb - .88) / .06) * 2.4]] : [[5.4, -9.4 - wSet * 5], [7, -9 - wSet * 5]];
+            tg.forEach((p, i) => { const s0 = hs[i]; g.strokeStyle = s.dark; g.lineWidth = 1.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(s0[0], s0[1]); g.quadraticCurveTo((s0[0] + p[0]) / 2, Math.max(s0[1], p[1]) + 1.2, p[0], p[1]); g.stroke(); g.fillStyle = '#1a1d30'; g.beginPath(); g.arc(p[0], p[1], 1.05, 0, TAU); g.fill(); });
+        }
         if (o.mood === 'win') {      // puño en alto al marcar
             const up = Math.sin((o.t || 0) * 9) * .8;
             g.strokeStyle = s.dark; g.lineWidth = 2; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(2.2, -9); g.lineTo(5, -13.6 + up); g.lineTo(5.2, -18 + up); g.stroke();
@@ -1932,6 +2202,7 @@ window.CARS = (() => {
         g.strokeStyle = '#1b1f30'; g.lineWidth = 1.5; g.lineCap = 'round'; g.lineJoin = 'round';
         g.beginPath(); g.moveTo(13.2, -7.6); g.quadraticCurveTo(11.4, -13.6, 6, -14.4); g.lineTo(-3.4, -14.2); g.quadraticCurveTo(-5, -13.6, -5, -11.6); g.stroke();
         g.strokeStyle = 'rgba(200,210,240,.55)'; g.lineWidth = .45; g.beginPath(); g.moveTo(12.4, -8.4); g.quadraticCurveTo(10.8, -13.2, 6, -13.9); g.lineTo(-3, -13.7); g.stroke();
+        if (fb >= 0 && fb < .46) boardF1(g, s, o, fb);      // todavía fuera: delante del coche
         // retrovisor con brazo
         g.strokeStyle = CB; g.lineWidth = .7; g.beginPath(); g.moveTo(15.6, -6.8); g.lineTo(16.4, -10.2); g.stroke();
         g.fillStyle = CB; rrect(g, 14.6, -11.6, 4.2, 1.8, .7); g.fill(); g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(15, -11.4, 3.4, .45);
@@ -2044,7 +2315,10 @@ window.CARS = (() => {
             CUR.sd = { k: kS, d: dR + kS * 28, col: model === 'kaze' ? 'rgb(' + sk.glow + ')' : model === 'fenix' ? '#ffb020' : '#e24b3a' };
             g.save(); g.transform(1, kS, 0, 1, 0, CUR.sd.d);
         } else CUR.sd = null;
+        const slam = CUR.board >= BSEAT && CUR.board < BSEAT + .07 && model !== 'prisma' && model !== 'formula' ? Math.sin((CUR.board - BSEAT) / .07 * Math.PI * 3) * (1 - (CUR.board - BSEAT) / .07) * .7 : 0;      // el portazo sacude el coche
+        if (slam) { g.save(); g.translate(0, slam); }
         (DRAW[model] || chispa)(g, sk, o);
+        if (slam) g.restore();
         if (o.decal && model !== 'prisma') decalDraw(g, model, o.decal);
         if (o.dorsal && model !== 'prisma') dorsalBadge(g, model, o.dorsal);
         if (model !== 'prisma') boarding(g, model, sk, o);      // primer saque: el piloto se sube
