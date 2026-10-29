@@ -61,7 +61,7 @@ function startMatch(mode, cup, v2) {
     if (mode === 'free') { S.world.cars[1].x = W * 0.9; S.world.cars[1].ghost = true; }      // entrenamiento libre (y tutorial): sin rival, ni se ve ni toca el balón
     { const on = Object.keys(MUT_N).filter(k => T.MUT[k]); if (on.length) setTimeout(() => say('Mutadores activos: ' + on.map(k => MUT_N[k]).join(', ') + '.', 1, 1.05, 1.1), 1800); }
     parts.length = 0; trail.length = 0; rings.length = 0; timers.length = 0; bolts.length = 0;
-    setState('count'); S.cd = 3.0; lastCd = 4;
+    setState('count'); S.cd = 3.0; lastCd = 4; S.firstKO = mode === 'match';      // primer saque: los pilotos se suben a los coches durante la cuenta atrás
     app.classList.remove('wipe'); void app.offsetWidth; app.classList.add('wipe');      // barrido de luz al empezar
     hideBanner(); updateHud(true); requestWake();
 }

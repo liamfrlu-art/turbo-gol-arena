@@ -102,6 +102,7 @@ function boostFx(c, t) {
     ctx.restore();
 }
 function drawCar(c, t) {
+    if (S.firstKO && S.state !== 'count' && S.state !== 'menu' && S.state !== 'pause') S.firstKO = false;      // ya han subido
     if (c.boosting && S.state !== 'count' && S.state !== 'menu') boostFx(c, t);
     ctx.save();
     ctx.translate(c.x, c.y); ctx.rotate(c.a);
@@ -142,7 +143,7 @@ function drawCar(c, t) {
     if (S.state === 'goal') mood = ((S.goalCol === 'blue') === (c.team === 0)) ? 'win' : 'lose';
     CARS.paint(ctx, c.model || 'chispa', c.team, { boosting: c.boosting, wheel: c.wheel * c.f, t, spin: c.spdv || 0, brake: c.brake,
         susF: c.susF, susR: c.susR, lean: c.lean, air: !c.grounded, jumpT: c.grounded ? 9 : c.airT, vf, vu, mood, look: (() => { const bb = S.world.ball, dx = (bb.x - c.x) * c.f, dy = bb.y - c.y; return Math.hypot(dx, dy) < 700 ? Math.atan2(dy, Math.max(dx, 30)) : 0; })(), wall: c.grounded && Math.abs(c.ny) < .75, hitT: c.hitAt ? (performance.now() - c.hitAt) / 1000 : 9, flip: c.flipT > 0,
-        rid: c.rid || (c.rid = {}), state: S.state, bst: c.boost, aw: c.w, mateT: c.mateGoalAt ? (performance.now() - c.mateGoalAt) / 1000 : 9, env: cfg.stad, dirt: S.mode === 'match' && S.state !== 'menu' ? clamp((cfg.time - S.time) / Math.max(60, cfg.time), 0, 1) * .85 : 0, dng, fin, oppD: od, oppDx: opp ? (opp.x - c.x) * c.f : 999,
+        rid: c.rid || (c.rid = {}), state: S.state, bst: c.boost, board: S.firstKO && S.state === 'count' ? clamp(1 - S.cd / 3, 0, 1) : -1, aw: c.w, mateT: c.mateGoalAt ? (performance.now() - c.mateGoalAt) / 1000 : 9, env: cfg.stad, dirt: S.mode === 'match' && S.state !== 'menu' ? clamp((cfg.time - S.time) / Math.max(60, cfg.time), 0, 1) * .85 : 0, dng, fin, oppD: od, oppDx: opp ? (opp.x - c.x) * c.f : 999,
         bumpT: c.bumpAt ? (performance.now() - c.bumpAt) / 1000 : 9, saveT: c.saveAt ? (performance.now() - c.saveAt) / 1000 : 9, ballD: Math.hypot(S.world.ball.x - c.x, S.world.ball.y - c.y),      // memoria y contexto del piloto del patín
         paint: me ? cfg.paint : null, wheelStyle: me ? cfg.wheel : null, trail: me ? cfg.trail : null, dorsal: me ? cfg.dorsal : null, decal: me ? cfg.decal : null });
     ctx.restore();
@@ -720,6 +721,7 @@ function camUpdate(now) {
         const me = w.cars[0], zMax = camLimits();
         let fx, fy, zt;
         if (st === 'goal') { fx = S.goalX; fy = H - GH / 2; zt = zMax * .92; }
+        else if (st === 'count' && S.firstKO && me) { fx = me.x; fy = me.y - 40; zt = zMax; }      // primer saque: de cerca, para ver cómo se sube tu piloto
         else if (st === 'count') {      // saque: los dos coches y el balón
             const xs = w.cars.map(c => c.x).concat(b.x);
             fx = (Math.min(...xs) + Math.max(...xs)) / 2; fy = H - 230;
@@ -754,7 +756,9 @@ function camUpdate(now) {
         if (st === 'goal') { k = Math.max(k, clamp((S.goalT - .6) / 1.2, 0, 1)); fx = clamp((ox + S.goalX * sc) / cw, .08, .92); fy = clamp((oy + (H - GH / 2) * sc) / ch, .2, .8); }
         else { fx = .5 + (clamp(bxs, 0, 1) - .5) * .8; fy = .5 + (clamp(bys, 0, 1) - .5) * .8; }
     }
-    const zt = live ? 1 + .12 * k : 1, sp = zt > CAM.z ? 5 : 1.3;
+    const board = S.firstKO && st === 'count' && mode !== 'fija' && w && w.cars[0];      // primer saque: acerca la cámara a tu coche
+    if (board) { fx = clamp((ox + w.cars[0].x * sc) / cw, .1, .9); fy = clamp((oy + (w.cars[0].y - 30) * sc) / ch, .2, .85); }
+    const zt = board ? 2.8 : live ? 1 + .12 * k : 1, sp = zt > CAM.z ? 5 : 1.3;
     CAM.z += (zt - CAM.z) * Math.min(1, dt * sp);
     CAM.fx += (fx - CAM.fx) * Math.min(1, dt * 4); CAM.fy += (fy - CAM.fy) * Math.min(1, dt * 4);
     if (mode === 'fija') { CAM.z = 1; CAM.fx = .5; CAM.fy = .5; }

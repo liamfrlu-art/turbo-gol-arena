@@ -311,6 +311,56 @@ window.CARS = (() => {
     }
     // polígono encogido hacia su centro (para recortar el piloto un poco por dentro de la ventanilla)
     function insetPoly(pts, d) { let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= pts.length; cy /= pts.length; return pts.map(p => { const dx = p[0] - cx, dy = p[1] - cy, l = Math.hypot(dx, dy) || 1, k = Math.max(0, 1 - d / l); return [cx + dx * k, cy + dy * k]; }); }
+    // ---------- Primer saque: el piloto se sube al coche durante la cuenta atrás (CUR.board va de 0 a 1) ----------
+    // puerta de cada coche (x0, arriba, x1, abajo) y altura del suelo
+    const DOORS = { chispa: [-5, -6.2, 15, 5.4], bisonte: [-18, -5.6, 7, 5.4], mula: [15, -12, 33, 5.4], cuna: [-12, -2.2, 10, 5.4], kaze: [-21, -6.8, 4, 5], titan: [-3, -6.4, 15, 3.6], fenix: [-18, -6.6, 6, 5.4] };
+    const GROUND = { titan: 24 };
+    // piloto de pie, de cuerpo entero (mira hacia +x). p: { walk (fase), wave, crouch, alpha, k (tamaño) }
+    function standPilot(g, x, fy, s, o, p) {
+        const t = o.t || 0, k = p.k || 1, cr = p.crouch || 0;
+        g.save(); g.globalAlpha *= p.alpha == null ? 1 : p.alpha; g.translate(x, fy); g.scale(k, k);
+        const sw = p.walk != null ? Math.sin(p.walk * TAU) : 0, hip = [0, -11 + cr * 2.5], sh = [1 + cr * 1.6, hip[1] - 9 + cr * 1.2], head = [sh[0] + 1, sh[1] - 4.4];
+        const leg = (ph, col) => { const fx = ph * 3.2, kn = [hip[0] + fx * .5 + 1.4 + cr * 2, hip[1] + 5.6 - cr]; flesh(g, hip[0], hip[1], (hip[0] + kn[0]) / 2, (hip[1] + kn[1]) / 2, kn[0], kn[1], 3.4, 3.8, 2.8, col); flesh(g, kn[0], kn[1], kn[0] + fx * .2, kn[1] + 2.6, fx, 0, 2.8, 3, 2.2, col); g.fillStyle = '#0a0c18'; rrect(g, fx - 1.4, -1.4, 4.4, 1.8, .7); g.fill(); g.fillStyle = 'rgba(255,255,255,.6)'; g.fillRect(fx - 1.4, .1, 4.4, .3); };
+        const armTo = (to, col) => { const el = [(sh[0] + to[0]) / 2 - .6, (sh[1] + to[1]) / 2 + 1.2]; flesh(g, sh[0], sh[1], el[0], el[1], el[0], el[1], 2.6, 2.8, 2.2, col); flesh(g, el[0], el[1], (el[0] + to[0]) / 2, (el[1] + to[1]) / 2, to[0], to[1], 2.2, 2.4, 1.8, col); g.fillStyle = '#1a1d30'; g.beginPath(); g.arc(to[0], to[1], 1.05, 0, TAU); g.fill(); };
+        leg(-sw, '#0b0e1c'); armTo([sh[0] - 2 - sw * 2.4, sh[1] + 7.5], '#0b0e1c');
+        flesh(g, hip[0], hip[1], (hip[0] + sh[0]) / 2 + .6, (hip[1] + sh[1]) / 2, sh[0], sh[1], 4.8, 6, 5.4, s.dark);      // mono
+        g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.save(); g.translate((hip[0] + sh[0]) / 2, (hip[1] + sh[1]) / 2); g.rotate(Math.atan2(sh[1] - hip[1], sh[0] - hip[0]) + Math.PI / 2); g.fillRect(-2.4, -.3, 4.8, .6); g.restore();
+        leg(sw, '#161b32');
+        const wave = p.wave ? [sh[0] + 3 + Math.sin(t * 10) * 1.4, sh[1] - 6.5] : [sh[0] + 2 + sw * 2.4, sh[1] + 7.5];
+        armTo(wave, s.dark);
+        g.fillStyle = '#e8ecf6'; rrect(g, sh[0] - .4, sh[1] - 2, 2, 1.6, .6); g.fill();      // cuello
+        g.save(); g.translate(head[0], head[1]); g.rotate(p.wave ? -.15 : .05);
+        helmet(g, 3.3, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t, open: p.visor == null ? .8 : p.visor, look: 0, dorsal: o.dorsal, model: CUR.model });
+        g.restore(); g.restore();
+    }
+    function boarding(g, model, s, o) {
+        const b = CUR.board; if (b == null || b < 0 || b >= 1) return;
+        const fy = GROUND[model] || 16;
+        if (model === 'formula') {      // monoplaza: salta por encima del borde y se deja caer en el hueco
+            if (b < .35) standPilot(g, -17, fy, s, o, { wave: b < .28 });
+            else if (b < .6) { const u = (b - .35) / .25; standPilot(g, -17 + u * 16, fy - Math.sin(u * Math.PI) * 14 - u * 8, s, o, { crouch: .6, alpha: u > .8 ? (1 - u) * 5 : 1, k: 1 - u * .2 }); }
+            return;
+        }
+        const D = DOORS[model]; if (!D) return;
+        const [x0, y0, x1, y1] = D, w = x1 - x0, h = y1 - y0;
+        const op = b < .74 ? 1 : b < .84 ? 1 - (b - .74) / .1 : 0;      // la puerta se cierra de golpe
+        if (op > 0) {
+            g.fillStyle = 'rgba(8,10,22,' + (.92 * op).toFixed(2) + ')'; rrect(g, x0 + .6, y0 + .4, w - 1.2, h - .8, 1.4); g.fill();      // hueco con el asiento
+            g.fillStyle = 'rgba(40,44,70,' + (.8 * op).toFixed(2) + ')'; rrect(g, x0 + w * .12, y0 + h * .3, w * .42, h * .5, 1); g.fill();
+            // la puerta abierta mira hacia nosotros: se ve más estrecha y salida hacia delante
+            const pw = w * (1 - .55 * op), px = x1 - pw + op * w * .32;
+            const dg = g.createLinearGradient(px, 0, px + pw, 0); dg.addColorStop(0, s.dark); dg.addColorStop(.55, s.main); dg.addColorStop(1, s.lite);
+            g.fillStyle = dg; rrect(g, px, y0 - .4, pw, h + .4, 1.2); g.fill(); g.strokeStyle = 'rgba(5,8,22,.85)'; g.lineWidth = .6; g.stroke();
+            g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(px + .6, y0 + .2, pw - 1.2, .4);
+            g.fillStyle = '#1a1d2c'; rrect(g, px + pw * .62, y0 + h * .3, pw * .24, .8, .4); g.fill();      // manilla
+        }
+        if (b < .72) {      // el piloto: espera saludando, camina hasta la puerta y entra
+            const xs = x0 - 8, xm = (x0 + x1) / 2 - 3;
+            if (b < .35) standPilot(g, xs, fy, s, o, { wave: true });
+            else if (b < .55) { const u = (b - .35) / .2; standPilot(g, xs + (xm - xs) * u, fy, s, o, { walk: u * 1.6 }); }
+            else { const u = (b - .55) / .17; standPilot(g, xm + u * 2, fy - u * 5, s, o, { crouch: u, alpha: 1 - u, k: 1 - u * .25 }); }
+        }
+    }
     // ---------- Memoria compartida de los pilotos: volante con muelle, volteretas y mareo, cambios de marcha, rato parado ----------
     function drvMem(o, M) {
         const t = o.t || 0;
@@ -355,6 +405,7 @@ window.CARS = (() => {
     // piloto de los coches cerrados: asiento, mono, volante que gira con las dos manos, palanca de cambios y casco; reacciona a todo el partido
     function driver(g, x, y, s, o) {
         o = o || {};
+        const bd = CUR.board == null ? -1 : CUR.board; if (bd >= 0 && bd < .62) return;      // primer saque: todavía no ha subido (asiento vacío)
         const t = o.t || 0, lose = o.mood === 'lose', win = o.mood === 'win', boost = o.boosting ? 1 : 0, look0 = Math.max(-.6, Math.min(.6, o.look || 0));
         const hit = o.hitT != null && o.hitT < .3 ? Math.pow(1 - o.hitT / .3, 2) : 0, vu = Math.max(-1, Math.min(1, (o.vu || 0) / 900)), ready = o.state === 'count';
         const M = o.rid, D = drvMem(o, M), fin = o.fin || '';
@@ -365,7 +416,7 @@ window.CARS = (() => {
         const tap = ready && D.cdT < 1.6, mirror = ready && D.cdT >= 1.6 && D.cdT < 2.4, lookDown = !!o.air && vu < -.3 && (o.jumpT || 0) > .45;
         // la cabeza: atrás con el turbo, adelante al frenar, se hunde al aterrizar, respingo con los golpes, de lado al chocar, agachada ante un balonazo
         let tx = -boost * (longB ? 1.8 : 1.2) + (o.brake ? .9 : 0) - hit * .9 - (o.lean || 0) * .7 + bumpK * Math.sin(t * 28) * 1.3 + (lose && sad === 1 ? 2.2 : 0) + (fin === 'win' ? Math.sin(t * 6) * 1.2 : 0);
-        let ty = (lose ? 1 : 0) + Math.max(0, ((o.susF || 0) + (o.susR || 0)) / 2) * 1.8 + hit * .6 + (o.air ? -vu * .5 : 0) + dng * 1.5 + (o.flip ? 1 : 0) + (lose && sad === 1 ? 1.6 : 0) + (fin === 'lose' ? 1.6 : 0);
+        let ty = (bd >= .62 && bd < .8 ? (1 - (bd - .62) / .18) * 5 : 0) + (lose ? 1 : 0) + Math.max(0, ((o.susF || 0) + (o.susR || 0)) / 2) * 1.8 + hit * .6 + (o.air ? -vu * .5 : 0) + dng * 1.5 + (o.flip ? 1 : 0) + (lose && sad === 1 ? 1.6 : 0) + (fin === 'lose' ? 1.6 : 0);
         if (M) { const k = Math.min(1, D.dt * 12); M.drX = M.drX == null ? tx : M.drX + (tx - M.drX) * k; M.drY = M.drY == null ? ty : M.drY + (ty - M.drY) * k; tx = M.drX; ty = M.drY; }
         if (longB) { tx += (Math.random() - .5) * .35; ty += (Math.random() - .5) * .35; }      // turbo largo: aplastado contra el asiento y vibrando
         const bob = win ? -Math.abs(Math.sin(t * 9)) * .8 : ready ? -Math.abs(Math.sin(t * 6)) * .35 : fin === 'win' ? -Math.abs(Math.sin(t * 6)) * .6 : 0, hx = x + tx, hy = y + ty + bob;
@@ -1193,7 +1244,7 @@ window.CARS = (() => {
         const whA = smooth('wh', !air && mood === 'win' ? .26 + Math.sin(t * 6) * .04 : 0, 7);
         g.save(); if (whA > .002) { g.translate(rx, wy + R); g.rotate(-whA); g.translate(-rx, -(wy + R)); }
         // pata de cabra: bajada al estar parado (y en el garaje), recogida al arrancar
-        const kd = smooth('kd', !air && spd < .03 && !boost && mood !== 'win' && (!M0 || (M0.idle || 0) > .8) && o.state !== 'count' ? 1 : 0, 6);
+        const kd = smooth('kd', !air && spd < .03 && !boost && mood !== 'win' && (!M0 || (M0.idle || 0) > .8) && o.state !== 'count' || (CUR.board >= 0 && CUR.board < .8) ? 1 : 0, 6);      // en el primer saque la pata sigue puesta hasta que se sube
         // ---- rueda: neumático negro con tacos, llanta plateada y disco de freno grande ----
         const wheelS = (x, rear) => {
             g.save(); g.translate(x, wy);
@@ -1363,7 +1414,10 @@ window.CARS = (() => {
         elec();
 
         // ---------- piloto reactivo ----------
-        g.save(); g.transform(1, kS, 0, 1, 0, d0); g.translate(-4, DT); g.scale(1.05, 1.05); g.translate(4, -5);      // el G2 es alto: el piloto va sobre la plataforma y a mayor escala para llegar al manillar
+        const pb = CUR.board == null ? -1 : CUR.board;      // primer saque: espera de pie junto al patín y se sube de un paso
+        g.save(); g.transform(1, kS, 0, 1, 0, d0);
+        if (pb >= 0 && pb < .75) { const u = pb < .4 ? 0 : (pb - .4) / .35; g.translate(-54 * (1 - u), (16.5 - DT) * (1 - u) - Math.sin(u * Math.PI) * 7); }
+        g.translate(-4, DT); g.scale(1.05, 1.05); g.translate(4, -5);      // el G2 es alto: el piloto va sobre la plataforma y a mayor escala para llegar al manillar
         const hitA = o.hitT == null ? 9 : o.hitT, hitK = hitA < .3 ? Math.pow(1 - hitA / .3, 2) : 0, flip = !!o.flip, lose = mood === 'lose', win = mood === 'win';
         // ----- memoria del piloto: cada parte del cuerpo es un muelle amortiguado, así los cambios tienen inercia y rebote -----
         // (sin memoria, como en el garaje, se usan las posturas objetivo directamente)
@@ -1577,8 +1631,9 @@ window.CARS = (() => {
         else if (cdPh === 1) bT = [head[0] + 5, head[1] - 2.6];                                                   // se ajusta el casco antes del saque
         else if (stretch) bT = [sh[0] + 1, sh[1] - 16];                                                           // se estira
         else if (visor) bT = [head[0] + 6.5, head[1] - .8 + Math.sin(idleT * 7) * .3];
+        if (pb >= 0 && pb < .75) bT = [sh[0] - 1.5, sh[1] + 15];      // todavía sin agarrar el manillar
         const back = [spr('bhx', bT[0], 180, 25), spr('bhy', bT[1], 180, 25)];
-        const fT = !win && o.mateT != null && o.mateT < 2.2 ? [sh[0] + 7, sh[1] - 9] : dance ? [sh[0] + 8, sh[1] - 12 - Math.abs(Math.sin(t * 5 + 1.5)) * 3] : dng > .25 && !win && !lose ? [head[0] + 6, head[1] + 2.2] : savK ? [sh[0] + 6, sh[1] - 15 - Math.abs(Math.sin(t * 9))] : cel === 2 ? [sh[0] + 20, sh[1] - 3] : grp;       // señalar: brazo estirado hacia delante
+        const fT = pb >= 0 && pb < .42 ? [sh[0] + 3 + Math.sin(t * 10) * 1.4, sh[1] - 13] : pb >= .42 && pb < .75 ? [sh[0] + 4, sh[1] + 12] : !win && o.mateT != null && o.mateT < 2.2 ? [sh[0] + 7, sh[1] - 9] : dance ? [sh[0] + 8, sh[1] - 12 - Math.abs(Math.sin(t * 5 + 1.5)) * 3] : dng > .25 && !win && !lose ? [head[0] + 6, head[1] + 2.2] : savK ? [sh[0] + 6, sh[1] - 15 - Math.abs(Math.sin(t * 9))] : cel === 2 ? [sh[0] + 20, sh[1] - 3] : grp;       // señalar: brazo estirado hacia delante
         const front = [spr('fhx', fT[0], 220, 28), spr('fhy', fT[1], 220, 28)];
         arm(back, true, cel === 1); arm(front, false, cel === 0 || cel === 1);
         // casco integral cromático: ventilaciones, oreja, barbilla y visor que reacciona a todo
@@ -1852,6 +1907,7 @@ window.CARS = (() => {
         g.fillStyle = sp; g.beginPath(); g.moveTo(19, -6.4); g.quadraticCurveTo(6, -9.4, -10, -7.6); g.quadraticCurveTo(-22, -5.6, -30, -1.6); g.lineTo(-30, 0); g.quadraticCurveTo(-12, -4.4, 19, -4); g.closePath(); g.fill();
         // bargeboard y deflectores tras la rueda delantera
         g.fillStyle = 'rgba(10,12,22,.55)'; g.beginPath(); g.moveTo(29, 4.4); g.quadraticCurveTo(26.6, 1.4, 27.4, -1.2); g.lineTo(28.4, -1.2); g.quadraticCurveTo(28, 1.6, 30.4, 4.4); g.closePath(); g.fill();
+        g.save(); { const fb = CUR.board == null ? -1 : CUR.board; if (fb >= 0 && fb < .6) g.globalAlpha = 0; else if (fb >= .6 && fb < .8) g.translate(0, -(1 - (fb - .6) / .2) * 6); }      // primer saque: todavía fuera / se deja caer en el hueco
         // ----- piloto: mono, HANS y casco moderno con visera tintada; se inclina con el coche y celebra los goles -----
         const lookF = Math.max(-.6, Math.min(.6, o.look || 0)), tilt = Math.max(-.3, Math.min(.45, (o.lean || 0) * .14 + (o.air ? -.06 : 0) + (o.brake ? .06 : 0) - (o.boosting ? .08 : 0) + lookF * .3 + (o.mood === 'lose' ? .4 : 0)));
         g.save(); g.translate(-.4, -8.2); g.rotate(tilt); g.translate(.4, 8.2);
@@ -1861,6 +1917,7 @@ window.CARS = (() => {
         const hx = -.3, hy = -10.6, R = 4.7;
         g.save(); g.translate(hx, hy); helmet(g, R * .78, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t: o.t || 0, open: visorOpen(o, o.rid), boost: !!o.boosting, hit: o.hitT != null && o.hitT < .3 ? Math.pow(1 - o.hitT / .3, 2) : 0, look: lookF, ballNear: o.ballD != null ? Math.max(0, 1 - o.ballD / 260) : 0, dorsal: o.dorsal, model: 'formula' }); g.restore();
         g.restore();
+        g.restore();      // fin del piloto del monoplaza
         // volante con luces de cambio asomando delante del casco
         { const rv = Math.min(1, (o.spin || 0) / 900), DF = drvMem(o, o.rid); g.save(); g.translate(6.2, -9.2); g.rotate(DF.st * .45); g.translate(-6.2, 9.2); g.fillStyle = '#10142a'; rrect(g, 5, -10.2, 2.4, 2, .8); g.fill();      // el volante gira con la dirección
           for (let i = 0; i < 4; i++) { g.fillStyle = rv > .95 && Math.sin((o.t || 0) * 30) > 0 ? '#ff3b30' : rv > i / 4 + .05 ? ['#3dff6a', '#3dff6a', '#ffd23f', '#ff3b30'][i] : 'rgba(80,90,120,.6)'; g.fillRect(5.2 + i * .5, -10, .35, .4); } g.restore();
@@ -1976,7 +2033,7 @@ window.CARS = (() => {
             else { CUR.flame = tr.flame; CUR.glowRGB = tr.glow; }
         }
         if (model === 'prisma') o = Object.assign({}, o, { pal: o.paint && o.paint !== 'team' ? PAINT_BY[o.paint] : null });
-        CUR.model = model; CUR.rgb = sk.glow; CUR.env = o.env || 'neon'; CUR.dirt = Math.max(0, Math.min(1, o.dirt || 0)); CUR.puff = o.air ? 0 : .35 + Math.max(0, Math.min(1, (o.lean || 0) * 1.6)) * .65;      // humo del escape: al ralentí poco, acelerando mucho
+        CUR.board = o.board == null ? -1 : o.board; CUR.model = model; CUR.rgb = sk.glow; CUR.env = o.env || 'neon'; CUR.dirt = Math.max(0, Math.min(1, o.dirt || 0)); CUR.puff = o.air ? 0 : .35 + Math.max(0, Math.min(1, (o.lean || 0) * 1.6)) * .65;      // humo del escape: al ralentí poco, acelerando mucho
         const SUSK = { chispa: 2.6, bisonte: 3.4, cuna: 2.4, kaze: 1.7, fenix: 2.4, mula: 3, titan: 4.6, formula: 1.1 }[model];
         if (SUSK && model !== 'prisma') {
             const cl = v => Math.max(-1.2, Math.min(1.2, v || 0));
@@ -1990,6 +2047,7 @@ window.CARS = (() => {
         (DRAW[model] || chispa)(g, sk, o);
         if (o.decal && model !== 'prisma') decalDraw(g, model, o.decal);
         if (o.dorsal && model !== 'prisma') dorsalBadge(g, model, o.dorsal);
+        if (model !== 'prisma') boarding(g, model, sk, o);      // primer saque: el piloto se sube
         if (CUR.sd) { g.restore(); CUR.sd = null; }
         CUR.over = false; CUR.wheel = 'auto'; CUR.flame = null; CUR.glowRGB = null;
     }
