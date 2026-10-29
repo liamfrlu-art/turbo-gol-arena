@@ -716,12 +716,13 @@ function camLimits() {      // zoom máximo de «seguir»: que se vean al menos 
 function camUpdate(now) {
     const dt = clamp((now - (CAM.last || now)) / 1000, 0, .1); CAM.last = now;
     const w = S.world, mode = cfg.camMode, st = S.state, b = w && w.ball;
+    const koOut = S.firstKO && st === 'count' && S.cd <= .5;      // primer saque: el piloto ya está listo, la cámara se aleja rápido antes del «¡YA!»
     S.camKick = Math.max(0, (S.camKick || 0) - dt * .55);
     if (mode === 'seguir' && w && (st === 'play' || st === 'goal' || st === 'replay' || st === 'count' || st === 'pause')) {
         const me = w.cars[0], zMax = camLimits();
         let fx, fy, zt;
         if (st === 'goal') { fx = S.goalX; fy = H - GH / 2; zt = zMax * .92; }
-        else if (st === 'count' && S.firstKO && me) { fx = me.x; fy = me.y - 40; zt = zMax; }      // primer saque: de cerca, para ver cómo se sube tu piloto
+        else if (st === 'count' && S.firstKO && !koOut && me) { fx = me.x; fy = me.y - 40; zt = zMax; }      // primer saque: de cerca, para ver cómo se sube tu piloto
         else if (st === 'count') {      // saque: los dos coches y el balón
             const xs = w.cars.map(c => c.x).concat(b.x);
             fx = (Math.min(...xs) + Math.max(...xs)) / 2; fy = H - 230;
@@ -734,7 +735,7 @@ function camUpdate(now) {
             const spanX = (solo ? 0 : Math.abs(bx - me.x)) + 460, spanY = (solo ? 0 : Math.abs(by - me.y)) + 360;
             zt = clamp(Math.min(cw / (sc * spanX), ch / (sc * spanY)), 1, zMax) * (1 + .05 * S.camKick);
         }
-        const kz = Math.min(1, dt * (zt > CAM.z ? 2.4 : 1.6)), kf = Math.min(1, dt * 4.5);
+        const kz = Math.min(1, dt * (zt > CAM.z ? 2.4 : koOut ? 9 : 1.6)), kf = Math.min(1, dt * (koOut ? 9 : 4.5));
         CAM.z += (zt - CAM.z) * kz; CAM.wx += (fx - CAM.wx) * kf; CAM.wy += (fy - CAM.wy) * kf;
         const z = CAM.z;
         // el punto enfocado al centro de la pantalla, pero sin pasarse de los bordes del estadio (porterías incluidas)
@@ -756,11 +757,11 @@ function camUpdate(now) {
         if (st === 'goal') { k = Math.max(k, clamp((S.goalT - .6) / 1.2, 0, 1)); fx = clamp((ox + S.goalX * sc) / cw, .08, .92); fy = clamp((oy + (H - GH / 2) * sc) / ch, .2, .8); }
         else { fx = .5 + (clamp(bxs, 0, 1) - .5) * .8; fy = .5 + (clamp(bys, 0, 1) - .5) * .8; }
     }
-    const board = S.firstKO && st === 'count' && mode !== 'fija' && w && w.cars[0];      // primer saque: acerca la cámara a tu coche
+    const board = S.firstKO && st === 'count' && !koOut && mode !== 'fija' && w && w.cars[0];      // primer saque: acerca la cámara a tu coche
     if (board) { fx = clamp((ox + w.cars[0].x * sc) / cw, .1, .9); fy = clamp((oy + (w.cars[0].y - 30) * sc) / ch, .2, .85); }
-    const zt = board ? 2.8 : live ? 1 + .12 * k : 1, sp = zt > CAM.z ? 5 : 1.3;
+    const zt = board ? 2.8 : live ? 1 + .12 * k : 1, sp = zt > CAM.z ? 5 : koOut ? 9 : 1.3;
     CAM.z += (zt - CAM.z) * Math.min(1, dt * sp);
-    CAM.fx += (fx - CAM.fx) * Math.min(1, dt * 4); CAM.fy += (fy - CAM.fy) * Math.min(1, dt * 4);
+    const kp = Math.min(1, dt * (koOut ? 9 : 4)); CAM.fx += (fx - CAM.fx) * kp; CAM.fy += (fy - CAM.fy) * kp;
     if (mode === 'fija') { CAM.z = 1; CAM.fx = .5; CAM.fy = .5; }
     CAM.ox = cw * CAM.fx * (1 - CAM.z); CAM.oy = ch * CAM.fy * (1 - CAM.z);
     CAM.wx = (cw / 2 - CAM.ox - CAM.z * ox) / (CAM.z * sc); CAM.wy = (ch / 2 - CAM.oy - CAM.z * oy) / (CAM.z * sc);      // para pasar a «seguir» sin salto
