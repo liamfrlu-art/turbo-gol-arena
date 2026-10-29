@@ -297,6 +297,8 @@ window.CARS = (() => {
         const v = M.vz == null ? tgt : M.vz; M.vz = o.state === 'count' ? Math.max(0, v - dt * 9) : v + (tgt - v) * Math.min(1, dt * 6);
         return M.vz;
     }
+    // polígono encogido hacia su centro (para recortar el piloto un poco por dentro de la ventanilla)
+    function insetPoly(pts, d) { let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= pts.length; cy /= pts.length; return pts.map(p => { const dx = p[0] - cx, dy = p[1] - cy, l = Math.hypot(dx, dy) || 1, k = Math.max(0, 1 - d / l); return [cx + dx * k, cy + dy * k]; }); }
     // piloto de los coches cerrados: asiento, mono con franja, brazo al volante con luces de cambio y casco con visera espejo; reacciona al juego
     function driver(g, x, y, s, o) {
         o = o || {};
@@ -308,7 +310,7 @@ window.CARS = (() => {
         if (M) { const dt = Math.max(0, Math.min(.05, t - (M.drT == null ? t : M.drT))), k = Math.min(1, dt * 12); M.drT = t;
             M.drX = M.drX == null ? tx : M.drX + (tx - M.drX) * k; M.drY = M.drY == null ? ty : M.drY + (ty - M.drY) * k; tx = M.drX; ty = M.drY; }
         const bob = win ? -Math.abs(Math.sin(t * 9)) * .8 : ready ? -Math.abs(Math.sin(t * 6)) * .35 : 0, hx = x + tx, hy = y + ty + bob;
-        g.save(); if (CUR.gl) { poly(g, CUR.gl); g.clip(); }
+        g.save(); if (CUR.gl) { poly(g, insetPoly(CUR.gl, .8)); g.clip(); }      // el piloto (y su casco) siempre dentro del cristal, sin tocar los marcos
         g.fillStyle = '#0b0e1c'; rrect(g, x - 6.4, y - 3, 2.6, 8, 1.1); g.fill();                         // reposacabezas
         g.fillStyle = s.dark; rrect(g, hx - 4.6, hy + 2.2, 8.6, 7, 2.4); g.fill();                        // mono
         g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.fillRect(hx - 4.2, hy + 3, 7.8, .6);
@@ -329,7 +331,7 @@ window.CARS = (() => {
         // casco
         // mira al balón; al subir mira arriba y al caer, abajo; al encajar niega con la cabeza; en la cuenta atrás se mueve al ritmo
         g.save(); g.translate(hx, hy); g.rotate(look * .35 + (lose ? .38 + Math.sin(t * 6) * .16 : 0) - boost * .1 - hit * .3 - (o.air ? vu * .18 : 0) + (ready ? Math.sin(t * 6) * .06 : 0));
-        helmet(g, 3.5, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t, open: visorOpen(o, M), boost: !!o.boosting, hit, look, ballNear: o.ballD != null ? Math.max(0, 1 - o.ballD / 260) : 0, dorsal: o.dorsal, model: CUR.model });
+        helmet(g, 2.85, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t, open: visorOpen(o, M), boost: !!o.boosting, hit, look, ballNear: o.ballD != null ? Math.max(0, 1 - o.ballD / 260) : 0, dorsal: o.dorsal, model: CUR.model });
         g.restore();
         g.restore();
         if (CUR.gl) { g.save(); poly(g, CUR.gl); g.clip(); g.fillStyle = 'rgba(160,210,255,.1)'; g.fillRect(x - 12, y - 12, 26, 24);
@@ -1741,8 +1743,8 @@ window.CARS = (() => {
         g.fillStyle = s.dark; rrect(g, -5.6, -9.4, 9, 2.6, 1.2); g.fill();                         // hombros con el mono
         g.fillStyle = 'rgba(' + s.glow + ',.9)'; g.fillRect(-5.2, -9.2, 7.4, .5);
         g.fillStyle = '#2a2e44'; g.beginPath(); g.moveTo(-5.2, -9.4); g.quadraticCurveTo(-5.6, -12.4, -3.6, -12.6); g.lineTo(-3, -9.4); g.closePath(); g.fill();   // HANS
-        const hx = -.3, hy = -11.2, R = 4.7;
-        g.save(); g.translate(hx, hy); helmet(g, R * .95, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t: o.t || 0, open: visorOpen(o, o.rid), boost: !!o.boosting, hit: o.hitT != null && o.hitT < .3 ? Math.pow(1 - o.hitT / .3, 2) : 0, look: lookF, ballNear: o.ballD != null ? Math.max(0, 1 - o.ballD / 260) : 0, dorsal: o.dorsal, model: 'formula' }); g.restore();
+        const hx = -.3, hy = -10.6, R = 4.7;
+        g.save(); g.translate(hx, hy); helmet(g, R * .78, { a: s.lite, b: s.main, c: s.dark, glow: s.glow }, { t: o.t || 0, open: visorOpen(o, o.rid), boost: !!o.boosting, hit: o.hitT != null && o.hitT < .3 ? Math.pow(1 - o.hitT / .3, 2) : 0, look: lookF, ballNear: o.ballD != null ? Math.max(0, 1 - o.ballD / 260) : 0, dorsal: o.dorsal, model: 'formula' }); g.restore();
         g.restore();
         // volante con luces de cambio asomando delante del casco
         { const rv = Math.min(1, (o.spin || 0) / 900); g.fillStyle = '#10142a'; rrect(g, 5, -10.2, 2.4, 2, .8); g.fill();
